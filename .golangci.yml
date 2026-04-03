@@ -30,11 +30,6 @@ linters:
     - unconvert
     - unparam
 
-    # style/format
-    - gofmt
-    - gofumpt
-    - goimports
-
   settings:
     govet:
       enable:
@@ -68,11 +63,7 @@ linters:
         - hugeParam
         - unnamedResult
 
-issues:
-  max-issues-per-linter: 0
-  max-same-issues: 0
   exclusions:
-    use-default: false
     rules:
       - path: _test\.go
         linters:
@@ -90,3 +81,13 @@ issues:
       - path: ".*\\.gen\\.go"
         linters:
           - all
+
+formatters:
+  enable:
+    - gofmt
+    - gofumpt
+    - goimports
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
