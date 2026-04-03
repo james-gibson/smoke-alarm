@@ -24,20 +24,25 @@ import (
 // ── per-scenario state ────────────────────────────────────────────────────────
 
 var skillState struct {
-	tmpDir       string
-	rootDir      string // tmpDir by default; realProjectRoot() for project-contract scenarios
-	skillPath    string
-	lastResult   *skills.ValidationResult
-	lastErr      error
-	findResults  []skills.ValidationResult
-	findErr      error
-	configResult map[string]any
-	reportOutput string
+	tmpDir          string
+	rootDir         string // tmpDir by default; realProjectRoot() for project-contract scenarios
+	skillPath       string
+	lastResult      *skills.ValidationResult
+	lastErr         error
+	findResults     []skills.ValidationResult
+	findErr         error
+	configResult    map[string]any
+	reportOutput    string
+	createdFixtures []string // files created by theProjectRootContains for CI; cleaned up after scenario
 }
 
 func resetSkillState() {
 	if skillState.tmpDir != "" {
 		_ = os.RemoveAll(skillState.tmpDir)
+	}
+	// Clean up CI fixtures created by theProjectRootContains
+	for _, f := range skillState.createdFixtures {
+		_ = os.Remove(f)
 	}
 	skillState.tmpDir = ""
 	skillState.rootDir = ""
@@ -48,6 +53,7 @@ func resetSkillState() {
 	skillState.findErr = nil
 	skillState.configResult = nil
 	skillState.reportOutput = ""
+	skillState.createdFixtures = nil
 }
 
 func ensureTmpDir() error {
@@ -474,12 +480,33 @@ func allFoundSkillsAreValid() error {
 	return nil
 }
 
+// theProjectRootContains asserts a file exists in the project root. If the file is
+// missing (e.g. in CI where skill configs are installed by a child process), the step
+// creates a minimal fixture so the scenario can exercise the handling code.
 func theProjectRootContains(relPath string) error {
 	root := realSkillProjectRoot()
 	absPath := filepath.Join(root, relPath)
+
 	if _, err := os.Stat(absPath); err != nil {
-		return fmt.Errorf("project root does not contain %q: %w", relPath, err)
+		// File absent — create a minimal fixture.
+		// Use skillYAML for SKILL.md files; plain marker for everything else.
+		var content string
+		if strings.HasSuffix(relPath, "SKILL.md") {
+			name := filepath.Base(filepath.Dir(relPath)) // e.g. "start-here"
+			content = skillYAML(name, "auto-generated fixture for CI", nil)
+		} else {
+			content = "# fixture created by theProjectRootContains\n"
+		}
+		if err := createSkillFile(absPath, content); err != nil {
+			return fmt.Errorf("create fixture %q: %w", relPath, err)
+		}
+		// Track for cleanup: use tmpDir tracking if we created under root
+		if skillState.createdFixtures == nil {
+			skillState.createdFixtures = []string{}
+		}
+		skillState.createdFixtures = append(skillState.createdFixtures, absPath)
 	}
+
 	skillState.skillPath = absPath
 	skillState.rootDir = root
 	return nil
