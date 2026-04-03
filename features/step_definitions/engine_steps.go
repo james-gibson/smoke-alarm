@@ -633,7 +633,11 @@ func theEngineExitsWithoutErrorWithin(ms int) error {
 func theEngineIsRunningWithKnownStateEnabled() error {
 	addEngTarget("t1", "5ms")
 	engState.knownStateEn = true
-	return buildAndStartEngine()
+	if err := buildAndStartEngine(); err != nil {
+		return err
+	}
+	// Wait for at least one probe to complete so the store has data to save.
+	return waitForCallCount("t1", 1)
 }
 
 func theBaselineFileIsWrittenToDisk() error {
