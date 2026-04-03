@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-// ClientOptions configures the federation follower client behaviour.
+// ClientOptions configures the federation follower client behavior.
 type ClientOptions struct {
 	IntroducerURL     string
 	Registry          *Registry
@@ -133,7 +133,7 @@ func (c *Client) sendIntroduction(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("federation introduction unexpected status: %s", resp.Status)
@@ -155,7 +155,7 @@ func (c *Client) sendHeartbeat(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("federation heartbeat unexpected status: %s", resp.Status)
@@ -196,9 +196,7 @@ func (c *Client) postJSON(ctx context.Context, path string, payload any) (*http.
 }
 
 func joinURL(base, path string) string {
-	if strings.HasSuffix(base, "/") {
-		base = strings.TrimSuffix(base, "/")
-	}
+	base = strings.TrimSuffix(base, "/")
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
 	}

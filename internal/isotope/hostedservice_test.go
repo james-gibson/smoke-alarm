@@ -101,7 +101,6 @@ func TestTestFailure(t *testing.T) {
 func TestLatencyDegradation(t *testing.T) {
 	service := NewHostedService("test-service")
 
-	var latencies []int
 	service.RegisterTest("latency-test", &ServiceTest{
 		SLALatencyMs: 100,
 		TestFunc: func() bool {
@@ -112,14 +111,12 @@ func TestLatencyDegradation(t *testing.T) {
 
 	// Run test before degradation
 	_, lat1, _ := service.RunTest("latency-test")
-	latencies = append(latencies, lat1)
 
 	// Simulate degradation
 	service.SimulateLatencyDegradation(50) // Add 50% latency
 
 	// Run test after degradation
 	_, lat2, _ := service.RunTest("latency-test")
-	latencies = append(latencies, lat2)
 
 	if lat2 <= lat1 {
 		t.Errorf("Degradation should increase latency: %dms → %dms", lat1, lat2)
@@ -251,7 +248,6 @@ func TestTestServiceHealthy(t *testing.T) {
 
 	// Test the service
 	result, err := cluster.TestService("healthy-service")
-
 	if err != nil {
 		t.Fatalf("TestService failed: %v", err)
 	}

@@ -72,7 +72,7 @@ func (m *mockEngineProber) callCount(id string) int {
 	return m.callCounts[id]
 }
 
-func (m *mockEngineProber) totalCallCount() int {
+func (m *mockEngineProber) totalCallCount() int { //nolint:unused
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	total := 0
@@ -1122,7 +1122,7 @@ func nAlertEventsAreEmitted(n int) error {
 }
 
 func theEventHistorySizeDoesNotExceed(n int) error {
-	// Give the ring one more cycle to stabilise.
+	// Give the ring one more cycle to stabilize.
 	time.Sleep(20 * time.Millisecond)
 	evts := engState.eng.SnapshotEvents()
 	if len(evts) > n {

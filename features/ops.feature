@@ -63,7 +63,7 @@ Feature: Ops — Runtime Lifecycle and Update Orchestration
 
   Scenario: Run removes the lock file on clean shutdown
     Given the runtime is running and holds the lock
-    When the context is cancelled
+    When the context is canceled
     Then the lock file is removed after shutdown completes
 
   # ── mode dispatch ─────────────────────────────────────────────────────────
@@ -78,7 +78,7 @@ Feature: Ops — Runtime Lifecycle and Update Orchestration
     Given a config with service.mode "background"
     When Run is called
     Then no Bubble Tea dashboard is started
-    And the process blocks until the context is cancelled
+    And the process blocks until the context is canceled
 
   # ── bootstrap ─────────────────────────────────────────────────────────────
 
@@ -107,7 +107,7 @@ Feature: Ops — Runtime Lifecycle and Update Orchestration
 
   Scenario: runtime shuts down within the configured graceful_shutdown_timeout
     Given runtime.graceful_shutdown_timeout is set to "5s"
-    When the context is cancelled
+    When the context is canceled
     Then all subsystems stop within that timeout
     And no goroutine is left running after the timeout
 

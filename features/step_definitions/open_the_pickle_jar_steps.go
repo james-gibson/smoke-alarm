@@ -64,8 +64,8 @@ func InitializeOpenThePickleJarScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(`^"([^"]*)" references a function "([^"]*)" that does not exist in source$`, featureReferencesNonexistentFunction)
 	ctx.Step(`^the Verdict for that scenario is "([^"]*)"$`, verdictForScenarioIs)
 	ctx.Step(`^the audit suggests updating the feature or the source to reconcile$`, auditSuggestsReconciliation)
-	ctx.Step(`^"([^"]*)" tests a behaviour not covered by any scenario$`, testFileTestsUncoveredBehaviour)
-	ctx.Step(`^the audit flags the uncovered behaviour as a gap$`, auditFlagsUncoveredBehaviour)
+	ctx.Step(`^"([^"]*)" tests a behavior not covered by any scenario$`, testFileTestsUncoveredBehaviour)
+	ctx.Step(`^the audit flags the uncovered behavior as a gap$`, auditFlagsUncoveredBehaviour)
 	ctx.Step(`^a drift audit finds (\d+) mismatches$`, driftAuditFindsNMismatches)
 	ctx.Step(`^the output contains (\d+) "([^"]*)" entries suitable for appending to TASKS\.md$`, outputContainsNEntries)
 

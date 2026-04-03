@@ -131,7 +131,7 @@ func TimestampOrdering(reports []ConsensusReport) error {
 	return nil
 }
 
-// IsotopeChainVerification verifies the isotope chain (primary → secondary → verification).
+// IsotopeChainLink holds one step in the isotope chain (primary → secondary → verification).
 // Used when Fire-Marshals delegate to each other.
 type IsotopeChainLink struct {
 	Role      string // "requester", "secondary", "verifier"

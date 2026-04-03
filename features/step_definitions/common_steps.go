@@ -21,6 +21,7 @@ package stepdefinitions
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -171,7 +172,7 @@ func aGETRequestSentTo(rawURL string) error {
 	// few SSE events, but prevents unbounded blocking on long-lived streams.
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return fmt.Errorf("build GET request for %q: %w", url, err)
 	}
@@ -251,7 +252,8 @@ func runSubcommand(subcmd, configPath string) error {
 	cmdState.stdout = outBuf.String()
 	cmdState.stderr = errBuf.String()
 	if runErr != nil {
-		if exitErr, ok := runErr.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		if errors.As(runErr, &exitErr) {
 			cmdState.exitCode = exitErr.ExitCode()
 		} else {
 			cmdState.exitCode = 1

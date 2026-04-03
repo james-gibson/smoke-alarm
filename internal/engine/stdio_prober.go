@@ -315,8 +315,6 @@ func (p *StdioProber) handshakeMethods(target targets.Target) []string {
 		default:
 			return []string{"initialize", "ping"}
 		}
-	case "base":
-		fallthrough
 	default:
 		return []string{"initialize"}
 	}
@@ -345,8 +343,8 @@ func writeRPCFrame(w io.Writer, req rpcRequest) error {
 		return err
 	}
 	header := fmt.Sprintf("Content-Length: %d\r\n\r\n", len(body))
-	if _, err := io.WriteString(w, header); err != nil {
-		return err
+	if _, writeErr := io.WriteString(w, header); writeErr != nil {
+		return writeErr
 	}
 	_, err = w.Write(body)
 	return err
@@ -484,8 +482,8 @@ type limitedBuffer struct {
 	buf bytes.Buffer
 }
 
-func newLimitedBuffer(max int) *limitedBuffer {
-	return &limitedBuffer{max: max}
+func newLimitedBuffer(maxBytes int) *limitedBuffer {
+	return &limitedBuffer{max: maxBytes}
 }
 
 func (l *limitedBuffer) Write(p []byte) (int, error) {

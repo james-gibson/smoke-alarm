@@ -20,7 +20,7 @@ Feature: Known-State Regression Detection
 
   Background:
     Given the ocd-smoke-alarm binary is installed
-    And a known-state store is initialised with path "state/known-good.json"
+    And a known-state store is initialized with path "state/known-good.json"
 
   # ── status predicates ─────────────────────────────────────────────────────
 
@@ -183,7 +183,7 @@ Feature: Known-State Regression Detection
     And no "state/known-good.json.tmp" file remains
 
   Scenario: auto-persist writes to disk after each Update
-    Given the store is initialised with auto_persist true
+    Given the store is initialized with auto_persist true
     When a healthy probe result is recorded for target "t1"
     Then the file "state/known-good.json" exists
 

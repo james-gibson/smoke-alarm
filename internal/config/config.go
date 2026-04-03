@@ -43,9 +43,10 @@ const (
 	AuthAPIKey = "apikey"
 	AuthOAuth  = "oauth"
 
-	// TargetType classifies targets as local (stdio command) or remote (URL-based).
+	// TargetTypeLocal classifies a target as local (stdio command).
 	// Aligned with OpenCode config.json mcp.type field.
-	TargetTypeLocal  = "local"
+	TargetTypeLocal = "local"
+	// TargetTypeRemote classifies a target as remote (URL-based).
 	TargetTypeRemote = "remote"
 )
 

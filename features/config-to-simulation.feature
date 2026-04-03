@@ -58,7 +58,7 @@ Feature: Config to Simulation Skill
   Scenario: warroom voice sets aggressive alerts when config has alerts.aggressive true
     Given a config with "alerts.aggressive: true"
     When the agent invokes "config-to-simulation" with that config and voice "warroom"
-    Then the simulation is labelled as "SEV1-level urgency"
+    Then the simulation is labeled as "SEV1-level urgency"
 
   # ── mentor voice ───────────────────────────────────────────────────────────
 

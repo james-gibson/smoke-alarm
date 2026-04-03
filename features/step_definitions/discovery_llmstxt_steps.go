@@ -41,7 +41,7 @@ import (
 )
 
 func InitializeDiscoveryLlmstxtSteps(ctx *godog.ScenarioContext) {
-	// ── fetch behaviour ────────────────────────────────────────────────────
+	// ── fetch behavior ────────────────────────────────────────────────────
 	ctx.Step(`^discovery is enabled with llms_txt URIs:$`, discoveryIsEnabledWithLlmsTxtURIs)
 	ctx.Step(`^discovery runs once$`, discoveryRunsOnce)
 	ctx.Step(`^each URI is fetched exactly once per discovery interval$`, eachURIIsFetchedOnce)

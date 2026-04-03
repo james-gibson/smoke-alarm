@@ -418,18 +418,18 @@ func cloneMap(in map[string]string) map[string]string {
 func RenderMarkdown(p PersistedConfig) string {
 	var b strings.Builder
 	b.WriteString("# Dynamic Config: " + p.ID + "\n\n")
-	b.WriteString(fmt.Sprintf("- **Version:** `%s`\n", p.Version))
-	b.WriteString(fmt.Sprintf("- **Created:** `%s`\n", p.CreatedAt.Format(time.RFC3339)))
-	b.WriteString(fmt.Sprintf("- **Source:** `%s`\n", p.Source))
-	b.WriteString(fmt.Sprintf("- **Confidence:** `%.2f`\n", p.Confidence))
+	fmt.Fprintf(&b, "- **Version:** `%s`\n", p.Version)
+	fmt.Fprintf(&b, "- **Created:** `%s`\n", p.CreatedAt.Format(time.RFC3339))
+	fmt.Fprintf(&b, "- **Source:** `%s`\n", p.Source)
+	fmt.Fprintf(&b, "- **Confidence:** `%.2f`\n", p.Confidence)
 	b.WriteString("\n## Target\n\n")
-	b.WriteString(fmt.Sprintf("- **ID:** `%s`\n", p.Target.ID))
-	b.WriteString(fmt.Sprintf("- **Name:** `%s`\n", p.Target.Name))
-	b.WriteString(fmt.Sprintf("- **Protocol:** `%s`\n", p.Target.Protocol))
-	b.WriteString(fmt.Sprintf("- **Transport:** `%s`\n", p.Target.Transport))
-	b.WriteString(fmt.Sprintf("- **Endpoint:** `%s`\n", p.Target.Endpoint))
-	b.WriteString(fmt.Sprintf("- **Auth Type:** `%s`\n", p.Target.Auth.Type))
-	b.WriteString(fmt.Sprintf("- **Handshake Profile:** `%s`\n", p.Target.Check.HandshakeProfile))
+	fmt.Fprintf(&b, "- **ID:** `%s`\n", p.Target.ID)
+	fmt.Fprintf(&b, "- **Name:** `%s`\n", p.Target.Name)
+	fmt.Fprintf(&b, "- **Protocol:** `%s`\n", p.Target.Protocol)
+	fmt.Fprintf(&b, "- **Transport:** `%s`\n", p.Target.Transport)
+	fmt.Fprintf(&b, "- **Endpoint:** `%s`\n", p.Target.Endpoint)
+	fmt.Fprintf(&b, "- **Auth Type:** `%s`\n", p.Target.Auth.Type)
+	fmt.Fprintf(&b, "- **Handshake Profile:** `%s`\n", p.Target.Check.HandshakeProfile)
 	if len(p.Target.Check.RequiredMethods) > 0 {
 		b.WriteString("- **Required Methods:** `" + strings.Join(p.Target.Check.RequiredMethods, "`, `") + "`\n")
 	}
@@ -441,7 +441,7 @@ func RenderMarkdown(p PersistedConfig) string {
 		}
 		sort.Strings(keys)
 		for _, k := range keys {
-			b.WriteString(fmt.Sprintf("- **%s:** `%s`\n", k, p.Evidence[k]))
+			fmt.Fprintf(&b, "- **%s:** `%s`\n", k, p.Evidence[k])
 		}
 	}
 	return b.String()

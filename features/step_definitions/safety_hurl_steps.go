@@ -14,7 +14,7 @@ package stepdefinitions
 //     is unreachable via the public API.
 //
 // Registered steps owned by this file:
-//   "a HURL safety scanner is initialised"
+//   "a HURL safety scanner is initialized"
 //   "a target {string} with hurl_test name {string} and endpoint {string}"
 //   "the target is registered with the scanner"
 //   "the scanner reports {string} has registered tests"
@@ -57,7 +57,7 @@ package stepdefinitions
 //   "a target with no hurl_tests registered"
 //   "\"any_tests_seen\" is false"
 //   "a target with {int} hurl_tests registered"
-//   "the context is cancelled before any tests run"
+//   "the context is canceled before any tests run"
 //   "each test outcome is {string}"
 // Note: "the failure class is {string}" is owned by engine_steps.go;
 //   this file sets hurlState.lastFailClass so the shared step works.
@@ -233,7 +233,7 @@ func InitializeSafetyHURLSteps(ctx *godog.ScenarioContext) {
 	ctx.AfterScenario(func(_ *godog.Scenario, _ error) { resetHURLState() })
 
 	// ── registration ───────────────────────────────────────────────────────
-	ctx.Step(`^a HURL safety scanner is initialised$`, aHURLSafetyScannerIsInitialised)
+	ctx.Step(`^a HURL safety scanner is initialized$`, aHURLSafetyScannerIsInitialised)
 	ctx.Step(`^a target "([^"]*)" with hurl_test name "([^"]*)" and endpoint "([^"]*)"$`, aTargetWithHurlTestEndpoint)
 	ctx.Step(`^the target is registered with the scanner$`, theTargetIsRegisteredWithScanner)
 	ctx.Step(`^the scanner reports "([^"]*)" has registered tests$`, theScannerReportsHasRegisteredTests)
@@ -285,7 +285,7 @@ func InitializeSafetyHURLSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^a target with no hurl_tests registered$`, aTargetWithNoHurlTests)
 	ctx.Step(`^"any_tests_seen" is false$`, anyTestsSeenIsFalse)
 	ctx.Step(`^a target with (\d+) hurl_tests registered$`, aTargetWithNHurlTests)
-	ctx.Step(`^the context is cancelled before any tests run$`, theContextIsCancelledBeforeTests)
+	ctx.Step(`^the context is canceled before any tests run$`, theContextIsCancelledBeforeTests)
 	ctx.Step(`^each test outcome is "([^"]*)"$`, eachTestOutcomeIs)
 }
 
@@ -670,7 +670,7 @@ func aTargetWithNHurlTests(n int) error {
 	return hurlState.scanner.Register(hurlState.targetID, tests)
 }
 
-// theContextIsCancelledBeforeTests creates an already-cancelled context so that
+// theContextIsCancelledBeforeTests creates an already-canceled context so that
 // RunTarget skips all tests via the ctx.Done() guard at the top of the test loop.
 func theContextIsCancelledBeforeTests() error {
 	ctx, cancel := context.WithCancel(context.Background())

@@ -120,7 +120,7 @@ func validationPasses() error {
 func validationSucceeds() error {
 	if tsState.validated {
 		if tsState.validationErr != nil {
-			return fmt.Errorf("expected validation to succeed but got: %v", tsState.validationErr)
+			return fmt.Errorf("expected validation to succeed but got: %w", tsState.validationErr)
 		}
 		return nil
 	}
@@ -186,7 +186,7 @@ func aConfigFileExistsWithFieldRemoved(path, field string) error {
 			continue
 		}
 		// End of the block: next top-level key (starts at column 0, non-empty, non-comment)
-		if skip && len(line) > 0 && line[0] != ' ' && line[0] != '\t' && line[0] != '#' {
+		if skip && line != "" && line[0] != ' ' && line[0] != '\t' && line[0] != '#' {
 			skip = false
 		}
 		if !skip {

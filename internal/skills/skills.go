@@ -217,7 +217,7 @@ func GenerateStartHereReport(rootDir string) string {
 	}
 
 	if skillsData, ok := status["skills"].(map[string]any); ok {
-		count := skillsData["count"].(int)
+		count := skillsData["count"].(int) //nolint:errcheck
 		sb.WriteString("| OpenCode Skills | ✅ " + string(rune('0'+count)) + " loaded |\n")
 	}
 

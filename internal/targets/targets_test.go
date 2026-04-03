@@ -14,9 +14,7 @@ func TestTargetValidateSuccess(t *testing.T) {
 }
 
 func TestTargetValidateErrors(t *testing.T) {
-	makeTarget := func() Target {
-		return validTarget()
-	}
+	makeTarget := validTarget
 
 	tests := []struct {
 		name       string

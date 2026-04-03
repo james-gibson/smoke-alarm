@@ -445,7 +445,7 @@ func theCombinedErrorIncludesFailingNotifier() error {
 		return fmt.Errorf("expected a combined error from NotifierGroup, got nil")
 	}
 	if !strings.Contains(alState.groupErr.Error(), "notifier backend failure") {
-		return fmt.Errorf("combined error does not include failing notifier error: %v", alState.groupErr)
+		return fmt.Errorf("combined error does not include failing notifier error: %w", alState.groupErr)
 	}
 	return nil
 }

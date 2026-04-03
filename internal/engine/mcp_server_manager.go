@@ -141,11 +141,12 @@ func (m *MCPServerManager) GetServerHealth(serverID string) ServerMCPHealth {
 	underAttack := m.attackedServers[serverID] || clusterMetrics.AttackDetected
 
 	status := "healthy"
-	if underAttack {
+	switch {
+	case underAttack:
 		status = "under-attack"
-	} else if isCompromised {
+	case isCompromised:
 		status = "compromised"
-	} else if agent.TotalDistance > 0 {
+	case agent.TotalDistance > 0:
 		status = "degraded"
 	}
 
@@ -172,7 +173,7 @@ func (m *MCPServerManager) GetServerRanking() []ServerMCPHealth {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	ranking := []ServerMCPHealth{}
+	ranking := make([]ServerMCPHealth, 0, len(m.serverAgents))
 	for serverID := range m.serverAgents {
 		health := m.GetServerHealth(serverID)
 		ranking = append(ranking, health)

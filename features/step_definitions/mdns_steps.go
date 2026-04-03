@@ -29,7 +29,7 @@ package stepdefinitions
 //   "the zeroconf server is shut down"
 //   "subsequent Start calls return a fresh registration"
 //   "no panic occurs"
-//   "the context is cancelled"
+//   "the context is canceled"
 //   "the config has tuner.advertise set to false"
 //   "ocd-smoke-alarm starts"
 //   "the mDNS advertiser is not started"
@@ -78,7 +78,7 @@ func InitializeMDNSSteps(ctx *godog.ScenarioContext) {
 
 	// ── context cancellation ──────────────────────────────────────────────────
 	ctx.Step(`^an Advertiser that has been started with a cancellable context$`, anAdvertiserStartedWithCancellableContext)
-	ctx.Step(`^the context is cancelled$`, theContextIsCancelled)
+	ctx.Step(`^the context is canceled$`, theContextIsCancelled)
 
 	// ── config integration ────────────────────────────────────────────────────
 	ctx.Step(`^the config has tuner\.advertise set to false$`, theConfigHasTunerAdvertiseFalse)
@@ -89,6 +89,7 @@ func InitializeMDNSSteps(ctx *godog.ScenarioContext) {
 // ── stub implementations ──────────────────────────────────────────────────────
 
 func anAdvertiserWithNoDomain(serviceType string) error { return godog.ErrPending }
+
 func anAdvertiserWithServiceTypeDomainAndPort(st, domain string, port int) error {
 	return godog.ErrPending
 }

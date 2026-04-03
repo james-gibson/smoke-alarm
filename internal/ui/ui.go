@@ -60,14 +60,16 @@ type Dashboard struct {
 	borderStyle    lipgloss.Style
 }
 
-type tickMsg time.Time
-type loadMsg struct {
-	at       time.Time
-	ready    bool
-	statuses []engine.TargetRuntimeStatus
-	events   []engine.AlertEvent
-	err      error
-}
+type (
+	tickMsg time.Time
+	loadMsg struct {
+		at       time.Time
+		ready    bool
+		statuses []engine.TargetRuntimeStatus
+		events   []engine.AlertEvent
+		err      error
+	}
+)
 
 // NewDashboard creates a new Bubble Tea dashboard model.
 func NewDashboard(provider SnapshotProvider, opts Options) Dashboard {
@@ -277,7 +279,7 @@ func (m Dashboard) renderStatusTable() string {
 		if msg == "" {
 			msg = "-"
 		}
-		msg = truncate(msg, max(20, m.width-70))
+		msg = truncate(msg, maxInt(20, m.width-70))
 
 		row := fmt.Sprintf(
 			"%-22s  %-10s %-8s %-8d  %-7d  %s",
@@ -340,7 +342,7 @@ func (m Dashboard) renderEvents() string {
 			truncate(e.TargetID, 20),
 			e.State,
 			e.Severity,
-			truncate(e.Message, max(24, m.width-64)),
+			truncate(e.Message, maxInt(24, m.width-64)),
 		)
 		line = m.styleForState(e.State).Render(line)
 		b.WriteString(line)
@@ -375,13 +377,13 @@ func (m Dashboard) renderTopologyPane() string {
 		counts[key{protocol: proto, transport: transport, state: state}]++
 	}
 
-	var protocols []string
+	protocols := make([]string, 0, len(protocolCounts))
 	for p := range protocolCounts {
 		protocols = append(protocols, p)
 	}
 	sort.Strings(protocols)
 
-	var transports []string
+	transports := make([]string, 0, len(transportCounts))
 	for tr := range transportCounts {
 		transports = append(transports, tr)
 	}
@@ -390,14 +392,13 @@ func (m Dashboard) renderTopologyPane() string {
 	var b strings.Builder
 	b.WriteString("TOPOLOGY & RELATIONSHIPS\n")
 	b.WriteString("------------------------\n")
-	b.WriteString(fmt.Sprintf("protocols:  %s\n", renderCountMap(protocolCounts)))
-	b.WriteString(fmt.Sprintf("transports: %s\n", renderCountMap(transportCounts)))
+	fmt.Fprintf(&b, "protocols:  %s\n", renderCountMap(protocolCounts))
+	fmt.Fprintf(&b, "transports: %s\n", renderCountMap(transportCounts))
 	b.WriteString("\n")
 	b.WriteString("protocol -> transport -> state\n")
 
 	for _, p := range protocols {
 		for _, tr := range transports {
-			var states []string
 			stateCounts := map[string]int{}
 			for k, n := range counts {
 				if k.protocol == p && k.transport == tr && n > 0 {
@@ -407,16 +408,17 @@ func (m Dashboard) renderTopologyPane() string {
 			if len(stateCounts) == 0 {
 				continue
 			}
+			states := make([]string, 0, len(stateCounts))
 			for s := range stateCounts {
 				states = append(states, s)
 			}
 			sort.Strings(states)
 
-			var stateParts []string
+			stateParts := make([]string, 0, len(states))
 			for _, s := range states {
 				stateParts = append(stateParts, fmt.Sprintf("%s=%d", s, stateCounts[s]))
 			}
-			b.WriteString(fmt.Sprintf("- %s -> %s -> %s\n", p, tr, strings.Join(stateParts, ", ")))
+			fmt.Fprintf(&b, "- %s -> %s -> %s\n", p, tr, strings.Join(stateParts, ", "))
 		}
 	}
 
@@ -576,7 +578,7 @@ func prettyAgo(t time.Time) string {
 	}
 }
 
-func max(a, b int) int {
+func maxInt(a, b int) int {
 	if a > b {
 		return a
 	}
@@ -585,6 +587,8 @@ func max(a, b int) int {
 
 // Optional helper for very lightweight manual foreground bring-up:
 // go run ./cmd/ocd-smoke-alarm --mode=foreground ...
+//
+//nolint:unused
 func debugMainIfNeeded() {
 	if os.Getenv("OCD_SMOKE_ALARM_UI_DEBUG") == "" {
 		return

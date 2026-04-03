@@ -61,6 +61,8 @@ linters:
       disabled-checks:
         - hugeParam
         - unnamedResult
+        - rangeValCopy
+        - whyNoLint
 
   exclusions:
     rules:
@@ -80,6 +82,78 @@ linters:
       - path: ".*\\.gen\\.go"
         linters:
           - all
+
+      # Step definitions are test infrastructure (Gherkin/godog),
+      # not production code. Exclude security and doc linters.
+      - path: ^features/
+        linters:
+          - gosec
+          - noctx
+          - revive
+
+      # BeforeScenario/AfterScenario are deprecated but the replacement API
+      # requires a context.Context parameter which is a large refactor.
+      - path: ^features/
+        linters:
+          - staticcheck
+        text: "SA1019:"
+
+      # G304/G302/G306: file path from variable and non-0600 permissions are
+      # intentional in ops/lifecycle infrastructure code.
+      - path: ^(internal/|cmd/)
+        linters:
+          - gosec
+        text: "G(304|302|306|301):"
+
+      # G204: subprocess with variable args is by design in ops/safety/auth.
+      - path: ^(internal/|cmd/)
+        linters:
+          - gosec
+        text: "G204:"
+
+      # G115: integer overflow conversions (uint→int64 for OTEL, int→uint for
+      # bitshift) are intentional and safe in context.
+      - path: ^(internal/|cmd/)
+        linters:
+          - gosec
+        text: "G115:"
+
+      # G401/G505: SHA-1 is used for non-security fingerprinting only.
+      - path: ^internal/dynamicconfig/
+        linters:
+          - gosec
+        text: "G(401|505):"
+
+      # G404: weak random is acceptable for fault-injection simulation.
+      - path: ^internal/mcp_faults/
+        linters:
+          - gosec
+        text: "G404:"
+
+      # G120: form parsing size limit not critical in local-only mock redirect.
+      - path: ^internal/auth/mock_redirect\.go
+        linters:
+          - gosec
+        text: "G120:"
+
+      # Internal packages: exclude revive doc requirements for
+      # packages/types that are internal implementation details.
+      - path: ^internal/
+        linters:
+          - revive
+        text: "should have a package comment"
+
+      - path: ^internal/
+        linters:
+          - revive
+        text: "exported .* should have comment"
+
+      # Stutter (type name repeats package name) is acceptable for internal
+      # packages where the full qualifier is rarely used.
+      - path: ^internal/
+        linters:
+          - revive
+        text: "stutters"
 
 formatters:
   enable:

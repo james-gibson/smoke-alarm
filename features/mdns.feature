@@ -73,7 +73,7 @@ Feature: mDNS Service Advertisement
 
   Scenario: cancelling the context stops the advertisement
     Given an Advertiser that has been started with a cancellable context
-    When the context is cancelled
+    When the context is canceled
     Then the zeroconf server is shut down
 
   # ── config integration ──────────────────────────────────────────────────────

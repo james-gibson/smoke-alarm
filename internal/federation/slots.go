@@ -1,6 +1,7 @@
 package federation
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -114,7 +115,8 @@ func ClaimSlot(opts SlotOptions) (*SlotClaim, error) {
 
 	for _, port := range candidates {
 		addr := fmt.Sprintf("127.0.0.1:%d", port)
-		ln, listenErr := net.Listen("tcp", addr)
+		var lc net.ListenConfig
+		ln, listenErr := lc.Listen(context.Background(), "tcp", addr)
 		if listenErr != nil {
 			continue
 		}
@@ -171,15 +173,15 @@ func normalizeOptions(opts SlotOptions) SlotOptions {
 	return opts
 }
 
-func candidatePorts(base, max int, previous *Identity) []int {
-	total := max - base + 1
+func candidatePorts(base, maxPort int, previous *Identity) []int {
+	total := maxPort - base + 1
 	ports := make([]int, 0, total)
 
-	if previous != nil && previous.Port >= base && previous.Port <= max {
+	if previous != nil && previous.Port >= base && previous.Port <= maxPort {
 		ports = append(ports, previous.Port)
 	}
 
-	for port := base; port <= max; port++ {
+	for port := base; port <= maxPort; port++ {
 		if previous != nil && port == previous.Port {
 			continue
 		}

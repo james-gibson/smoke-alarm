@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"os"
 	"strconv"
@@ -338,7 +337,7 @@ func (r *Runtime) runStartupDiscovery(ctx context.Context) {
 	}
 }
 
-func (r *Runtime) buildNotifier() (engine.Notifier, error) {
+func (r *Runtime) buildNotifier() (engine.Notifier, error) { //nolint:unparam
 	notifiers := make([]engine.Notifier, 0, 2)
 
 	if r.cfg.Alerts.Sinks.Log.Enabled {
@@ -393,7 +392,7 @@ func (r *Runtime) acquireLock() error {
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err == nil {
 		r.lockFile = f
-		_, _ = io.WriteString(f, strconv.Itoa(os.Getpid()))
+		_, _ = f.WriteString(strconv.Itoa(os.Getpid()))
 		return nil
 	}
 
@@ -417,7 +416,7 @@ func (r *Runtime) acquireLock() error {
 		return fmt.Errorf("replace stale lock %q: %w", path, err)
 	}
 	r.lockFile = f
-	_, _ = io.WriteString(f, strconv.Itoa(os.Getpid()))
+	_, _ = f.WriteString(strconv.Itoa(os.Getpid()))
 	return nil
 }
 

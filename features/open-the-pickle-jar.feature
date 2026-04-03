@@ -126,9 +126,9 @@ Feature: Open the Pickle Jar — Gherkin Authoring and Drift Audit Skill
     And the audit suggests updating the feature or the source to reconcile
 
   Scenario: drift audit flags a test file scenario missing from the feature spec
-    Given "tests/somedomain_test.go" tests a behaviour not covered by any scenario
+    Given "tests/somedomain_test.go" tests a behavior not covered by any scenario
     When the agent performs a drift audit on scope "somedomain"
-    Then the audit flags the uncovered behaviour as a gap
+    Then the audit flags the uncovered behavior as a gap
 
   Scenario: drift audit produces a THESIS-FINDING entry for each unresolved drift
     Given a drift audit finds 2 mismatches

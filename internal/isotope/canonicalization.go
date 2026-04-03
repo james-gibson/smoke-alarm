@@ -244,7 +244,7 @@ func hashText(text string) string {
 
 // TokensToString serializes canonical tokens to newline-delimited string.
 func TokensToString(tokens []CanonicalToken) string {
-	var lines []string
+	lines := make([]string, 0, len(tokens))
 	for _, t := range tokens {
 		line := fmt.Sprintf("%s:%s:%s", t.Type, t.Key, t.Value)
 		lines = append(lines, line)

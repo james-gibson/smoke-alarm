@@ -24,14 +24,14 @@ func durationOrDefault(raw string, fallback time.Duration) time.Duration {
 	return d
 }
 
-// clampDuration ensures val stays within [min, max]. Zero or negative bounds
+// clampDuration ensures val stays within [minD, maxD]. Zero or negative bounds
 // disable clamping on that side.
-func clampDuration(val, min, max time.Duration) time.Duration {
-	if min > 0 && val < min {
-		return min
+func clampDuration(val, minD, maxD time.Duration) time.Duration {
+	if minD > 0 && val < minD {
+		return minD
 	}
-	if max > 0 && val > max {
-		return max
+	if maxD > 0 && val > maxD {
+		return maxD
 	}
 	return val
 }

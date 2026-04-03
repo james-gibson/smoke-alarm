@@ -16,7 +16,7 @@ Feature: LLMs.txt Auto-Discovery
     And a valid config file "configs/samples/llmstxt-auto-discovery.yaml" exists
     And network access to llms.txt URIs is available
 
-  # ── fetch behaviour ───────────────────────────────────────────────────────
+  # ── fetch behavior ───────────────────────────────────────────────────────
 
   Scenario: discovery fetches each configured llms.txt URI
     Given discovery is enabled with llms_txt URIs:

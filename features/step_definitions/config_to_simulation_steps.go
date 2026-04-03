@@ -25,7 +25,7 @@ package stepdefinitions
 //   "the output contains a participant join-code table"
 //   "a config with {string}"
 //   "the agent invokes {string} with that config and voice {string}"
-//   "the simulation is labelled as {string}"
+//   "the simulation is labeled as {string}"
 //   "the output uses explanatory question-based language"
 //   "the output contains at least one learning question"
 //   "the output presents at least {int} named failure scenarios for the user to choose"
@@ -75,7 +75,7 @@ func InitializeConfigToSimulationSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^the output contains a participant join-code table$`, theOutputContainsParticipantJoinCodeTable)
 	ctx.Step(`^a config with "([^"]*)"$`, aConfigWith)
 	ctx.Step(`^the agent invokes "([^"]*)" with that config and voice "([^"]*)"$`, theAgentInvokesWithThatConfigAndVoice)
-	ctx.Step(`^the simulation is labelled as "([^"]*)"$`, theSimulationIsLabelledAs)
+	ctx.Step(`^the simulation is labeled as "([^"]*)"$`, theSimulationIsLabelledAs)
 
 	// ── mentor voice ────────────────────────────────────────────────────────
 	ctx.Step(`^the output uses explanatory question-based language$`, theOutputUsesExplanatoryLanguage)

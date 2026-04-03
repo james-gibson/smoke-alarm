@@ -5,7 +5,7 @@ package stepdefinitions
 // RESOLVED (2026-03-26): all steps implemented against internal/knownstate/store.go.
 //
 // Steps owned here (must not be re-registered in other domain files):
-//   "a known-state store is initialised with path {string}"
+//   "a known-state store is initialized with path {string}"
 //   "a status value {string}"
 //   "I call IsHealthy on the status"
 //   "IsHealthy returns {word}"
@@ -40,7 +40,7 @@ package stepdefinitions
 //   "the returned found flag is false"
 //   "I call Save explicitly"
 //   "no {string} file remains"
-//   "the store is initialised with auto_persist {word}"
+//   "the store is initialized with auto_persist {word}"
 //   "a snapshot file exists at {string} with target {string} marked ever_healthy"
 //   "no file exists at {string}"
 //   "the store loads from disk"
@@ -116,7 +116,7 @@ func InitializeKnownStateSteps(ctx *godog.ScenarioContext) {
 	ctx.BeforeScenario(func(_ *godog.Scenario) { resetKSState() })
 
 	// ── setup ──────────────────────────────────────────────────────────────
-	ctx.Step(`^a known-state store is initialised with path "([^"]*)"$`, aKnownStateStoreIsInitialisedWithPath)
+	ctx.Step(`^a known-state store is initialized with path "([^"]*)"$`, aKnownStateStoreIsInitialisedWithPath)
 
 	// ── status predicates ──────────────────────────────────────────────────
 	ctx.Step(`^a status value "([^"]*)"$`, aStatusValue)
@@ -169,7 +169,7 @@ func InitializeKnownStateSteps(ctx *godog.ScenarioContext) {
 	// ── persistence ────────────────────────────────────────────────────────
 	ctx.Step(`^I call Save explicitly$`, iCallSaveExplicitly)
 	ctx.Step(`^no "([^"]*)" file remains$`, noFileRemains)
-	ctx.Step(`^the store is initialised with auto_persist (\w+)$`, theStoreIsInitialisedWithAutoPersist)
+	ctx.Step(`^the store is initialized with auto_persist (\w+)$`, theStoreIsInitialisedWithAutoPersist)
 	ctx.Step(`^a snapshot file exists at "([^"]*)" with target "([^"]*)" marked ever_healthy$`, aSnapshotFileExistsWithTargetMarkedEverHealthy)
 	ctx.Step(`^no file exists at "([^"]*)"$`, noFileExistsAt)
 	ctx.Step(`^the store loads from disk$`, theStoreLoadsFromDisk)

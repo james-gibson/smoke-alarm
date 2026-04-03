@@ -81,10 +81,10 @@ func realSkillProjectRoot() string {
 
 // createSkillFile writes content to absPath, creating parent dirs as needed.
 func createSkillFile(absPath, content string) error {
-	if err := os.MkdirAll(filepath.Dir(absPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(absPath), 0o755); err != nil {
 		return fmt.Errorf("mkdir %q: %w", filepath.Dir(absPath), err)
 	}
-	return os.WriteFile(absPath, []byte(content), 0644)
+	return os.WriteFile(absPath, []byte(content), 0o644)
 }
 
 // skillYAML builds a minimal YAML SKILL.md content string.
@@ -266,7 +266,7 @@ func skillErrorMessageContains(substr string) error {
 	if skillState.lastErr != nil && strings.Contains(skillState.lastErr.Error(), substr) {
 		return nil
 	}
-	return fmt.Errorf("no error message containing %q; errors=%v err=%v", substr, skillState.lastResult.Errors, skillState.lastErr)
+	return fmt.Errorf("no error message containing %q; errors=%v err=%w", substr, skillState.lastResult.Errors, skillState.lastErr)
 }
 
 func aSKILLMdFileExistsAtWithName(relPath, name string) error {
@@ -445,10 +445,10 @@ func aFileExistsDirectlyUnder(file, dir string) error {
 		return err
 	}
 	absDir := filepath.Join(skillState.tmpDir, dir)
-	if err := os.MkdirAll(absDir, 0755); err != nil {
+	if err := os.MkdirAll(absDir, 0o755); err != nil {
 		return fmt.Errorf("mkdir %q: %w", absDir, err)
 	}
-	return os.WriteFile(filepath.Join(absDir, file), []byte("not a skill"), 0644)
+	return os.WriteFile(filepath.Join(absDir, file), []byte("not a skill"), 0o644)
 }
 
 // ── project skills contract ───────────────────────────────────────────────────
@@ -513,7 +513,7 @@ func aProjectRootContainingFiles(a, b, c, d string) error {
 		return err
 	}
 	for _, f := range []string{a, b, c, d} {
-		if err := os.WriteFile(filepath.Join(skillState.tmpDir, f), []byte(""), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(skillState.tmpDir, f), []byte(""), 0o644); err != nil {
 			return fmt.Errorf("create %q: %w", f, err)
 		}
 	}

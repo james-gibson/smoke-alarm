@@ -63,7 +63,7 @@ func InitializeDynamicConfigSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^all JSON artifacts under the output directory have distinct "([^"]*)" fields$`, allJSONArtifactsHaveDistinctField)
 	ctx.Step(`^a JSON artifact with id "([^"]*)" already exists in the output directory$`, aJSONArtifactWithIDExists)
 
-	// ── overwrite behaviour ────────────────────────────────────────────────
+	// ── overwrite behavior ────────────────────────────────────────────────
 	ctx.Step(`^an artifact already exists at the expected output path$`, anArtifactAlreadyExistsAtExpectedPath)
 	ctx.Step(`^the existing artifact is replaced with updated content$`, theExistingArtifactIsReplaced)
 
@@ -106,7 +106,7 @@ func runDynamicConfigPersist(args string) error {
 		cmdState.ran = true
 		cmdState.exitCode = 1
 		cmdState.stderr = err.Error()
-		return nil
+		return nil //nolint:nilerr
 	}
 	dcState.lastCfg = &cfg
 
@@ -128,8 +128,8 @@ func runDynamicConfigPersist(args string) error {
 	dcState.lastDirectory = dc.Directory
 
 	if dcState.cleanBeforeRun {
-		if err := cleanDirectory(dc.Directory); err != nil {
-			return fmt.Errorf("clean directory %q: %w", dc.Directory, err)
+		if cleanErr := cleanDirectory(dc.Directory); cleanErr != nil {
+			return fmt.Errorf("clean directory %q: %w", dc.Directory, cleanErr)
 		}
 		dcState.cleanBeforeRun = false
 	}
@@ -145,7 +145,7 @@ func runDynamicConfigPersist(args string) error {
 	if err != nil {
 		cmdState.exitCode = 1
 		cmdState.stderr = err.Error()
-		return nil
+		return nil //nolint:nilerr
 	}
 	cmdState.exitCode = 0
 	dcState.artifacts = artifacts
@@ -284,7 +284,7 @@ func aJSONArtifactWithIDExists(id string) error {
 	return godog.ErrPending
 }
 
-// ── overwrite behaviour ─────────────────────────────────────────────────────
+// ── overwrite behavior ─────────────────────────────────────────────────────
 
 func anArtifactAlreadyExistsAtExpectedPath() error { return godog.ErrPending }
 func theExistingArtifactIsReplaced() error         { return godog.ErrPending }
@@ -364,7 +364,7 @@ func theMarkdownIsValidCommonMark() error {
 			return fmt.Errorf("read %q: %w", a.Path, err)
 		}
 		content := strings.TrimSpace(string(raw))
-		if len(content) == 0 {
+		if content == "" {
 			return fmt.Errorf("markdown artifact %q is empty", a.Path)
 		}
 		// Minimal structural check: must have at least one ATX heading.

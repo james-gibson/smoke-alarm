@@ -259,9 +259,7 @@ func buildPermissions(cfg config.Config) SDPermissions {
 	if cfg.Runtime.BaselineFile != "" {
 		readPaths = append(readPaths, cfg.Runtime.BaselineFile)
 	}
-	for _, p := range cfg.Discovery.IncludeLocalPath {
-		readPaths = append(readPaths, p)
-	}
+	readPaths = append(readPaths, cfg.Discovery.IncludeLocalPath...)
 	if cfg.DynamicConfig.Enabled && cfg.DynamicConfig.Directory != "" {
 		writePaths = append(writePaths, cfg.DynamicConfig.Directory)
 	}

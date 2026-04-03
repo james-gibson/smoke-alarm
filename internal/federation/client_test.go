@@ -2,6 +2,7 @@ package federation
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -64,8 +65,8 @@ func TestClientIntroducesAndHeartbeats(t *testing.T) {
 	}()
 
 	waitForCondition(t, 2*time.Second, func() bool {
-		conn, err := net.DialTimeout("tcp", listener.Addr().String(), 25*time.Millisecond)
-		if err != nil {
+		conn, dialErr := net.DialTimeout("tcp", listener.Addr().String(), 25*time.Millisecond)
+		if dialErr != nil {
 			return false
 		}
 		_ = conn.Close()
@@ -148,7 +149,7 @@ func TestClientIntroducesAndHeartbeats(t *testing.T) {
 
 	select {
 	case err := <-serverErrCh:
-		if err != nil && err != context.Canceled {
+		if err != nil && !errors.Is(err, context.Canceled) {
 			t.Fatalf("server returned error: %v", err)
 		}
 	case <-time.After(2 * time.Second):

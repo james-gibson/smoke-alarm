@@ -240,7 +240,7 @@ func theValidatorIdentifiesGapsFromFeatureToSimulation() error      { return god
 
 // Helper functions for validation logic
 
-func findFeaturesForConfig(configPath string) []string {
+func findFeaturesForConfig(configPath string) []string { //nolint:unused
 	// Parse config to determine relevant features
 	// Federation configs → federation.feature
 	// Deployment configs → deployment.feature
@@ -269,7 +269,7 @@ func findFeaturesForConfig(configPath string) []string {
 	return features
 }
 
-func mapConfigToIncidentType(configPath string) string {
+func mapConfigToIncidentType(configPath string) string { //nolint:unused
 	baseName := filepath.Base(configPath)
 	baseName = strings.TrimSuffix(baseName, ".yaml")
 

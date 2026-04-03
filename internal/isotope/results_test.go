@@ -28,7 +28,7 @@ func TestRecordAndQueryResult(t *testing.T) {
 
 	history := ledger.QueryByIsotope("iso-login", 1)
 	if history == nil {
-		t.Error("Expected to find history for iso-login-v1")
+		t.Fatal("Expected to find history for iso-login-v1")
 	}
 
 	if len(history.Results) != 1 {

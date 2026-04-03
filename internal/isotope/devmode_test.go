@@ -40,7 +40,6 @@ func TestDevModeSimulateTestPass(t *testing.T) {
 	}
 
 	result, err := dms.SimulateTest(isotope, true)
-
 	if err != nil {
 		t.Fatalf("SimulateTest failed: %v", err)
 	}
@@ -69,7 +68,6 @@ func TestDevModeSimulateTestFail(t *testing.T) {
 	}
 
 	result, err := dms.SimulateTest(isotope, false)
-
 	if err != nil {
 		t.Fatalf("SimulateTest failed: %v", err)
 	}
@@ -157,7 +155,7 @@ func TestDevModeLedger(t *testing.T) {
 	history := dms.Ledger.QueryByIsotope("test", 1)
 
 	if history == nil {
-		t.Error("Expected to find results in ledger")
+		t.Fatal("Expected to find results in ledger")
 	}
 
 	if len(history.Results) != 3 {
@@ -240,7 +238,6 @@ func TestStandardThreeAlarmScenario(t *testing.T) {
 	scenario := StandardThreeAlarmScenario()
 
 	err := dms.RunScenario(scenario)
-
 	if err != nil {
 		t.Fatalf("Scenario failed: %v", err)
 	}
@@ -256,7 +253,6 @@ func TestRefactoringScenario(t *testing.T) {
 	scenario := RefactoringScenario()
 
 	err := dms.RunScenario(scenario)
-
 	if err != nil {
 		t.Fatalf("Scenario failed: %v", err)
 	}
@@ -280,7 +276,6 @@ func TestByzantineRobustnessScenario(t *testing.T) {
 	scenario := ByzantineRobustnessScenario()
 
 	err := dms.RunScenario(scenario)
-
 	if err != nil {
 		t.Fatalf("Scenario failed: %v", err)
 	}

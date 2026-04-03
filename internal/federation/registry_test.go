@@ -132,8 +132,8 @@ func TestRegistrySaveSnapshotWritesFile(t *testing.T) {
 	}
 
 	reg.Upsert(InstanceRecord{ID: "peer", Role: RoleFollower}, "init")
-	if err := reg.SaveSnapshot(); err != nil {
-		t.Fatalf("SaveSnapshot: %v", err)
+	if saveErr := reg.SaveSnapshot(); saveErr != nil {
+		t.Fatalf("SaveSnapshot: %v", saveErr)
 	}
 
 	snapshotPath := filepath.Join(stateDir, slotStateDirName, registrySnapshotFile)
@@ -183,8 +183,8 @@ func TestClaimSlotReusesPersistedIdentity(t *testing.T) {
 	if claim1.Identity.Role != RoleIntroducer {
 		t.Fatalf("expected first claim to be introducer, got %s", claim1.Identity.Role)
 	}
-	if err := claim1.Close(); err != nil {
-		t.Fatalf("closing first claim: %v", err)
+	if closeErr := claim1.Close(); closeErr != nil {
+		t.Fatalf("closing first claim: %v", closeErr)
 	}
 
 	claim2, err := ClaimSlot(opts)

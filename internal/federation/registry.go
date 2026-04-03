@@ -58,7 +58,7 @@ type Snapshot struct {
 	GeneratedAt  time.Time        `json:"generated_at"`
 }
 
-// RegistryOptions tunes the behaviour of the federation registry.
+// RegistryOptions tunes the behavior of the federation registry.
 type RegistryOptions struct {
 	StateDir         string
 	AnnounceInterval time.Duration
@@ -283,8 +283,8 @@ func (r *Registry) SaveSnapshot() error {
 		return err
 	}
 	dir := filepath.Join(r.opts.StateDir, slotStateDirName)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
+	if mkdirErr := os.MkdirAll(dir, 0o755); mkdirErr != nil {
+		return mkdirErr
 	}
 	tmpFile, err := os.CreateTemp(dir, registrySnapshotFile+".tmp-*")
 	if err != nil {
@@ -292,7 +292,7 @@ func (r *Registry) SaveSnapshot() error {
 	}
 	tmpPath := tmpFile.Name()
 	if _, err := tmpFile.Write(data); err != nil {
-		tmpFile.Close()
+		_ = tmpFile.Close()
 		_ = os.Remove(tmpPath)
 		return err
 	}

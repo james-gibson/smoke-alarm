@@ -360,7 +360,8 @@ func (as *AgentState) CheckRungBoundary() RungBoundaryAlert {
 	var status, message string
 	var nextRung int
 
-	if distanceToThreshold < 0 {
+	switch {
+	case distanceToThreshold < 0:
 		// Crossed threshold
 		status = "demoted"
 		nextRung = currentRung - 1
@@ -371,21 +372,21 @@ func (as *AgentState) CheckRungBoundary() RungBoundaryAlert {
 			"DEMOTED: 42i_distance=%d exceeds rung %d threshold of %d (moved to rung %d)",
 			as.TotalDistance, currentRung, threshold, nextRung,
 		)
-	} else if distanceToThreshold < 20 {
+	case distanceToThreshold < 20:
 		status = "critical"
 		nextRung = currentRung
 		message = fmt.Sprintf(
 			"CRITICAL: 42i_distance=%d approaching rung %d threshold of %d (only %d units remaining)",
 			as.TotalDistance, currentRung, threshold, distanceToThreshold,
 		)
-	} else if distanceToThreshold < 40 {
+	case distanceToThreshold < 40:
 		status = "warning"
 		nextRung = currentRung
 		message = fmt.Sprintf(
 			"WARNING: 42i_distance=%d trending toward rung boundary (%d units until threshold)",
 			as.TotalDistance, distanceToThreshold,
 		)
-	} else {
+	default:
 		status = "ok"
 		nextRung = currentRung
 		message = fmt.Sprintf("Agent healthy at rung %d (42i_distance=%d)", currentRung, as.TotalDistance)

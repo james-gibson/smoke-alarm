@@ -172,7 +172,7 @@ func InitializeFederationScenario(ctx *godog.ScenarioContext) {
 // Pending stub implementations — replace with real logic when wiring Cucumber.
 
 func noOtherInstanceRunningOnPortRange() error          { return godog.ErrPending }
-func anInstanceStartsWithPorts(base, max int) error     { return godog.ErrPending }
+func anInstanceStartsWithPorts(base, maxPort int) error { return godog.ErrPending }
 func theInstanceBindsPort(port int) error               { return godog.ErrPending }
 func theInstanceIdentityRoleIs(role string) error       { return godog.ErrPending }
 func theIdentityIsPersistedTo(path string) error        { return godog.ErrPending }
@@ -228,7 +228,7 @@ func upsertCalledWithNewPeerRecord() error                 { return godog.ErrPen
 func registryPeerCountDoesNotIncrease() error              { return godog.ErrPending }
 func noErrorIsReturned() error {
 	if ksState.lastErr != nil {
-		return fmt.Errorf("expected no error, got: %v", ksState.lastErr)
+		return fmt.Errorf("expected no error, got: %w", ksState.lastErr)
 	}
 	return nil
 }

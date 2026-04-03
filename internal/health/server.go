@@ -162,7 +162,8 @@ func (s *Server) BindWithRetry(maxRetries int) (string, error) {
 	}
 	for i := 0; i <= maxRetries; i++ {
 		addr := net.JoinHostPort(host, strconv.Itoa(port+i))
-		ln, err := net.Listen("tcp", addr)
+		var lc net.ListenConfig
+		ln, err := lc.Listen(context.Background(), "tcp", addr)
 		if err == nil {
 			s.listener = ln
 			return addr, nil

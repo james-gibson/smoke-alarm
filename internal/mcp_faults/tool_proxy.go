@@ -252,7 +252,7 @@ func NewToolProxyCluster(toolNames []string, honeypotMode bool) *ToolProxyCluste
 //
 // All calls are processed. Calls without correct prefix are marked as suspicious
 // but still tracked. Multiple suspicious calls across tools indicate possible attack.
-func (tpc *ToolProxyCluster) ValidateToolCall(toolName string, callName string) (hasCorrectPrefix bool, suspicion string, metrics ToolProxyMetrics) {
+func (tpc *ToolProxyCluster) ValidateToolCall(toolName, callName string) (hasCorrectPrefix bool, suspicion string, metrics ToolProxyMetrics) {
 	proxy, ok := tpc.Proxies[toolName]
 	if !ok {
 		// Unknown tool - this is also suspicious

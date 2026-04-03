@@ -150,7 +150,7 @@ func (m *Manager) BuildHeaders(ctx context.Context, cfg targets.AuthConfig) (Hea
 			ClientSecret: clientSecret,
 		})
 		if err != nil {
-			return HeaderMaterial{}, fmt.Errorf("%w: %v", ErrOAuthValidation, err)
+			return HeaderMaterial{}, fmt.Errorf("%w: %w", ErrOAuthValidation, err)
 		}
 		if !result.Ready {
 			msg := result.Message
@@ -361,7 +361,7 @@ func resolveFromMacKeychain(ctx context.Context, service, account string) (strin
 	cmd := exec.CommandContext(ctx, "security", "find-generic-password", "-s", service, "-a", account, "-w")
 	out, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("%w: mac keychain lookup failed for %s/%s: %v", ErrSecretNotFound, service, account, err)
+		return "", fmt.Errorf("%w: mac keychain lookup failed for %s/%s: %w", ErrSecretNotFound, service, account, err)
 	}
 	secret := strings.TrimSpace(string(out))
 	if secret == "" {
@@ -374,7 +374,7 @@ func resolveFromSecretService(ctx context.Context, service, account string) (str
 	cmd := exec.CommandContext(ctx, "secret-tool", "lookup", "service", service, "account", account)
 	out, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("%w: secret-service lookup failed for %s/%s: %v", ErrSecretNotFound, service, account, err)
+		return "", fmt.Errorf("%w: secret-service lookup failed for %s/%s: %w", ErrSecretNotFound, service, account, err)
 	}
 	secret := strings.TrimSpace(string(out))
 	if secret == "" {

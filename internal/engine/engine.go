@@ -449,7 +449,7 @@ func (e *Engine) maybeAlert(ctx context.Context, t targets.Target, result target
 	// - regression always
 	// - outage always
 	// - critical severity always
-	if !(result.Regression || result.State == targets.StateOutage || result.Severity == targets.SeverityCritical) {
+	if !result.Regression && result.State != targets.StateOutage && result.Severity != targets.SeverityCritical {
 		return
 	}
 
@@ -579,7 +579,7 @@ func (p *HTTPProber) Probe(ctx context.Context, target targets.Target, headers m
 }
 
 func (p *HTTPProber) probeSSE(ctx context.Context, target targets.Target, headers map[string]string) (targets.CheckResult, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target.Endpoint, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target.Endpoint, http.NoBody)
 	if err != nil {
 		return targets.CheckResult{}, err
 	}
@@ -636,7 +636,7 @@ func (p *HTTPProber) probeSSE(ctx context.Context, target targets.Target, header
 }
 
 func (p *HTTPProber) probeSimpleHTTP(ctx context.Context, target targets.Target, headers map[string]string) (targets.CheckResult, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target.Endpoint, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target.Endpoint, http.NoBody)
 	if err != nil {
 		return targets.CheckResult{}, err
 	}
@@ -739,7 +739,7 @@ func (p *HTTPProber) probeJSONRPCHandshakeHTTP(ctx context.Context, target targe
 			}, nil
 		}
 		if rpcResp.Error != nil {
-			return targets.CheckResult{
+			return targets.CheckResult{ //nolint:nilerr
 				TargetID:     target.ID,
 				Protocol:     target.Protocol,
 				State:        targets.StateUnhealthy,

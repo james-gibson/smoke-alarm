@@ -440,7 +440,7 @@ func (d *Discoverer) discoverFromLLMSTxt(ctx context.Context, cfg config.Config)
 }
 
 func (d *Discoverer) fetchLLMSTxt(ctx context.Context, uri string) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, http.NoBody)
 	if err != nil {
 		return "", err
 	}
@@ -837,7 +837,7 @@ func defaultStatusCodesForTransport(t targets.Transport) []int {
 	}
 }
 
-func (d *Discoverer) isTCPPortOpen(ctx context.Context, host string, port int) (bool, error) {
+func (d *Discoverer) isTCPPortOpen(ctx context.Context, host string, port int) (bool, error) { //nolint:unparam
 	address := net.JoinHostPort(host, strconv.Itoa(port))
 	dialer := net.Dialer{Timeout: d.DialTimeout}
 	conn, err := dialer.DialContext(ctx, "tcp", address)
@@ -854,7 +854,7 @@ func (d *Discoverer) isTCPPortOpen(ctx context.Context, host string, port int) (
 }
 
 func (d *Discoverer) httpReachable(ctx context.Context, endpoint string) (bool, int, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, http.NoBody)
 	if err != nil {
 		return false, 0, err
 	}

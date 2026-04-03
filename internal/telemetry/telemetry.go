@@ -102,7 +102,7 @@ func (e *Exporter) RecordTargetState(ctx context.Context, targetID, state string
 	}
 }
 
-func stateToInt(state string) int64 {
+func stateToInt(state string) int64 { //nolint:unused
 	switch state {
 	case "healthy":
 		return 0

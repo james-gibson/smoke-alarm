@@ -183,8 +183,8 @@ func cmdServe(args []string) error {
 	cfg.ApplyDefaults()
 	applyDemoOverrides(&cfg)
 	ensureDockerLLMSTxt(&cfg)
-	if err := cfg.Validate(); err != nil {
-		return err
+	if validateErr := cfg.Validate(); validateErr != nil {
+		return validateErr
 	}
 
 	logger := buildLogger(cfg.Service.LogLevel, *jsonLogs)
@@ -207,8 +207,8 @@ func cmdServe(args []string) error {
 	defer releaseLock(lock, cfg.Runtime.LockFile)
 
 	pidFile := filepath.Join(cfg.Runtime.StateDir, appName+".pid")
-	if err := writePIDFile(pidFile); err != nil {
-		return fmt.Errorf("write pid file: %w", err)
+	if pidErr := writePIDFile(pidFile); pidErr != nil {
+		return fmt.Errorf("write pid file: %w", pidErr)
 	}
 	defer func() { _ = os.Remove(pidFile) }()
 
@@ -229,9 +229,9 @@ func cmdServe(args []string) error {
 	}
 
 	if cfg.Telemetry.Enabled && cfg.Telemetry.Endpoint != "" {
-		telem, err := telemetry.NewExporter(cfg.Telemetry.Endpoint, cfg.Telemetry.ServiceName)
-		if err != nil && logger != nil {
-			logger.Warn("telemetry init failed", "error", err.Error())
+		telem, telemErr := telemetry.NewExporter(cfg.Telemetry.Endpoint, cfg.Telemetry.ServiceName)
+		if telemErr != nil && logger != nil {
+			logger.Warn("telemetry init failed", "error", telemErr.Error())
 		} else if telem != nil {
 			engineOpts = append(engineOpts, engine.WithTelemetry(telem))
 			if logger != nil {
@@ -954,11 +954,11 @@ func cmdDynamicConfig(args []string) error {
 
 		var b strings.Builder
 		b.WriteString("# Dynamic Config Index\n\n")
-		b.WriteString(fmt.Sprintf("- Generated at: `%s`\n", time.Now().UTC().Format(time.RFC3339)))
-		b.WriteString(fmt.Sprintf("- Directory: `%s`\n", targetDir))
-		b.WriteString(fmt.Sprintf("- Serve Base URL: `%s`\n\n", baseURL))
+		fmt.Fprintf(&b, "- Generated at: `%s`\n", time.Now().UTC().Format(time.RFC3339))
+		fmt.Fprintf(&b, "- Directory: `%s`\n", targetDir)
+		fmt.Fprintf(&b, "- Serve Base URL: `%s`\n\n", baseURL)
 		for _, f := range files {
-			b.WriteString(fmt.Sprintf("- [%s](%s/%s)\n", f.name, baseURL, f.name))
+			fmt.Fprintf(&b, "- [%s](%s/%s)\n", f.name, baseURL, f.name)
 		}
 
 		outPath := strings.TrimSpace(*out)
@@ -1159,8 +1159,8 @@ func cmdGenMeta(args []string) error {
 
 	gen := meta.NewGenerator(cfg.MetaConfig)
 	doc := gen.GenerateFromDiscovery(res.Records)
-	if err := meta.ValidateDocument(doc); err != nil {
-		return fmt.Errorf("generated meta config invalid: %w", err)
+	if docErr := meta.ValidateDocument(doc); docErr != nil {
+		return fmt.Errorf("generated meta config invalid: %w", docErr)
 	}
 
 	paths, err := gen.Write(ctx, doc)
@@ -1255,7 +1255,12 @@ func cmdOpsStatus(args []string) error {
 	fmt.Printf("running: %v\n", running)
 
 	client := &http.Client{Timeout: 2 * time.Second}
-	resp, err := client.Get(*healthURL)
+	req, reqErr := http.NewRequestWithContext(context.Background(), http.MethodGet, *healthURL, http.NoBody)
+	if reqErr != nil {
+		fmt.Printf("health:  unreachable (%v)\n", reqErr)
+		return nil
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		fmt.Printf("health:  unreachable (%v)\n", err)
 		return nil
@@ -1355,7 +1360,7 @@ func cmdOpsSelfCheck(args []string) error {
 	return nil
 }
 
-func runOneShotChecks(ctx context.Context, cfg config.Config) ([]targets.CheckResult, error) {
+func runOneShotChecks(ctx context.Context, cfg config.Config) ([]targets.CheckResult, error) { //nolint:unparam
 	prober := engine.NewStdioProber()
 	authMgr := auth.NewManager()
 	safetyScanner := safety.NewScanner()
@@ -1449,9 +1454,11 @@ func mapOneShotAuthFailure(t targets.Target, err error) targets.CheckResult {
 func mapOneShotProbeFailure(t targets.Target, err error) targets.CheckResult {
 	msg := strings.ToLower(err.Error())
 
-	state := targets.StateUnhealthy
-	severity := targets.SeverityWarn
-	failureClass := targets.FailureUnknown
+	var (
+		state        targets.HealthState
+		severity     targets.Severity
+		failureClass targets.FailureClass
+	)
 
 	switch {
 	case errors.Is(err, context.DeadlineExceeded),
@@ -1625,7 +1632,7 @@ func buildLogger(level string, enableJSON bool) *slog.Logger {
 	return slog.New(handler)
 }
 
-func buildNotifiers(cfg config.Config, logger *slog.Logger, enableJSON bool) engine.Notifier {
+func buildNotifiers(cfg config.Config, logger *slog.Logger, enableJSON bool) engine.Notifier { //nolint:unparam
 	var sinks []engine.Notifier
 	dedupe := mustDuration(cfg.Alerts.DedupeWindow, 2*time.Minute)
 
@@ -1734,7 +1741,7 @@ func isProcessRunning(pid int) bool {
 }
 
 func runShell(command string) error {
-	cmd := exec.Command("sh", "-c", command)
+	cmd := exec.CommandContext(context.Background(), "sh", "-c", command)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
@@ -1799,6 +1806,9 @@ func truncate(s string, n int) string {
 	return s[:n-1] + "…"
 }
 
+// isTUIEnabledFromMode is reserved for future use in dynamic mode switching.
+//
+//nolint:unused
 func isTUIEnabledFromMode(mode string, tuiFlag *bool) bool {
 	if mode == config.ModeHeadless {
 		return false
@@ -1848,11 +1858,17 @@ func cmdTuner(args []string) error {
 			return fmt.Errorf("--channel required")
 		}
 		body := fmt.Sprintf(`{"channel":%q,"count":%d,"signal":1.0}`, *channel, *count)
-		resp, err := http.Post(
+		audienceReq, audienceReqErr := http.NewRequestWithContext(
+			context.Background(), http.MethodPost,
 			fmt.Sprintf("http://%s/tuner/audience", *addr),
-			"application/json",
 			strings.NewReader(body),
 		)
+		if audienceReqErr != nil {
+			return fmt.Errorf("build audience request: %w", audienceReqErr)
+		}
+		audienceReq.Header.Set("Content-Type", "application/json")
+		audienceClient := &http.Client{Timeout: 10 * time.Second}
+		resp, err := audienceClient.Do(audienceReq)
 		if err != nil {
 			return fmt.Errorf("post audience: %w", err)
 		}
@@ -1893,7 +1909,12 @@ func cmdTUI(args []string) error {
 	for {
 		select {
 		case <-ticker.C:
-			resp, err := client.Get(fmt.Sprintf("http://%s/status", *addr))
+			statusURL := fmt.Sprintf("http://%s/status", *addr)
+			statusReq, statusReqErr := http.NewRequestWithContext(context.Background(), http.MethodGet, statusURL, http.NoBody)
+			if statusReqErr != nil {
+				continue
+			}
+			resp, err := client.Do(statusReq)
 			if err != nil {
 				if *jsonOutput {
 					_, _ = fmt.Fprintf(os.Stdout, `{"level":"error","msg":"failed to fetch status","error":"%v"}%s`, err, "\n")
@@ -1947,10 +1968,10 @@ func getChar() chan bool {
 	return ch
 }
 
-func printRemoteStatusTable(targets []health.TargetStatus) {
+func printRemoteStatusTable(statuses []health.TargetStatus) {
 	fmt.Printf("%-20s %-12s %-10s %s\n", "TARGET", "STATE", "SEVERITY", "MESSAGE")
 	fmt.Println(strings.Repeat("-", 80))
-	for _, t := range targets {
+	for _, t := range statuses {
 		stateColor := ""
 		switch t.State {
 		case "healthy":
@@ -1974,8 +1995,8 @@ func printRemoteStatusTable(targets []health.TargetStatus) {
 	}
 }
 
-func parseFederationFlag(flag string, cfg *config.Config) {
-	parts := strings.Split(flag, ",")
+func parseFederationFlag(flagVal string, cfg *config.Config) {
+	parts := strings.Split(flagVal, ",")
 	fmt.Printf("[MAIN] federation flag parse: parts=%v\n", parts)
 	for _, part := range parts {
 		kv := strings.Split(part, ":")

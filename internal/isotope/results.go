@@ -268,11 +268,12 @@ func (h *IsotopeHistory) recalculateMetrics() {
 		earlyStability := float64(earlyPass) / float64(mid)
 		lateStability := float64(latePass) / float64(len(h.Results)-mid)
 
-		if lateStability > earlyStability+0.1 {
+		switch {
+		case lateStability > earlyStability+0.1:
 			h.Trend = "improving"
-		} else if earlyStability > lateStability+0.1 {
+		case earlyStability > lateStability+0.1:
 			h.Trend = "degrading"
-		} else {
+		default:
 			h.Trend = "stable"
 		}
 	} else {

@@ -167,25 +167,26 @@ func TestFaultProfilesBuildMeasurableDistance(t *testing.T) {
 
 		for call := 0; call < 10; call++ {
 			for _, rule := range profile.Faults {
-				if profile.ShouldInject(rule) {
-					totalFailures++
-					mode := GetFailureMode(rule.FailureType)
-
-					event := isotope.MCPFailureEvent{
-						FailureType:    string(rule.FailureType),
-						ServerID:       "faulty-server",
-						ToolName:       "some-tool",
-						MethodName:     "tools/call",
-						DistanceWeight: mode.DistanceWeight,
-						Direction:      mode.Direction,
-						Severity:       mode.Severity,
-						ErrorMessage:   mode.Description,
-						Recoverable:    mode.Recoverable,
-					}
-
-					agent.RecordMCPFailure(event)
-					totalDistance += mode.DistanceWeight
+				if !profile.ShouldInject(rule) {
+					continue
 				}
+				totalFailures++
+				mode := GetFailureMode(rule.FailureType)
+
+				event := isotope.MCPFailureEvent{
+					FailureType:    string(rule.FailureType),
+					ServerID:       "faulty-server",
+					ToolName:       "some-tool",
+					MethodName:     "tools/call",
+					DistanceWeight: mode.DistanceWeight,
+					Direction:      mode.Direction,
+					Severity:       mode.Severity,
+					ErrorMessage:   mode.Description,
+					Recoverable:    mode.Recoverable,
+				}
+
+				agent.RecordMCPFailure(event)
+				totalDistance += mode.DistanceWeight
 			}
 		}
 
@@ -336,11 +337,12 @@ func TestServerRepresentationAndEviction(t *testing.T) {
 	healths := []ServerHealth{}
 	for _, server := range servers {
 		status := "HEALTHY"
-		if server.Agent.TotalDistance > 60 {
+		switch {
+		case server.Agent.TotalDistance > 60:
 			status = "COMPROMISED"
-		} else if server.Agent.TotalDistance > 30 {
+		case server.Agent.TotalDistance > 30:
 			status = "DEGRADED"
-		} else if server.Agent.TotalDistance > 0 {
+		case server.Agent.TotalDistance > 0:
 			status = "MINOR"
 		}
 

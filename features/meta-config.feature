@@ -24,17 +24,17 @@ Feature: Meta-Config Template Generation
 
   Scenario: generator uses default output_dir when not specified in config
     Given a meta_config block with no output_dir field
-    When the meta-config generator is initialised
+    When the meta-config generator is initialized
     Then the output directory defaults to "./state/meta-config"
 
   Scenario: generator uses default formats when not specified in config
     Given a meta_config block with no formats field
-    When the meta-config generator is initialised
+    When the meta-config generator is initialized
     Then the formats default to ["yaml", "json"]
 
   Scenario: generator uses default token placeholder when not specified
     Given a meta_config block with no placeholders.token field
-    When the meta-config generator is initialised
+    When the meta-config generator is initialized
     Then the token placeholder defaults to "${TOKEN}"
 
   # ── output formats ────────────────────────────────────────────────────────

@@ -13,7 +13,7 @@ func TestMCPServerManagerCreation(t *testing.T) {
 	manager := NewMCPServerManager(false)
 
 	if manager == nil {
-		t.Error("Manager should be created")
+		t.Fatal("Manager should be created")
 	}
 
 	if manager.honeypotMode {

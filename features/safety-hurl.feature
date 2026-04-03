@@ -20,7 +20,7 @@ Feature: Pre-Protocol HURL Safety Scanner
 
   Background:
     Given the ocd-smoke-alarm binary is installed
-    And a HURL safety scanner is initialised
+    And a HURL safety scanner is initialized
 
   # ── registration ──────────────────────────────────────────────────────────
 
@@ -164,7 +164,7 @@ Feature: Pre-Protocol HURL Safety Scanner
 
   Scenario: context cancellation marks remaining tests as skipped
     Given a target with 3 hurl_tests registered
-    And the context is cancelled before any tests run
+    And the context is canceled before any tests run
     When the scanner runs tests for the target
     Then each test outcome is "skip"
     And "has_blocking" is false

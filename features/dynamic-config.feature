@@ -53,7 +53,7 @@ Feature: Dynamic Config Persistence
     Then the exit code is non-zero
     And stderr contains "duplicate id"
 
-  # ── overwrite behaviour ───────────────────────────────────────────────────
+  # ── overwrite behavior ───────────────────────────────────────────────────
 
   Scenario: persist overwrites existing artifacts when allow_overwrite is true
     Given an artifact already exists at the expected output path

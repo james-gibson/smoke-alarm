@@ -34,7 +34,7 @@ type Options struct {
 	ShutdownTimeout time.Duration
 }
 
-// Server hosts embedded MCP/ACP/A2A-compatible endpoints over HTTP and SSE.
+// HostedEvent records a single protocol event handled by the embedded server.
 type HostedEvent struct {
 	Time      time.Time `json:"time"`
 	Protocol  string    `json:"protocol"`
@@ -314,7 +314,7 @@ func (s *Server) handleProtocol(proto string) http.HandlerFunc {
 }
 
 func (s *Server) handleJSONRPC(proto string, w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
+	defer func() { _ = r.Body.Close() }()
 
 	var req rpcRequest
 	dec := json.NewDecoder(r.Body)
@@ -837,7 +837,7 @@ func (s *Server) handleCallerSSE(w http.ResponseWriter, r *http.Request, channel
 	}()
 
 	// Initial connected event.
-	fmt.Fprintf(w, "event: connected\ndata: {\"channel\":%q}\n\n", channel)
+	_, _ = fmt.Fprintf(w, "event: connected\ndata: {\"channel\":%q}\n\n", channel) //nolint:gosec
 	flusher.Flush()
 
 	for {
@@ -846,7 +846,7 @@ func (s *Server) handleCallerSSE(w http.ResponseWriter, r *http.Request, channel
 			if !ok {
 				return
 			}
-			fmt.Fprintf(w, "event: caller\ndata: %s\n\n", msg)
+			_, _ = fmt.Fprintf(w, "event: caller\ndata: %s\n\n", msg)
 			flusher.Flush()
 		case <-r.Context().Done():
 			return

@@ -145,7 +145,7 @@ func TestMultipleInvalidCalls(t *testing.T) {
 				call.Name, call.Desc, hasCorrect, call.HasCorrect)
 		}
 
-		if call.ExpectSuspicion != suspicion && !(call.ExpectSuspicion == "" && suspicion == "") {
+		if call.ExpectSuspicion != suspicion && (call.ExpectSuspicion != "" || suspicion != "") {
 			t.Logf("Call %q (%s): got suspicion=%q, expected %q",
 				call.Name, call.Desc, suspicion, call.ExpectSuspicion)
 		}

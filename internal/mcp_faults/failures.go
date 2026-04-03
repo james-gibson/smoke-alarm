@@ -8,42 +8,42 @@ import (
 type MCPFailureType string
 
 const (
-	// Timeout: Server doesn't respond within SLA
+	// TimeoutFailure indicates the server doesn't respond within SLA.
 	// 42i direction: unpredictable-behavior (unreliable latency)
 	// Severity: moderate (temporary issue, can recover)
 	TimeoutFailure MCPFailureType = "timeout"
 
-	// UnauthorizedAccess: Server denied access to a tool or resource
+	// UnauthorizedAccessFailure indicates the server denied access to a tool or resource.
 	// 42i direction: unauthorized-access (server enforcing limits or compromised)
 	// Severity: high (indicates permission/capability issue)
 	UnauthorizedAccessFailure MCPFailureType = "unauthorized-access"
 
-	// CorruptedResponse: Server returned malformed JSON-RPC or invalid protocol message
+	// CorruptedResponseFailure indicates the server returned malformed JSON-RPC or invalid protocol message.
 	// 42i direction: boundary-violation (server violating protocol contract)
 	// Severity: high (protocol corruption suggests compromise)
 	CorruptedResponseFailure MCPFailureType = "corrupted-response"
 
-	// MalformedJSON: JSON parsing failed on server response
+	// MalformedJSONFailure indicates JSON parsing failed on server response.
 	// 42i direction: boundary-violation (invalid protocol message)
 	// Severity: high
 	MalformedJSONFailure MCPFailureType = "malformed-json"
 
-	// ToolNotFound: Server claimed to have tool but then reported not found
+	// ToolNotFoundFailure indicates the server claimed to have tool but then reported not found.
 	// 42i direction: coordinated-signaling (server lying about capabilities)
 	// Severity: critical (indicates dishonesty/Byzantine behavior)
 	ToolNotFoundFailure MCPFailureType = "tool-not-found"
 
-	// ResourceExhaustion: Server hit limits (rate limit, memory, connections)
+	// ResourceExhaustionFailure indicates the server hit limits (rate limit, memory, connections).
 	// 42i direction: boundary-violation (exceeding resource contract)
 	// Severity: moderate (indicates server stress, can be temporary)
 	ResourceExhaustionFailure MCPFailureType = "resource-exhaustion"
 
-	// PartialResponse: Server sent incomplete message (truncated, mid-stream disconnect)
+	// PartialResponseFailure indicates the server sent incomplete message (truncated, mid-stream disconnect).
 	// 42i direction: unpredictable-behavior (unreliable delivery)
 	// Severity: moderate
 	PartialResponseFailure MCPFailureType = "partial-response"
 
-	// CapabilityMismatch: Server's actual capabilities don't match advertisement
+	// CapabilityMismatchFailure indicates the server's actual capabilities don't match advertisement.
 	// 42i direction: coordinated-signaling (Byzantine: server misrepresenting itself)
 	// Severity: critical
 	CapabilityMismatchFailure MCPFailureType = "capability-mismatch"

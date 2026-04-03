@@ -155,7 +155,7 @@ func InitializeMetaConfigSteps(ctx *godog.ScenarioContext) {
 
 	// ── generator defaults ─────────────────────────────────────────────────
 	ctx.Step(`^a meta_config block with no "([^"]*)" field$`, aMetaConfigBlockWithNoField)
-	ctx.Step(`^the meta-config generator is initialised$`, theMetaConfigGeneratorIsInitialised)
+	ctx.Step(`^the meta-config generator is initialized$`, theMetaConfigGeneratorIsInitialised)
 	ctx.Step(`^the output directory defaults to "([^"]*)"$`, theOutputDirectoryDefaultsTo)
 	ctx.Step(`^the formats default to "([^"]*)"$`, theFormatsDefaultTo)
 	ctx.Step(`^the token placeholder defaults to "([^"]*)"$`, theTokenPlaceholderDefaultsTo)
@@ -240,12 +240,12 @@ func theMetaConfigGeneratorIsInitialised() error {
 // Cleans up the created directory in the After hook.
 func theOutputDirectoryDefaultsTo(expected string) error {
 	if metaState.gen == nil {
-		return fmt.Errorf("generator not initialised")
+		return fmt.Errorf("generator not initialized")
 	}
 	doc := minimalDocument(metaState.gen)
 	paths, err := metaState.gen.Write(context.Background(), doc)
 	if err != nil {
-		return fmt.Errorf("Write failed: %w", err)
+		return fmt.Errorf("write failed: %w", err)
 	}
 	// Record for cleanup (default dir is relative to CWD).
 	if expected == "./state/meta-config" {
@@ -270,7 +270,7 @@ func theFormatsDefaultTo(formats string) error {
 // theFormatsDefaultToTwo verifies that a generator with no formats config writes both formats.
 func theFormatsDefaultToTwo(f1, f2 string) error {
 	if metaState.gen == nil {
-		return fmt.Errorf("generator not initialised")
+		return fmt.Errorf("generator not initialized")
 	}
 	tmpDir, err := metaTmpDir()
 	if err != nil {
@@ -283,7 +283,7 @@ func theFormatsDefaultToTwo(f1, f2 string) error {
 	doc := minimalDocument(gen)
 	paths, err := gen.Write(context.Background(), doc)
 	if err != nil {
-		return fmt.Errorf("Write failed: %w", err)
+		return fmt.Errorf("write failed: %w", err)
 	}
 	// Verify both extensions are present.
 	exts := map[string]bool{}
@@ -302,7 +302,7 @@ func theFormatsDefaultToTwo(f1, f2 string) error {
 // uses the expected default for bearer auth targets.
 func theTokenPlaceholderDefaultsTo(placeholder string) error {
 	if metaState.gen == nil {
-		return fmt.Errorf("generator not initialised")
+		return fmt.Errorf("generator not initialized")
 	}
 	t := minimalTarget()
 	t.Auth = targets.AuthConfig{Type: "bearer"}

@@ -209,7 +209,7 @@ func (n *DesktopNotifier) Notify(ctx context.Context, event engine.AlertEvent) e
 		if _, err := exec.LookPath("osascript"); err != nil {
 			return fmt.Errorf("%w: osascript not found", ErrNotifierUnavailable)
 		}
-		script := fmt.Sprintf(`display notification "%s" with title "%s"`, escapeAppleScript(body), escapeAppleScript(title))
+		script := fmt.Sprintf(`display notification "%s" with title "%s"`, escapeAppleScript(body), escapeAppleScript(title)) //nolint:gocritic
 		return n.runner.Run(runCtx, "osascript", "-e", script)
 
 	case "linux":
@@ -272,11 +272,11 @@ func urgencyFromSeverity(sev string) string {
 	}
 }
 
-func severityAllowed(current, min string) bool {
-	if strings.TrimSpace(min) == "" {
+func severityAllowed(current, minSev string) bool {
+	if strings.TrimSpace(minSev) == "" {
 		return true
 	}
-	return severityRank(current) >= severityRank(min)
+	return severityRank(current) >= severityRank(minSev)
 }
 
 func severityRank(v string) int {

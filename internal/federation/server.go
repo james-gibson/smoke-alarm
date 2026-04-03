@@ -180,13 +180,7 @@ func (s *Server) handleMembership(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) snapshotResponse() membershipResponse {
 	snap := s.opts.Registry.Snapshot()
-	return membershipResponse{
-		Self:         snap.Self,
-		IntroducerID: snap.IntroducerID,
-		Peers:        snap.Peers,
-		Version:      snap.Version,
-		GeneratedAt:  snap.GeneratedAt,
-	}
+	return membershipResponse(snap)
 }
 
 func (s *Server) ageOutLoop(ctx context.Context) {

@@ -12,7 +12,7 @@ func TestValidateSkillFile_Valid(t *testing.T) {
 
 	dir := t.TempDir()
 	skillPath := filepath.Join(dir, "test-skill", "SKILL.md")
-	os.MkdirAll(filepath.Dir(skillPath), 0755)
+	_ = os.MkdirAll(filepath.Dir(skillPath), 0o755)
 
 	content := `---
 name: test-skill
@@ -22,7 +22,7 @@ description: A test skill for validation
 # Test Skill
 This is a test skill.`
 
-	if err := os.WriteFile(skillPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(skillPath, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -57,7 +57,7 @@ func TestValidateSkillFile_NameMismatch(t *testing.T) {
 
 	dir := t.TempDir()
 	skillPath := filepath.Join(dir, "my-skill", "SKILL.md")
-	os.MkdirAll(filepath.Dir(skillPath), 0755)
+	_ = os.MkdirAll(filepath.Dir(skillPath), 0o755)
 
 	content := `---
 name: different-name
@@ -67,7 +67,7 @@ description: A skill with mismatched name
 # SKILL
 `
 
-	if err := os.WriteFile(skillPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(skillPath, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -86,7 +86,7 @@ func TestValidateSkillFile_MissingName(t *testing.T) {
 
 	dir := t.TempDir()
 	skillPath := filepath.Join(dir, "skill", "SKILL.md")
-	os.MkdirAll(filepath.Dir(skillPath), 0755)
+	_ = os.MkdirAll(filepath.Dir(skillPath), 0o755)
 
 	content := `---
 description: A skill without name
@@ -95,7 +95,7 @@ description: A skill without name
 # SKILL
 `
 
-	if err := os.WriteFile(skillPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(skillPath, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -114,7 +114,7 @@ func TestValidateSkillFile_MissingDescription(t *testing.T) {
 
 	dir := t.TempDir()
 	skillPath := filepath.Join(dir, "skill", "SKILL.md")
-	os.MkdirAll(filepath.Dir(skillPath), 0755)
+	_ = os.MkdirAll(filepath.Dir(skillPath), 0o755)
 
 	content := `---
 name: test-skill
@@ -123,7 +123,7 @@ name: test-skill
 # SKILL
 `
 
-	if err := os.WriteFile(skillPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(skillPath, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -142,7 +142,7 @@ func TestValidateSkillFile_InvalidYAML(t *testing.T) {
 
 	dir := t.TempDir()
 	skillPath := filepath.Join(dir, "skill", "SKILL.md")
-	os.MkdirAll(filepath.Dir(skillPath), 0755)
+	_ = os.MkdirAll(filepath.Dir(skillPath), 0o755)
 
 	content := `---
 name: test
@@ -152,7 +152,7 @@ name: test
 # SKILL
 `
 
-	if err := os.WriteFile(skillPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(skillPath, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -199,14 +199,14 @@ func TestFindSkills_WithValidSkills(t *testing.T) {
 	dir := t.TempDir()
 
 	skillDirs := []string{
-		".opencode/skills/test-skill-1",
-		".opencode/skills/test-skill-2",
-		".claude/skills/claude-skill",
+		filepath.Join(".opencode", "skills", "test-skill-1"),
+		filepath.Join(".opencode", "skills", "test-skill-2"),
+		filepath.Join(".claude", "skills", "claude-skill"),
 	}
 
 	for _, d := range skillDirs {
 		path := filepath.Join(dir, d, "SKILL.md")
-		os.MkdirAll(filepath.Dir(path), 0755)
+		_ = os.MkdirAll(filepath.Dir(path), 0o755)
 
 		dirName := filepath.Base(d)
 		content := `---
@@ -216,7 +216,7 @@ description: A test skill
 
 # Content
 `
-		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -242,8 +242,8 @@ func TestFindSkills_InvalidSkillIgnored(t *testing.T) {
 
 	dir := t.TempDir()
 
-	path := filepath.Join(dir, ".opencode/skills/bad-skill", "SKILL.md")
-	os.MkdirAll(filepath.Dir(path), 0755)
+	path := filepath.Join(dir, ".opencode", "skills", "bad-skill", "SKILL.md")
+	_ = os.MkdirAll(filepath.Dir(path), 0o755)
 
 	content := `---
 name: wrong-dir-name
@@ -252,7 +252,7 @@ description: Invalid skill
 
 # Content
 `
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -275,18 +275,18 @@ func TestValidateProjectConfig(t *testing.T) {
 
 	dir := t.TempDir()
 
-	os.WriteFile(filepath.Join(dir, "AGENTS.md"), []byte("# Agents"), 0644)
-	os.WriteFile(filepath.Join(dir, "Makefile"), []byte("all:\n\techo done"), 0644)
-	os.WriteFile(filepath.Join(dir, ".golangci.yml"), []byte("run:\n  timeout: 5m"), 0644)
-	os.WriteFile(filepath.Join(dir, ".claude.md"), []byte("# Claude"), 0644)
+	_ = os.WriteFile(filepath.Join(dir, "AGENTS.md"), []byte("# Agents"), 0o644)
+	_ = os.WriteFile(filepath.Join(dir, "Makefile"), []byte("all:\n\techo done"), 0o644)
+	_ = os.WriteFile(filepath.Join(dir, ".golangci.yml"), []byte("run:\n  timeout: 5m"), 0o644)
+	_ = os.WriteFile(filepath.Join(dir, ".claude.md"), []byte("# Claude"), 0o644)
 
-	os.MkdirAll(filepath.Join(dir, ".opencode/skills/test-skill"), 0755)
-	os.WriteFile(filepath.Join(dir, ".opencode/skills/test-skill/SKILL.md"), []byte(`---
+	_ = os.MkdirAll(filepath.Join(dir, ".opencode", "skills", "test-skill"), 0o755)
+	_ = os.WriteFile(filepath.Join(dir, ".opencode", "skills", "test-skill", "SKILL.md"), []byte(`---
 name: test-skill
 description: Test skill
 ---
 
-# Test`), 0644)
+# Test`), 0o644)
 
 	status := ValidateProjectConfig(dir)
 
@@ -308,7 +308,7 @@ description: Test skill
 		t.Fatal("expected skills info in status")
 	}
 
-	count := skillsInfo["count"].(int)
+	count := skillsInfo["count"].(int) //nolint:errcheck
 	if count != 1 {
 		t.Errorf("expected 1 skill, got %d", count)
 	}
@@ -319,17 +319,17 @@ func TestGenerateStartHereReport(t *testing.T) {
 
 	dir := t.TempDir()
 
-	os.WriteFile(filepath.Join(dir, "AGENTS.md"), []byte("# Agents"), 0644)
-	os.WriteFile(filepath.Join(dir, "Makefile"), []byte("all:"), 0644)
-	os.WriteFile(filepath.Join(dir, ".claude.md"), []byte("# Claude"), 0644)
+	_ = os.WriteFile(filepath.Join(dir, "AGENTS.md"), []byte("# Agents"), 0o644)
+	_ = os.WriteFile(filepath.Join(dir, "Makefile"), []byte("all:"), 0o644)
+	_ = os.WriteFile(filepath.Join(dir, ".claude.md"), []byte("# Claude"), 0o644)
 
-	os.MkdirAll(filepath.Join(dir, ".opencode/skills/demo-skill"), 0755)
-	os.WriteFile(filepath.Join(dir, ".opencode/skills/demo-skill/SKILL.md"), []byte(`---
+	_ = os.MkdirAll(filepath.Join(dir, ".opencode", "skills", "demo-skill"), 0o755)
+	_ = os.WriteFile(filepath.Join(dir, ".opencode", "skills", "demo-skill", "SKILL.md"), []byte(`---
 name: demo-skill
 description: A demonstration skill
 ---
 
-# Demo`), 0644)
+# Demo`), 0o644)
 
 	report := GenerateStartHereReport(dir)
 
@@ -355,7 +355,7 @@ func TestValidateSkillFile_WithOptionalFields(t *testing.T) {
 
 	dir := t.TempDir()
 	skillPath := filepath.Join(dir, "full-skill", "SKILL.md")
-	os.MkdirAll(filepath.Dir(skillPath), 0755)
+	_ = os.MkdirAll(filepath.Dir(skillPath), 0o755)
 
 	content := `---
 name: full-skill
@@ -370,7 +370,7 @@ metadata:
 # Full Skill
 This skill demonstrates all optional fields.`
 
-	if err := os.WriteFile(skillPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(skillPath, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -401,8 +401,8 @@ func TestFindSkills_NonDirectoryEntries(t *testing.T) {
 
 	dir := t.TempDir()
 
-	os.MkdirAll(filepath.Join(dir, ".opencode/skills"), 0755)
-	os.WriteFile(filepath.Join(dir, ".opencode/skills/not-a-skill.txt"), []byte("not a skill"), 0644)
+	_ = os.MkdirAll(filepath.Join(dir, ".opencode", "skills"), 0o755)
+	_ = os.WriteFile(filepath.Join(dir, ".opencode", "skills", "not-a-skill.txt"), []byte("not a skill"), 0o644)
 
 	results, err := FindSkills(dir)
 	if err != nil {
@@ -418,7 +418,7 @@ func TestStartHereSkillExistsAndValid(t *testing.T) {
 	t.Parallel()
 
 	dir := findProjectRoot()
-	skillPath := filepath.Join(dir, ".opencode/skills/start-here", "SKILL.md")
+	skillPath := filepath.Join(dir, ".opencode", "skills", "start-here", "SKILL.md")
 
 	result, err := ValidateSkillFile(skillPath)
 	if err != nil {
@@ -454,7 +454,7 @@ func TestDemoCapabilitiesSkillExistsAndValid(t *testing.T) {
 	t.Parallel()
 
 	dir := findProjectRoot()
-	skillPath := filepath.Join(dir, ".opencode/skills/demo-capabilities", "SKILL.md")
+	skillPath := filepath.Join(dir, ".opencode", "skills", "demo-capabilities", "SKILL.md")
 
 	result, err := ValidateSkillFile(skillPath)
 	if err != nil {
@@ -482,7 +482,7 @@ func TestOpencodeStatusReportSkillExistsAndValid(t *testing.T) {
 	t.Parallel()
 
 	dir := findProjectRoot()
-	skillPath := filepath.Join(dir, ".opencode/skills/opencode-status-report", "SKILL.md")
+	skillPath := filepath.Join(dir, ".opencode", "skills", "opencode-status-report", "SKILL.md")
 
 	result, err := ValidateSkillFile(skillPath)
 	if err != nil {

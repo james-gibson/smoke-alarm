@@ -78,8 +78,17 @@ func (p *Poller) pollOnce(ctx context.Context, updateFn func([]health.TargetStat
 }
 
 func (p *Poller) fetchStatus(ctx context.Context, endpoint string) []health.TargetStatus {
-	url := fmt.Sprintf("http://%s/status", endpoint)
-	resp, err := p.client.Get(url)
+	rawURL := fmt.Sprintf("http://%s/status", endpoint)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, http.NoBody)
+	if err != nil {
+		return []health.TargetStatus{{
+			ID:       "federation-error",
+			State:    "unhealthy",
+			Severity: "critical",
+			Message:  fmt.Sprintf("failed to build request for %s: %v", endpoint, err),
+		}}
+	}
+	resp, err := p.client.Do(req)
 	if err != nil {
 		return []health.TargetStatus{{
 			ID:       "federation-error",
@@ -88,15 +97,15 @@ func (p *Poller) fetchStatus(ctx context.Context, endpoint string) []health.Targ
 			Message:  fmt.Sprintf("failed to fetch %s: %v", endpoint, err),
 		}}
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var status health.StatusResponse
-	if err := json.NewDecoder(resp.Body).Decode(&status); err != nil {
+	if decodeErr := json.NewDecoder(resp.Body).Decode(&status); decodeErr != nil {
 		return []health.TargetStatus{{
 			ID:       "federation-error",
 			State:    "unhealthy",
 			Severity: "critical",
-			Message:  fmt.Sprintf("failed to decode %s: %v", endpoint, err),
+			Message:  fmt.Sprintf("failed to decode %s: %v", endpoint, decodeErr),
 		}}
 	}
 
@@ -124,7 +133,7 @@ func (p *Poller) ReportToUpstream(ctx context.Context, status health.StatusRespo
 	if err != nil {
 		return fmt.Errorf("report to upstream: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	return nil
 }

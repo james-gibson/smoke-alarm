@@ -359,7 +359,7 @@ func (c *LifecycleController) waitHTTP200(ctx context.Context, rawURL string) er
 		}
 		if ctx.Err() != nil {
 			if err != nil {
-				return fmt.Errorf("%w; last_error=%v", ctx.Err(), err)
+				return fmt.Errorf("%w; last_error=%w", ctx.Err(), err)
 			}
 			return ctx.Err()
 		}
@@ -367,7 +367,7 @@ func (c *LifecycleController) waitHTTP200(ctx context.Context, rawURL string) er
 		select {
 		case <-ctx.Done():
 			if err != nil {
-				return fmt.Errorf("%w; last_error=%v", ctx.Err(), err)
+				return fmt.Errorf("%w; last_error=%w", ctx.Err(), err)
 			}
 			return ctx.Err()
 		case <-ticker.C:
@@ -376,7 +376,7 @@ func (c *LifecycleController) waitHTTP200(ctx context.Context, rawURL string) er
 }
 
 func (c *LifecycleController) httpIs200(ctx context.Context, rawURL string) (bool, error) {
-	parsed, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	parsed, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, http.NoBody)
 	if err != nil {
 		return false, err
 	}
@@ -384,7 +384,7 @@ func (c *LifecycleController) httpIs200(ctx context.Context, rawURL string) (boo
 	if err != nil {
 		return false, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	_, _ = io.Copy(io.Discard, resp.Body)
 	return resp.StatusCode == http.StatusOK, nil
 }
@@ -401,7 +401,7 @@ func (c *LifecycleController) acquireLock() (func(), error) {
 	if err != nil {
 		return nil, fmt.Errorf("acquire lock %q: %w", lockPath, err)
 	}
-	_, _ = f.WriteString(fmt.Sprintf("%d\n", os.Getpid()))
+	_, _ = fmt.Fprintf(f, "%d\n", os.Getpid())
 	_ = f.Close()
 
 	return func() { _ = os.Remove(lockPath) }, nil
@@ -418,7 +418,7 @@ func (c *LifecycleController) writeJournal(entry JournalEntry) error {
 	if err != nil {
 		return fmt.Errorf("open journal: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	b, err := json.Marshal(entry)
 	if err != nil {
