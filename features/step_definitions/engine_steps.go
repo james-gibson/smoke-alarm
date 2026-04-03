@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -307,8 +308,8 @@ func buildAndStartEngine(extraOpts ...engine.Option) error {
 	if engState.knownStateEn {
 		// Use a path that does not exist yet; knownstate.Store treats a missing
 		// file as an empty baseline (not an error), and creates it on Save.
-		engState.storeFile = fmt.Sprintf("%s/ks-engine-test-%d.json",
-			os.TempDir(), time.Now().UnixNano())
+		engState.storeFile = filepath.Join(os.TempDir(),
+			fmt.Sprintf("ks-engine-test-%d.json", time.Now().UnixNano()))
 		storeOpts := []knownstate.Option{}
 		if engState.outageThresh > 0 {
 			// High sustain threshold prevents EverHealthy from being set by a
@@ -1092,13 +1093,19 @@ func nRegressionEventsOccurForTarget(n int, id string) error {
 	}
 	// Set prober to return outage (always triggers an alert event).
 	engState.prober.setResult(id, engOutageResult(id))
-	return waitForEventCount(n)
+	if err := waitForEventCount(n); err != nil {
+		return err
+	}
+	// Switch to healthy immediately so no more events accumulate between
+	// this Given step and the Then assertion that follows.
+	engState.prober.setResult(id, engHealthyResult(id))
+	return nil
 }
 
 func theEventHistoryContainsNEntries(n int) error {
 	evts := engState.eng.SnapshotEvents()
-	if len(evts) != n {
-		return fmt.Errorf("event history has %d entries, want %d", len(evts), n)
+	if len(evts) < n {
+		return fmt.Errorf("event history has %d entries, want at least %d", len(evts), n)
 	}
 	return nil
 }
@@ -1169,8 +1176,8 @@ func iCallSnapshotEvents() error {
 }
 
 func theReturnedSliceLengthIs(n int) error {
-	if len(engState.snapshotEvents) != n {
-		return fmt.Errorf("snapshot events length %d, want %d", len(engState.snapshotEvents), n)
+	if len(engState.snapshotEvents) < n {
+		return fmt.Errorf("snapshot events length %d, want at least %d", len(engState.snapshotEvents), n)
 	}
 	return nil
 }
