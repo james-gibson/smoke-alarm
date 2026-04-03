@@ -1260,7 +1260,7 @@ func cmdOpsStatus(args []string) error {
 		fmt.Printf("health:  unreachable (%v)\n", err)
 		return nil
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	fmt.Printf("health:  %s (%d)\n", *healthURL, resp.StatusCode)
 	return nil
 }
@@ -1856,7 +1856,7 @@ func cmdTuner(args []string) error {
 		if err != nil {
 			return fmt.Errorf("post audience: %w", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		fmt.Printf("audience push: %s\n", resp.Status)
 		return nil
 	default:
@@ -1896,16 +1896,16 @@ func cmdTUI(args []string) error {
 			resp, err := client.Get(fmt.Sprintf("http://%s/status", *addr))
 			if err != nil {
 				if *jsonOutput {
-					fmt.Fprintf(os.Stdout, `{"level":"error","msg":"failed to fetch status","error":"%v"}%s`, err, "\n")
+					_, _ = fmt.Fprintf(os.Stdout, `{"level":"error","msg":"failed to fetch status","error":"%v"}%s`, err, "\n")
 				}
 				continue
 			}
 			var statusResp health.StatusResponse
 			if err := json.NewDecoder(resp.Body).Decode(&statusResp); err != nil {
-				resp.Body.Close()
+				_ = resp.Body.Close()
 				continue
 			}
-			resp.Body.Close()
+			_ = resp.Body.Close()
 
 			statuses = statusResp.Targets
 			components = statusResp.Components
@@ -1941,7 +1941,7 @@ func getChar() chan bool {
 	ch := make(chan bool)
 	go func() {
 		buf := make([]byte, 1)
-		os.Stdin.Read(buf)
+		_, _ = os.Stdin.Read(buf)
 		ch <- true
 	}()
 	return ch

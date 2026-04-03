@@ -177,7 +177,7 @@ func theHealthServerIsStarted() error {
 		return fmt.Errorf("find free port: %w", err)
 	}
 	addr := ln.Addr().String()
-	ln.Close()
+	_ = ln.Close()
 
 	const svcName = "ocd-smoke-alarm"
 	srv := health.NewServer(health.Options{
@@ -690,7 +690,7 @@ func doPost(path, contentType string, body io.Reader) error {
 		return fmt.Errorf("POST %s: %w", url, err)
 	}
 	respBody, err := io.ReadAll(resp.Body)
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	if err != nil {
 		return fmt.Errorf("read response body: %w", err)
 	}
@@ -707,7 +707,7 @@ func theConfiguredListenAddressHasAFreePort() error {
 		return fmt.Errorf("find free port: %w", err)
 	}
 	addr := ln.Addr().String()
-	ln.Close()
+	_ = ln.Close()
 
 	hsState.configuredAddr = addr
 	hsState.bwrSrv = health.NewServer(health.Options{
@@ -740,7 +740,7 @@ func bindWithRetryIsCalledWithRetries(n int) error {
 			return fmt.Errorf("find free port: %w", err)
 		}
 		addr := ln.Addr().String()
-		ln.Close()
+		_ = ln.Close()
 		hsState.configuredAddr = addr
 		hsState.bwrSrv = health.NewServer(health.Options{
 			ServiceName: "test-bwr",
