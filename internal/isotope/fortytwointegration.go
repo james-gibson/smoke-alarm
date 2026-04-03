@@ -30,14 +30,11 @@ type RungThreshold struct {
 }
 
 // DefaultRungThresholds are the canonical rung boundaries from capability-lattice.
+// The core 42i model uses 2 rungs: rung 0 (perfect trust, distance=0) and rung 1 (within tolerance, distance ≤ 20).
+// Distance > 20 triggers demotion to rung 0 (fallback/boundary-crossed state).
 var DefaultRungThresholds = []RungThreshold{
 	{Rung: 0, Name: "Absolute Zero", MaxDistance: 0, Description: "Load without crashing"},
 	{Rung: 1, Name: "Read-Only", MaxDistance: 20, Description: "Entropy & isotope variation pass"},
-	{Rung: 2, Name: "Harness Tools", MaxDistance: 60, Description: "Known tool scope, input correlation"},
-	{Rung: 3, Name: "Mock Secrets", MaxDistance: 100, Description: "Safe isotope handling, declared behavior"},
-	{Rung: 4, Name: "Higher Authority", MaxDistance: 140, Description: "Independent decisions, timing uncorrelated"},
-	{Rung: 5, Name: "Delegation", MaxDistance: 180, Description: "Can delegate to peers"},
-	{Rung: 6, Name: "Certification", MaxDistance: 220, Description: "Can certify others"},
 }
 
 // Position represents an agent's position in 42i space.
@@ -189,18 +186,17 @@ func (as *AgentState) recalculatePosition() {
 }
 
 // determineRung returns the agent's current rung based on 42i_distance.
-// Agents start at rung 6 (fully trusted) and demote as distance increases.
-// An agent is demoted when distance exceeds a rung's MaxDistance.
+// Agents start at rung 0 and the rung increases as distance stays within bounds.
+// Returns the first (lowest) rung where distance <= max_distance.
 func (as *AgentState) determineRung(distance int) int {
-	// Agent climbs rungs as distance stays low enough
-	// Rung 0: distance 0, Rung 1: distance <= 20, Rung 2: distance <= 60, etc.
-	// Return the LAST (highest) rung where distance <= max_distance
-	for i := len(DefaultRungThresholds) - 1; i >= 0; i-- {
+	// Iterate low-to-high: return the first rung where distance <= max_distance
+	for i := 0; i < len(DefaultRungThresholds); i++ {
 		if distance <= DefaultRungThresholds[i].MaxDistance {
 			return DefaultRungThresholds[i].Rung
 		}
 	}
-	return 0 // Should not reach here
+	// If distance exceeds all thresholds, return the lowest rung (demotion)
+	return 0
 }
 
 // inferDirection determines the qualitative direction based on failed test pattern.
@@ -372,14 +368,14 @@ func (as *AgentState) CheckRungBoundary() RungBoundaryAlert {
 			"DEMOTED: 42i_distance=%d exceeds rung %d threshold of %d (moved to rung %d)",
 			as.TotalDistance, currentRung, threshold, nextRung,
 		)
-	case distanceToThreshold < 20:
+	case distanceToThreshold < 20 && as.TotalDistance > 0:
 		status = "critical"
 		nextRung = currentRung
 		message = fmt.Sprintf(
 			"CRITICAL: 42i_distance=%d approaching rung %d threshold of %d (only %d units remaining)",
 			as.TotalDistance, currentRung, threshold, distanceToThreshold,
 		)
-	case distanceToThreshold < 40:
+	case distanceToThreshold < 40 && as.TotalDistance > 0:
 		status = "warning"
 		nextRung = currentRung
 		message = fmt.Sprintf(
