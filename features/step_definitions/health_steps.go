@@ -31,11 +31,11 @@ var hsState struct {
 
 	// BindWithRetry test state
 	bwrSrv         *health.Server
-	bwrCancel       context.CancelFunc
-	configuredAddr  string
-	boundAddr       string
-	occupier        net.Listener
-	advertiserAddr  string
+	bwrCancel      context.CancelFunc
+	configuredAddr string
+	boundAddr      string
+	occupier       net.Listener
+	advertiserAddr string
 
 	// addrRemap maps configured listen addresses to actual bound addresses.
 	// Used by aGETRequestSentTo to transparently redirect hardcoded URLs when

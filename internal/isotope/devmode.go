@@ -41,10 +41,10 @@ func (dms *DevModeSimulator) SimulateTest(testIsotope Isotope, passed bool) (Con
 
 		// Record in ledger
 		dms.Ledger.RecordResult(TestResult{
-			Isotope:    testIsotope,
-			Result:     passed,
-			Timestamp:  now.Add(time.Duration(i*10) * time.Millisecond),
-			AlarmID:    AlarmID(fmt.Sprintf("alarm-%d", i)),
+			Isotope:     testIsotope,
+			Result:      passed,
+			Timestamp:   now.Add(time.Duration(i*10) * time.Millisecond),
+			AlarmID:     AlarmID(fmt.Sprintf("alarm-%d", i)),
 			FailureType: "",
 		})
 
@@ -67,11 +67,11 @@ func (dms *DevModeSimulator) SimulateTest(testIsotope Isotope, passed bool) (Con
 	status := VerifyIsotopeAgreement(dms.Results, quorumSize)
 
 	return ConsensusResult{
-		TestIsotope:     testIsotope,
-		AlarmCount:      dms.AlarmCount,
-		AgreedCount:     status.AgreedCount,
-		ConsensusFormed: status.ConsensusFormed,
-		Outliers:        status.Outliers,
+		TestIsotope:       testIsotope,
+		AlarmCount:        dms.AlarmCount,
+		AgreedCount:       status.AgreedCount,
+		ConsensusFormed:   status.ConsensusFormed,
+		Outliers:          status.Outliers,
 		ByzantineCapacity: status.ByzantineCount,
 	}, nil
 }

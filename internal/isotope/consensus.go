@@ -20,7 +20,7 @@ type ConsensusReport struct {
 
 // IsotopeAgreement verifies that all alarms report the same isotope.
 type IsotopeAgreement struct {
-	IsotopeFamily string
+	IsotopeFamily  string
 	IsotopeVersion int
 	RequiredQuorum int // Minimum alarms needed for consensus
 	Reports        []ConsensusReport
@@ -28,12 +28,12 @@ type IsotopeAgreement struct {
 
 // QuorumStatus represents the result of consensus evaluation.
 type QuorumStatus struct {
-	AgreedIsotopes []Isotope // Isotopes that formed consensus
-	AgreedCount    int        // Number of alarms in agreement
-	DisagreedCount int        // Number of alarms that disagreed
-	Outliers       []AlarmID  // Alarms that disagreed
+	AgreedIsotopes  []Isotope // Isotopes that formed consensus
+	AgreedCount     int       // Number of alarms in agreement
+	DisagreedCount  int       // Number of alarms that disagreed
+	Outliers        []AlarmID // Alarms that disagreed
 	ConsensusFormed bool      // true if QuorumSize met
-	ByzantineCount int        // Number of failures tolerated (F = (N-1)/3)
+	ByzantineCount  int       // Number of failures tolerated (F = (N-1)/3)
 }
 
 // VerifyIsotopeAgreement checks if enough alarms agree on the same isotope.
@@ -85,12 +85,12 @@ func VerifyIsotopeAgreement(reports []ConsensusReport, requiredQuorum int) Quoru
 	byzantineCount := (len(reports) - 1) / 3
 
 	return QuorumStatus{
-		AgreedIsotopes: []Isotope{maxIsotope},
-		AgreedCount:    len(maxGroup),
-		DisagreedCount: len(outliers),
-		Outliers:       outliers,
+		AgreedIsotopes:  []Isotope{maxIsotope},
+		AgreedCount:     len(maxGroup),
+		DisagreedCount:  len(outliers),
+		Outliers:        outliers,
 		ConsensusFormed: consensusFormed,
-		ByzantineCount: byzantineCount,
+		ByzantineCount:  byzantineCount,
 	}
 }
 
@@ -134,7 +134,7 @@ func TimestampOrdering(reports []ConsensusReport) error {
 // IsotopeChainVerification verifies the isotope chain (primary → secondary → verification).
 // Used when Fire-Marshals delegate to each other.
 type IsotopeChainLink struct {
-	Role      string  // "requester", "secondary", "verifier"
+	Role      string // "requester", "secondary", "verifier"
 	Isotope   Isotope
 	Timestamp time.Time
 }
@@ -228,7 +228,7 @@ func DetectCompromisedAlarm(reports []ConsensusReport, requiredQuorum int) *Alar
 		return &status.Outliers[0]
 	}
 
-	if len(status.Outliers) > 1 && len(status.Outliers) <= (len(reports) / 3) {
+	if len(status.Outliers) > 1 && len(status.Outliers) <= (len(reports)/3) {
 		// Multiple outliers but within Byzantine tolerance (F = N/3)
 		// This is recoverable; consensus still valid
 		return nil

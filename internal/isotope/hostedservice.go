@@ -8,23 +8,23 @@ import (
 // HostedService represents a service under test that runs inside the simulator.
 // The cluster's alarms will test this service and report consensus on its health.
 type HostedService struct {
-	ServiceID       string
-	State           *AgentState // The service's own 42i state
-	Tests           map[string]*ServiceTest
-	TestHistory     []ServiceTestRun
-	StartTime       time.Time
-	LastTestTime    time.Time
+	ServiceID        string
+	State            *AgentState // The service's own 42i state
+	Tests            map[string]*ServiceTest
+	TestHistory      []ServiceTestRun
+	StartTime        time.Time
+	LastTestTime     time.Time
 	ConsecutiveFails int
 }
 
 // ServiceTest defines one test that alarms will run against the service.
 type ServiceTest struct {
-	IsotopeFamily   string
-	Description     string
-	SLALatencyMs    int // SLA: max latency
-	SLAErrorRate    float64 // SLA: max error rate (0.0-1.0)
-	DeclaredBehavior string // What the service claims to do
-	TestFunc        func() bool // The actual test (true=pass, false=fail)
+	IsotopeFamily    string
+	Description      string
+	SLALatencyMs     int         // SLA: max latency
+	SLAErrorRate     float64     // SLA: max error rate (0.0-1.0)
+	DeclaredBehavior string      // What the service claims to do
+	TestFunc         func() bool // The actual test (true=pass, false=fail)
 }
 
 // ServiceTestRun records the result of running a test.
@@ -228,8 +228,8 @@ type ServiceCluster struct {
 func NewServiceCluster(alarmCount int, signingKey []byte) *ServiceCluster {
 	return &ServiceCluster{
 		DevModeSimulator: NewDevModeSimulator(alarmCount),
-		HostedServices:  make(map[string]*HostedService),
-		SigningKey:      signingKey,
+		HostedServices:   make(map[string]*HostedService),
+		SigningKey:       signingKey,
 	}
 }
 
@@ -253,9 +253,9 @@ func (sc *ServiceCluster) TestService(serviceID string) (ServiceTestingResult, e
 	for alarmIdx := range sc.Alarms {
 		alarmID := fmt.Sprintf("alarm-%d", alarmIdx)
 		alarmResult := AlarmTestResult{
-			AlarmID:    AlarmID(alarmID),
-			ServiceID:  serviceID,
-			Timestamp:  now,
+			AlarmID:     AlarmID(alarmID),
+			ServiceID:   serviceID,
+			Timestamp:   now,
 			TestResults: []IndividualTestResult{},
 		}
 
@@ -264,11 +264,11 @@ func (sc *ServiceCluster) TestService(serviceID string) (ServiceTestingResult, e
 			passed, latencyMs, errReason := service.RunTest(testFamily)
 
 			testResult := IndividualTestResult{
-				TestFamily: testFamily,
-				Passed:     passed,
-				LatencyMs:  latencyMs,
+				TestFamily:   testFamily,
+				Passed:       passed,
+				LatencyMs:    latencyMs,
 				SLALatencyMs: test.SLALatencyMs,
-				ErrorReason: errReason,
+				ErrorReason:  errReason,
 			}
 
 			alarmResult.TestResults = append(alarmResult.TestResults, testResult)
@@ -304,11 +304,11 @@ func (sc *ServiceCluster) TestService(serviceID string) (ServiceTestingResult, e
 	service.LastTestTime = now
 
 	return ServiceTestingResult{
-		ServiceID:      serviceID,
-		Timestamp:      now,
-		AlarmResults:   alarmResults,
-		Consensus:      consensus,
-		ServiceHealth:  service.GetHealthSummary(),
+		ServiceID:     serviceID,
+		Timestamp:     now,
+		AlarmResults:  alarmResults,
+		Consensus:     consensus,
+		ServiceHealth: service.GetHealthSummary(),
 	}, nil
 }
 
@@ -365,10 +365,10 @@ func (sc *ServiceCluster) analyzeServiceConsensus(alarmResults []AlarmTestResult
 
 // ServiceTestingResult summarizes testing a service.
 type ServiceTestingResult struct {
-	ServiceID    string
-	Timestamp    time.Time
-	AlarmResults []AlarmTestResult
-	Consensus    ServiceConsensus
+	ServiceID     string
+	Timestamp     time.Time
+	AlarmResults  []AlarmTestResult
+	Consensus     ServiceConsensus
 	ServiceHealth ServiceHealthSummary
 }
 
@@ -383,11 +383,11 @@ type AlarmTestResult struct {
 
 // IndividualTestResult is a single test run by an alarm.
 type IndividualTestResult struct {
-	TestFamily      string
-	Passed          bool
-	LatencyMs       int
-	SLALatencyMs    int
-	ErrorReason     string
+	TestFamily   string
+	Passed       bool
+	LatencyMs    int
+	SLALatencyMs int
+	ErrorReason  string
 }
 
 // ServiceConsensus reports if alarms agree on service health.
@@ -423,29 +423,29 @@ type ChaosProfile struct {
 
 // ChaosSnapshot captures service and consensus state at one test cycle.
 type ChaosSnapshot struct {
-	Cycle              int
-	ServiceDistance    int
-	ServiceRung        int
-	ConsensusFormed    bool
-	HealthyAlarmCount  int
-	FailedAlarmCount   int
-	AverageLatencyMs   int
-	SuccessRate        float64
+	Cycle             int
+	ServiceDistance   int
+	ServiceRung       int
+	ConsensusFormed   bool
+	HealthyAlarmCount int
+	FailedAlarmCount  int
+	AverageLatencyMs  int
+	SuccessRate       float64
 }
 
 // ChaosTestResult summarizes a chaos test run.
 type ChaosTestResult struct {
-	ServiceID          string
-	Profile            ChaosProfile
-	Timeline           []ChaosSnapshot
-	DetectionCycle     int // when consensus first failed
-	EvictionCycle      int // when service would be evicted (rung threshold exceeded)
-	FinalDistance      int
-	FinalRung          int
-	TotalCycles        int
-	RecoverySucceeded  bool
-	TimeToDetection    int // cycles from start to detection
-	TimeToEviction     int // cycles from start to eviction threshold
+	ServiceID         string
+	Profile           ChaosProfile
+	Timeline          []ChaosSnapshot
+	DetectionCycle    int // when consensus first failed
+	EvictionCycle     int // when service would be evicted (rung threshold exceeded)
+	FinalDistance     int
+	FinalRung         int
+	TotalCycles       int
+	RecoverySucceeded bool
+	TimeToDetection   int // cycles from start to detection
+	TimeToEviction    int // cycles from start to eviction threshold
 }
 
 // String returns human-readable chaos test result.

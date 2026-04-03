@@ -102,8 +102,8 @@ func TestRecordTestPass(t *testing.T) {
 	agent := NewAgentState("test-agent")
 
 	// Record failures
-	agent.RecordTestFailure("entropy-check")        // +16
-	agent.RecordTestFailure("input-correlation")    // +12
+	agent.RecordTestFailure("entropy-check")     // +16
+	agent.RecordTestFailure("input-correlation") // +12
 	// Total: 28
 
 	if agent.TotalDistance != 28 {
@@ -256,10 +256,10 @@ func TestMultipleTestFailures(t *testing.T) {
 
 	// Record multiple different test failures
 	tests := []string{
-		"entropy-check",           // 16
-		"input-correlation",       // 12
+		"entropy-check",             // 16
+		"input-correlation",         // 12
 		"constant-output-detection", // 20
-		"agreement-pattern",       // 32
+		"agreement-pattern",         // 32
 	}
 
 	expectedDistance := 0

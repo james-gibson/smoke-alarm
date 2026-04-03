@@ -122,48 +122,48 @@ func InitializeTunerIntegrationSteps(ctx *godog.ScenarioContext) {
 
 // ── stub implementations ───────────────────────────────────────────────────
 
-func aSmokeAlarmConfiguredWithTunerEnabled() error                          { return godog.ErrPending }
-func aConfigWithTunerEnabled() error                                        { return godog.ErrPending }
-func tunerAdvertiseIsTrue() error                                           { return godog.ErrPending }
-func tunerServiceTypeIs(serviceType string) error                           { return godog.ErrPending }
-func theConfigValidatesSuccessfully() error                                 { return godog.ErrPending }
-func tunerIntegrationIsActive() error                                       { return godog.ErrPending }
-func tunerAdvertiseIsTrueFlag() error                                       { return godog.ErrPending }
-func smokeAlarmStartsInServeMode() error                                    { return godog.ErrPending }
-func itAdvertisesSmokeAlarmTCP() error                                      { return godog.ErrPending }
-func txtRecordsIncludeVersionAndProtocol() error                            { return godog.ErrPending }
-func tunerAdvertiseIsFalse() error                                          { return godog.ErrPending }
-func noMDNSServiceIsAdvertised() error                                      { return godog.ErrPending }
-func aTunerPostsAudienceData(path string, table *godog.Table) error         { return godog.ErrPending }
-func theResponseStatusIs(code int) error                                    { return godog.ErrPending }
-func theAudienceMetricIsStored() error                                      { return godog.ErrPending }
-func audienceMetricsHaveBeenPosted() error                                  { return godog.ErrPending }
-func aClientRequestsGET(path string) error                                  { return godog.ErrPending }
-func theResponseContainsMetricsForBothChannels() error                      { return godog.ErrPending }
-func aSSESubscriberOn(path string) error                                    { return godog.ErrPending }
-func aViewerPostsMessageTo(path string) error                               { return godog.ErrPending }
-func theSubscriberReceivesMessageViaSSE() error                             { return godog.ErrPending }
-func theMessageIncludesChannelFromTimestamp() error                         { return godog.ErrPending }
-func noSSESubscribersExistForDNS() error                                    { return godog.ErrPending }
-func theResponseShowsZeroSubscribers() error                                { return godog.ErrPending }
-func aClientSendsToolsListViaMCP() error                                    { return godog.ErrPending }
-func theResponseIncludes(tool string) error                                 { return godog.ErrPending }
-func aConfigWithTunerIntegrationEnabled() error                             { return godog.ErrPending }
-func runningOcdSmokeAlarmTunerStatus() error                                { return godog.ErrPending }
-func itDisplaysTunerIntegrationStatus() error                               { return godog.ErrPending }
-func showsAudienceAndCallerHookSettings() error                             { return godog.ErrPending }
-func theHostedServerIsAcceptingAudienceMetrics() error                      { return godog.ErrPending }
-func runningTunerAudiencePush() error                                       { return godog.ErrPending }
-func theAudienceMetricIsPushed() error                                      { return godog.ErrPending }
-func audienceOrCallerInteractionsOccur() error                              { return godog.ErrPending }
-func theyAppearInGET(path string) error                                     { return godog.ErrPending }
-func eachEventHasProtocol(protocol string) error                            { return godog.ErrPending }
+func aSmokeAlarmConfiguredWithTunerEnabled() error                  { return godog.ErrPending }
+func aConfigWithTunerEnabled() error                                { return godog.ErrPending }
+func tunerAdvertiseIsTrue() error                                   { return godog.ErrPending }
+func tunerServiceTypeIs(serviceType string) error                   { return godog.ErrPending }
+func theConfigValidatesSuccessfully() error                         { return godog.ErrPending }
+func tunerIntegrationIsActive() error                               { return godog.ErrPending }
+func tunerAdvertiseIsTrueFlag() error                               { return godog.ErrPending }
+func smokeAlarmStartsInServeMode() error                            { return godog.ErrPending }
+func itAdvertisesSmokeAlarmTCP() error                              { return godog.ErrPending }
+func txtRecordsIncludeVersionAndProtocol() error                    { return godog.ErrPending }
+func tunerAdvertiseIsFalse() error                                  { return godog.ErrPending }
+func noMDNSServiceIsAdvertised() error                              { return godog.ErrPending }
+func aTunerPostsAudienceData(path string, table *godog.Table) error { return godog.ErrPending }
+func theResponseStatusIs(code int) error                            { return godog.ErrPending }
+func theAudienceMetricIsStored() error                              { return godog.ErrPending }
+func audienceMetricsHaveBeenPosted() error                          { return godog.ErrPending }
+func aClientRequestsGET(path string) error                          { return godog.ErrPending }
+func theResponseContainsMetricsForBothChannels() error              { return godog.ErrPending }
+func aSSESubscriberOn(path string) error                            { return godog.ErrPending }
+func aViewerPostsMessageTo(path string) error                       { return godog.ErrPending }
+func theSubscriberReceivesMessageViaSSE() error                     { return godog.ErrPending }
+func theMessageIncludesChannelFromTimestamp() error                 { return godog.ErrPending }
+func noSSESubscribersExistForDNS() error                            { return godog.ErrPending }
+func theResponseShowsZeroSubscribers() error                        { return godog.ErrPending }
+func aClientSendsToolsListViaMCP() error                            { return godog.ErrPending }
+func theResponseIncludes(tool string) error                         { return godog.ErrPending }
+func aConfigWithTunerIntegrationEnabled() error                     { return godog.ErrPending }
+func runningOcdSmokeAlarmTunerStatus() error                        { return godog.ErrPending }
+func itDisplaysTunerIntegrationStatus() error                       { return godog.ErrPending }
+func showsAudienceAndCallerHookSettings() error                     { return godog.ErrPending }
+func theHostedServerIsAcceptingAudienceMetrics() error              { return godog.ErrPending }
+func runningTunerAudiencePush() error                               { return godog.ErrPending }
+func theAudienceMetricIsPushed() error                              { return godog.ErrPending }
+func audienceOrCallerInteractionsOccur() error                      { return godog.ErrPending }
+func theyAppearInGET(path string) error                             { return godog.ErrPending }
+func eachEventHasProtocol(protocol string) error                    { return godog.ErrPending }
 
-func aClientRequestsGETTunerAudience() error                                { return godog.ErrPending }
-func aSSESubscriberOnTunerCallerNtpSse() error                              { return godog.ErrPending }
-func aTunerPostsAudienceDataUnquoted() error                                { return godog.ErrPending }
-func aViewerPostsMessageToTunerCallerDns() error                            { return godog.ErrPending }
-func aViewerPostsMessageToTunerCallerNtp() error                            { return godog.ErrPending }
-func theResponseIncludesTunerListChannels() error                           { return godog.ErrPending }
-func theResponseIncludesTunerAudience() error                               { return godog.ErrPending }
-func theResponseIncludesTunerCallerMessages() error                         { return godog.ErrPending }
+func aClientRequestsGETTunerAudience() error        { return godog.ErrPending }
+func aSSESubscriberOnTunerCallerNtpSse() error      { return godog.ErrPending }
+func aTunerPostsAudienceDataUnquoted() error        { return godog.ErrPending }
+func aViewerPostsMessageToTunerCallerDns() error    { return godog.ErrPending }
+func aViewerPostsMessageToTunerCallerNtp() error    { return godog.ErrPending }
+func theResponseIncludesTunerListChannels() error   { return godog.ErrPending }
+func theResponseIncludesTunerAudience() error       { return godog.ErrPending }
+func theResponseIncludesTunerCallerMessages() error { return godog.ErrPending }

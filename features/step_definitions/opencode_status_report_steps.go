@@ -43,14 +43,14 @@ func InitializeOpencodeStatusReportSteps(ctx *godog.ScenarioContext) {
 
 // ── stub implementations ───────────────────────────────────────────────────
 
-func fileExistsInProjectRoot(path string) error                           { return godog.ErrPending }
-func fileDoesNotExistInProjectRoot(path string) error                     { return godog.ErrPending }
-func sampleConfigFilesExistUnder(dir string) error                        { return godog.ErrPending }
-func theReportIncludesStatusOf(path string) error                         { return godog.ErrPending }
-func theReportListsEachSkillFoundUnder(dir string) error                  { return godog.ErrPending }
-func eachSkillEntryIncludesValidationStatus() error                       { return godog.ErrPending }
-func theReportIncludesAtLeastOneSampleConfig() error                      { return godog.ErrPending }
-func theReportShowsAsValid(path string) error                             { return godog.ErrPending }
-func theReportContains(text string) error                                 { return godog.ErrPending }
-func theReportShowsAsMissing(path string) error                           { return godog.ErrPending }
-func theValidationSummaryFailedCountIsAtLeast(n int) error                { return godog.ErrPending }
+func fileExistsInProjectRoot(path string) error            { return godog.ErrPending }
+func fileDoesNotExistInProjectRoot(path string) error      { return godog.ErrPending }
+func sampleConfigFilesExistUnder(dir string) error         { return godog.ErrPending }
+func theReportIncludesStatusOf(path string) error          { return godog.ErrPending }
+func theReportListsEachSkillFoundUnder(dir string) error   { return godog.ErrPending }
+func eachSkillEntryIncludesValidationStatus() error        { return godog.ErrPending }
+func theReportIncludesAtLeastOneSampleConfig() error       { return godog.ErrPending }
+func theReportShowsAsValid(path string) error              { return godog.ErrPending }
+func theReportContains(text string) error                  { return godog.ErrPending }
+func theReportShowsAsMissing(path string) error            { return godog.ErrPending }
+func theValidationSummaryFailedCountIsAtLeast(n int) error { return godog.ErrPending }

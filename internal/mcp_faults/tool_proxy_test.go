@@ -1,8 +1,8 @@
 package mcp_faults
 
 import (
-	"testing"
 	"strings"
+	"testing"
 )
 
 // TestToolProxyPrefixGeneration verifies that each proxy gets a unique prefix.
@@ -123,16 +123,16 @@ func TestMultipleInvalidCalls(t *testing.T) {
 	proxy := NewToolProxy("call-tool", true)
 
 	calls := []struct {
-		Name        string
-		Desc        string
-		HasCorrect  bool
+		Name            string
+		Desc            string
+		HasCorrect      bool
 		ExpectSuspicion string
 	}{
-		{proxy.PrefixedToolName(), "legitimate", true, ""},                     // Correct prefix
-		{"call-tool", "direct-1", false, "direct-call-to-tool-bypasses-proxy"}, // Direct (suspicious)
-		{"call-tool", "direct-2", false, "direct-call-to-tool-bypasses-proxy"}, // Direct
-		{"wrong_prefix_call-tool", "fuzz-1", false, "fuzzed-or-wrong-prefix"},  // Fuzz (suspicious)
-		{"attacker_xyz_call-tool", "fuzz-2", false, "fuzzed-or-wrong-prefix"},  // Fuzz
+		{proxy.PrefixedToolName(), "legitimate", true, ""},                                      // Correct prefix
+		{"call-tool", "direct-1", false, "direct-call-to-tool-bypasses-proxy"},                  // Direct (suspicious)
+		{"call-tool", "direct-2", false, "direct-call-to-tool-bypasses-proxy"},                  // Direct
+		{"wrong_prefix_call-tool", "fuzz-1", false, "fuzzed-or-wrong-prefix"},                   // Fuzz (suspicious)
+		{"attacker_xyz_call-tool", "fuzz-2", false, "fuzzed-or-wrong-prefix"},                   // Fuzz
 		{"x" + proxy.Prefix[1:] + "call-tool", "wrong-prefix", false, "fuzzed-or-wrong-prefix"}, // Wrong prefix
 	}
 
@@ -191,11 +191,11 @@ func TestToolProxyCluster(t *testing.T) {
 		Tool string
 		Call string
 	}{
-		{"list-tools", "list-tools"},           // Direct call
-		{"list-tools", "list-tools"},           // Direct call again
-		{"call-tool", "call-tool"},             // Direct call
-		{"call-tool", "attacker_call-tool"},    // Fuzzed
-		{"call-tool", "fuzz_abc_call-tool"},    // Fuzzed
+		{"list-tools", "list-tools"},            // Direct call
+		{"list-tools", "list-tools"},            // Direct call again
+		{"call-tool", "call-tool"},              // Direct call
+		{"call-tool", "attacker_call-tool"},     // Fuzzed
+		{"call-tool", "fuzz_abc_call-tool"},     // Fuzzed
 		{"get-resource", "random_get-resource"}, // Fuzzed
 	}
 
@@ -273,10 +273,10 @@ func TestProxyMetricsAsDistance(t *testing.T) {
 		},
 		"hybrid_attack": {
 			Calls: []string{
-				"tool-under-test",           // direct: +24
-				"fuzzer_tool-under-test",    // fuzz: +8
+				"tool-under-test",                // direct: +24
+				"fuzzer_tool-under-test",         // fuzz: +8
 				proxy.Prefix + "tool-under-test", // legitimate: +0
-				"wrong-prefix_tool",         // wrong prefix: +16
+				"wrong-prefix_tool",              // wrong prefix: +16
 			},
 			Cost: 24 + 8 + 0 + 16,
 		},
@@ -312,9 +312,9 @@ func TestClusterHoneypotAsAgentDistance(t *testing.T) {
 		Tool string
 		Call string
 	}{
-		{"list-tools", "list-tools"},           // Direct probe
+		{"list-tools", "list-tools"},          // Direct probe
 		{"list-tools", "attacker_list-tools"}, // Fuzzed probe
-		{"call-tool", "call-tool"},             // Direct probe
+		{"call-tool", "call-tool"},            // Direct probe
 		{"call-tool", "fuzz_abc_call-tool"},   // Fuzzed probe
 	}
 
@@ -393,9 +393,9 @@ func TestToolProxyInFuzzingContext(t *testing.T) {
 // TestMetricsString verifies human-readable output.
 func TestMetricsString(t *testing.T) {
 	proxy := NewToolProxy("test-tool", false)
-	proxy.ValidateCall("test-tool")           // Direct
-	proxy.ValidateCall("fuzz_test-tool")      // Fuzz
-	proxy.ValidateCall("wrong_prefix_test")   // Wrong prefix
+	proxy.ValidateCall("test-tool")         // Direct
+	proxy.ValidateCall("fuzz_test-tool")    // Fuzz
+	proxy.ValidateCall("wrong_prefix_test") // Wrong prefix
 
 	metrics := proxy.GetInvalidCallMetrics()
 	output := metrics.String()

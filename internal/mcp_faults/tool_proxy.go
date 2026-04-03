@@ -65,13 +65,13 @@ func NewToolProxy(toolName string, honeypotMode bool) *ToolProxy {
 	prefix := fmt.Sprintf("honeypot_%s_", prefixHex)
 
 	return &ToolProxy{
-		ProxyID:       fmt.Sprintf("proxy_%s_%d", toolName, time.Now().UnixNano()),
-		ToolName:      toolName,
-		Prefix:        prefix,
-		InvalidCalls:  []InvalidToolCall{},
-		HoneypotMode:  honeypotMode,
+		ProxyID:        fmt.Sprintf("proxy_%s_%d", toolName, time.Now().UnixNano()),
+		ToolName:       toolName,
+		Prefix:         prefix,
+		InvalidCalls:   []InvalidToolCall{},
+		HoneypotMode:   honeypotMode,
 		SuspicionLevel: 1,
-		CreatedAt:     time.Now(),
+		CreatedAt:      time.Now(),
 	}
 }
 
@@ -125,12 +125,12 @@ func (tp *ToolProxy) ValidateCall(callName string) (hasCorrectPrefix bool, suspi
 
 	// Record the suspicious call
 	suspiciousCall := InvalidToolCall{
-		CallName:           callName,
-		ExpectedPrefix:     tp.Prefix,
-		ActualPrefix:       extractPrefix(callName),
-		LikelyFuzzed:       likelyFuzzed,
-		Timestamp:          time.Now(),
-		Source:             sourceFromCall(callName, tp.ToolName),
+		CallName:       callName,
+		ExpectedPrefix: tp.Prefix,
+		ActualPrefix:   extractPrefix(callName),
+		LikelyFuzzed:   likelyFuzzed,
+		Timestamp:      time.Now(),
+		Source:         sourceFromCall(callName, tp.ToolName),
 	}
 
 	tp.InvalidCalls = append(tp.InvalidCalls, suspiciousCall)
@@ -293,7 +293,7 @@ func (tpc *ToolProxyCluster) GetClusterMetrics() ClusterHoneypotMetrics {
 	}
 
 	return ClusterHoneypotMetrics{
-		TotalTools:       len(tpc.Proxies),
+		TotalTools:        len(tpc.Proxies),
 		TotalInvalidCalls: totalInvalid,
 		TotalDistance42i:  totalDistance,
 		AttackDetected:    tpc.AttackDetected,

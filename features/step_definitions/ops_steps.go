@@ -107,101 +107,101 @@ func InitializeOpsScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(`^the managed update completes$`, theManagedUpdateCompletes)
 }
 
-func aValidatedConfigLoadedFrom(path string) error                { return godog.ErrPending }
-func newRuntimeIsCalled() error                                   { return godog.ErrPending }
-func runtimeIsInitialized() error                                 { return godog.ErrPending }
-func aConfigWithLogLevel(level string) error                      { return godog.ErrPending }
-func runtimeLoggerUsesLogLevel() error                            { return godog.ErrPending }
-func aLockFilePathConfiguredAs(path string) error                 { return godog.ErrPending }
-func runIsCalled() error                                          { return godog.ErrPending }
-func lockFileCreatedBeforeEngine() error                          { return godog.ErrPending }
-func lockFileContainsPID() error                                  { return godog.ErrPending }
-func lockFileExistsWithActivePID(path string) error               { return godog.ErrPending }
-func theErrorMessageContains(msg string) error                    { return godog.ErrPending }
-func runtimeExitsWithoutEngine() error                            { return godog.ErrPending }
-func runtimeIsRunningAndHoldsLock() error                         { return godog.ErrPending }
-func theContextIsCancelled() error                                { return godog.ErrPending }
-func lockFileRemovedAfterShutdown() error                         { return godog.ErrPending }
-func aConfigWithServiceMode(mode string) error                    { return godog.ErrPending }
-func bubbleTeaDashboardIsStarted() error                          { return godog.ErrPending }
-func processBlocksUntilDashboardQuits() error                     { return godog.ErrPending }
-func noBubbleTeaDashboardStarted() error                          { return godog.ErrPending }
-func processBlocksUntilContextCancelled() error                   { return godog.ErrPending }
-func aValidConfigWithHealthEnabled() error                        { return godog.ErrPending }
-func bootstrapIsCalled() error                                    { return godog.ErrPending }
-func theEngineIsRunning() error                                   { return godog.ErrPending }
-func healthServerBoundToListenAddr() error                        { return godog.ErrPending }
-func notifierWiredToEngine() error                                { return godog.ErrPending }
-func discoveryRunningIfEnabled() error                            { return godog.ErrPending }
-func aConfigWithDiscoveryDisabled() error                         { return godog.ErrPending }
-func discoverySubsystemNotStarted() error                         { return godog.ErrPending }
-func theRuntimeIsRunning() error                                  { return godog.ErrPending }
-func nSecondsElapse(n int) error                                  { return godog.ErrPending }
-func healthServerSnapshotUpdatedTwice() error                     { return godog.ErrPending }
-func snapshotReflectsEngineTargetStates() error                   { return godog.ErrPending }
-func gracefulShutdownTimeoutSetTo(d string) error                 { return godog.ErrPending }
-func allSubsystemsStopWithinTimeout() error                       { return godog.ErrPending }
-func noGoroutineLeftRunning() error                               { return godog.ErrPending }
-func aPlanWithCommands(stop, start, verify string) error          { return godog.ErrPending }
-func newLifecycleControllerCalled() error                         { return godog.ErrPending }
-func controllerHoldsPlanConfig() error                            { return godog.ErrPending }
-func aLifecycleControllerWithValidCommands() error                { return godog.ErrPending }
-func executeIsCalled() error                                      { return godog.ErrPending }
-func journalRecordsStepEntry(step string) error                   { return godog.ErrPending }
-func thenAStepEntryFor(step string) error                         { return godog.ErrPending }
-func updateResultSuccessIsTrue() error                            { return godog.ErrPending }
-func requireLockIsTrue() error                                    { return godog.ErrPending }
-func lockHeldBeforeStopCommand() error                            { return godog.ErrPending }
-func lockReleasedAfterCommit() error                              { return godog.ErrPending }
-func requireLockIsFalse() error                                   { return godog.ErrPending }
-func noLockFileWritten() error                                    { return godog.ErrPending }
-func workflowProceedsToStop() error                               { return godog.ErrPending }
-func restartCommandSucceeds() error                               { return godog.ErrPending }
-func instanceBecomesHealthyAfterPolls(n int) error                { return godog.ErrPending }
-func executeReachesVerifyStep() error                             { return godog.ErrPending }
-func healthzPolledUntil200() error                                { return godog.ErrPending }
-func verifyCommandRunsAfterHealthy() error                        { return godog.ErrPending }
-func maxWaitForHealthyIs(d string) error                          { return godog.ErrPending }
-func instanceNeverBecomesHealthy() error                          { return godog.ErrPending }
-func executeRunsVerifyStep() error                                { return godog.ErrPending }
-func updateResultSuccessIsFalse() error                           { return godog.ErrPending }
-func failureReasonContains(msg string) error                      { return godog.ErrPending }
-func verifyCommandExitsNonZero() error                            { return godog.ErrPending }
-func rollbackOnFailureIsTrue() error                              { return godog.ErrPending }
-func executeRuns() error                                          { return godog.ErrPending }
-func journalContainsStepEntry(step string) error                  { return godog.ErrPending }
-func updateResultRolledBackIsTrue() error                         { return godog.ErrPending }
-func verifyCommandFails() error                                   { return godog.ErrPending }
-func rollbackOnFailureIsFalse() error                             { return godog.ErrPending }
-func noRollbackStepRecorded() error                               { return godog.ErrPending }
-func previousVersionWasRunning() error                            { return godog.ErrPending }
-func rollbackExecutes() error                                     { return godog.ErrPending }
-func stopCommandRunsToStopFailed() error                          { return godog.ErrPending }
-func startCommandRunsToRestore() error                            { return godog.ErrPending }
-func executeCompletes() error                                     { return godog.ErrPending }
-func eachJournalEntryHasStep() error                              { return godog.ErrPending }
-func eachJournalEntryHasOutcome(o1, o2 string) error              { return godog.ErrPending }
-func eachJournalEntryHasTimestamp() error                         { return godog.ErrPending }
-func eachJournalEntryHasDuration() error                          { return godog.ErrPending }
-func executeCompletesAlias() error                                { return godog.ErrPending }
-func journalFileExistsOnDisk() error                              { return godog.ErrPending }
-func lockStillHeldWhenJournalWritten() error                      { return godog.ErrPending }
-func runningInstanceReportsVersion(v string) error                { return godog.ErrPending }
-func updateDeploysVersion(v string) error                         { return godog.ErrPending }
-func executeCompletesSuccessfully() error                         { return godog.ErrPending }
-func updateResultPreviousVersionIsFirst() error                   { return godog.ErrPending }
-func updateResultNewVersionIsSecond() error                       { return godog.ErrPending }
-func aStopCommand(cmd string) error                               { return godog.ErrPending }
-func theStopPhaseRuns() error                                     { return godog.ErrPending }
-func commandExecutedByCommandRunner() error                       { return godog.ErrPending }
-func exitCodeCapturedInJournal() error                            { return godog.ErrPending }
-func aPlanWithEmptyStopCommand() error                            { return godog.ErrPending }
-func executeRunsStopPhase() error                                 { return godog.ErrPending }
-func noCommandIsExecuted() error                                  { return godog.ErrPending }
-func journalRecordsStopAs(outcome string) error                   { return godog.ErrPending }
-func aPlanWithEmptyVerifyCommand() error                          { return godog.ErrPending }
-func executeRunsVerifyPhase() error                               { return godog.ErrPending }
-func journalRecordsVerifyAs(outcome string) error                 { return godog.ErrPending }
-func healthPollingStillOccurs() error                             { return godog.ErrPending }
+func aValidatedConfigLoadedFrom(path string) error       { return godog.ErrPending }
+func newRuntimeIsCalled() error                          { return godog.ErrPending }
+func runtimeIsInitialized() error                        { return godog.ErrPending }
+func aConfigWithLogLevel(level string) error             { return godog.ErrPending }
+func runtimeLoggerUsesLogLevel() error                   { return godog.ErrPending }
+func aLockFilePathConfiguredAs(path string) error        { return godog.ErrPending }
+func runIsCalled() error                                 { return godog.ErrPending }
+func lockFileCreatedBeforeEngine() error                 { return godog.ErrPending }
+func lockFileContainsPID() error                         { return godog.ErrPending }
+func lockFileExistsWithActivePID(path string) error      { return godog.ErrPending }
+func theErrorMessageContains(msg string) error           { return godog.ErrPending }
+func runtimeExitsWithoutEngine() error                   { return godog.ErrPending }
+func runtimeIsRunningAndHoldsLock() error                { return godog.ErrPending }
+func theContextIsCancelled() error                       { return godog.ErrPending }
+func lockFileRemovedAfterShutdown() error                { return godog.ErrPending }
+func aConfigWithServiceMode(mode string) error           { return godog.ErrPending }
+func bubbleTeaDashboardIsStarted() error                 { return godog.ErrPending }
+func processBlocksUntilDashboardQuits() error            { return godog.ErrPending }
+func noBubbleTeaDashboardStarted() error                 { return godog.ErrPending }
+func processBlocksUntilContextCancelled() error          { return godog.ErrPending }
+func aValidConfigWithHealthEnabled() error               { return godog.ErrPending }
+func bootstrapIsCalled() error                           { return godog.ErrPending }
+func theEngineIsRunning() error                          { return godog.ErrPending }
+func healthServerBoundToListenAddr() error               { return godog.ErrPending }
+func notifierWiredToEngine() error                       { return godog.ErrPending }
+func discoveryRunningIfEnabled() error                   { return godog.ErrPending }
+func aConfigWithDiscoveryDisabled() error                { return godog.ErrPending }
+func discoverySubsystemNotStarted() error                { return godog.ErrPending }
+func theRuntimeIsRunning() error                         { return godog.ErrPending }
+func nSecondsElapse(n int) error                         { return godog.ErrPending }
+func healthServerSnapshotUpdatedTwice() error            { return godog.ErrPending }
+func snapshotReflectsEngineTargetStates() error          { return godog.ErrPending }
+func gracefulShutdownTimeoutSetTo(d string) error        { return godog.ErrPending }
+func allSubsystemsStopWithinTimeout() error              { return godog.ErrPending }
+func noGoroutineLeftRunning() error                      { return godog.ErrPending }
+func aPlanWithCommands(stop, start, verify string) error { return godog.ErrPending }
+func newLifecycleControllerCalled() error                { return godog.ErrPending }
+func controllerHoldsPlanConfig() error                   { return godog.ErrPending }
+func aLifecycleControllerWithValidCommands() error       { return godog.ErrPending }
+func executeIsCalled() error                             { return godog.ErrPending }
+func journalRecordsStepEntry(step string) error          { return godog.ErrPending }
+func thenAStepEntryFor(step string) error                { return godog.ErrPending }
+func updateResultSuccessIsTrue() error                   { return godog.ErrPending }
+func requireLockIsTrue() error                           { return godog.ErrPending }
+func lockHeldBeforeStopCommand() error                   { return godog.ErrPending }
+func lockReleasedAfterCommit() error                     { return godog.ErrPending }
+func requireLockIsFalse() error                          { return godog.ErrPending }
+func noLockFileWritten() error                           { return godog.ErrPending }
+func workflowProceedsToStop() error                      { return godog.ErrPending }
+func restartCommandSucceeds() error                      { return godog.ErrPending }
+func instanceBecomesHealthyAfterPolls(n int) error       { return godog.ErrPending }
+func executeReachesVerifyStep() error                    { return godog.ErrPending }
+func healthzPolledUntil200() error                       { return godog.ErrPending }
+func verifyCommandRunsAfterHealthy() error               { return godog.ErrPending }
+func maxWaitForHealthyIs(d string) error                 { return godog.ErrPending }
+func instanceNeverBecomesHealthy() error                 { return godog.ErrPending }
+func executeRunsVerifyStep() error                       { return godog.ErrPending }
+func updateResultSuccessIsFalse() error                  { return godog.ErrPending }
+func failureReasonContains(msg string) error             { return godog.ErrPending }
+func verifyCommandExitsNonZero() error                   { return godog.ErrPending }
+func rollbackOnFailureIsTrue() error                     { return godog.ErrPending }
+func executeRuns() error                                 { return godog.ErrPending }
+func journalContainsStepEntry(step string) error         { return godog.ErrPending }
+func updateResultRolledBackIsTrue() error                { return godog.ErrPending }
+func verifyCommandFails() error                          { return godog.ErrPending }
+func rollbackOnFailureIsFalse() error                    { return godog.ErrPending }
+func noRollbackStepRecorded() error                      { return godog.ErrPending }
+func previousVersionWasRunning() error                   { return godog.ErrPending }
+func rollbackExecutes() error                            { return godog.ErrPending }
+func stopCommandRunsToStopFailed() error                 { return godog.ErrPending }
+func startCommandRunsToRestore() error                   { return godog.ErrPending }
+func executeCompletes() error                            { return godog.ErrPending }
+func eachJournalEntryHasStep() error                     { return godog.ErrPending }
+func eachJournalEntryHasOutcome(o1, o2 string) error     { return godog.ErrPending }
+func eachJournalEntryHasTimestamp() error                { return godog.ErrPending }
+func eachJournalEntryHasDuration() error                 { return godog.ErrPending }
+func executeCompletesAlias() error                       { return godog.ErrPending }
+func journalFileExistsOnDisk() error                     { return godog.ErrPending }
+func lockStillHeldWhenJournalWritten() error             { return godog.ErrPending }
+func runningInstanceReportsVersion(v string) error       { return godog.ErrPending }
+func updateDeploysVersion(v string) error                { return godog.ErrPending }
+func executeCompletesSuccessfully() error                { return godog.ErrPending }
+func updateResultPreviousVersionIsFirst() error          { return godog.ErrPending }
+func updateResultNewVersionIsSecond() error              { return godog.ErrPending }
+func aStopCommand(cmd string) error                      { return godog.ErrPending }
+func theStopPhaseRuns() error                            { return godog.ErrPending }
+func commandExecutedByCommandRunner() error              { return godog.ErrPending }
+func exitCodeCapturedInJournal() error                   { return godog.ErrPending }
+func aPlanWithEmptyStopCommand() error                   { return godog.ErrPending }
+func executeRunsStopPhase() error                        { return godog.ErrPending }
+func noCommandIsExecuted() error                         { return godog.ErrPending }
+func journalRecordsStopAs(outcome string) error          { return godog.ErrPending }
+func aPlanWithEmptyVerifyCommand() error                 { return godog.ErrPending }
+func executeRunsVerifyPhase() error                      { return godog.ErrPending }
+func journalRecordsVerifyAs(outcome string) error        { return godog.ErrPending }
+func healthPollingStillOccurs() error                    { return godog.ErrPending }
 
-func theManagedUpdateCompletes() error                            { return godog.ErrPending }
+func theManagedUpdateCompletes() error { return godog.ErrPending }

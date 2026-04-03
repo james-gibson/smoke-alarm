@@ -8,33 +8,33 @@ import (
 
 // TestResult represents the outcome of running a test.
 type TestResult struct {
-	Isotope      Isotope
-	Result       bool      // true = PASS, false = FAIL
-	Reason       string    // failure reason or note
-	Timestamp    time.Time
-	AlarmID      AlarmID
-	FailureType  string // "timeout", "assertion", "error", etc.
-	ExecutionMs  int    // How long the test took
+	Isotope     Isotope
+	Result      bool   // true = PASS, false = FAIL
+	Reason      string // failure reason or note
+	Timestamp   time.Time
+	AlarmID     AlarmID
+	FailureType string // "timeout", "assertion", "error", etc.
+	ExecutionMs int    // How long the test took
 }
 
 // IsotopeHistory aggregates all results for a specific isotope.
 type IsotopeHistory struct {
-	Isotope      Isotope
-	Family       string    // Convenience copy
-	Version      int       // Convenience copy
-	Results      []TestResult
-	FirstSeen    time.Time
-	LastSeen     time.Time
-	PassCount    int
-	FailCount    int
-	Flakiness    float64 // 0.0 to 1.0
-	Stability    float64 // Pass rate
-	Trend        string  // "improving", "stable", "degrading", "unknown"
+	Isotope   Isotope
+	Family    string // Convenience copy
+	Version   int    // Convenience copy
+	Results   []TestResult
+	FirstSeen time.Time
+	LastSeen  time.Time
+	PassCount int
+	FailCount int
+	Flakiness float64 // 0.0 to 1.0
+	Stability float64 // Pass rate
+	Trend     string  // "improving", "stable", "degrading", "unknown"
 }
 
 // ResultLedger tracks test results keyed by isotope.
 type ResultLedger struct {
-	mu       sync.RWMutex
+	mu        sync.RWMutex
 	histories map[string]*IsotopeHistory // Key: isotope.Family + "-v" + version
 }
 
@@ -266,7 +266,7 @@ func (h *IsotopeHistory) recalculateMetrics() {
 		}
 
 		earlyStability := float64(earlyPass) / float64(mid)
-		lateStability := float64(latePass) / float64(len(h.Results) - mid)
+		lateStability := float64(latePass) / float64(len(h.Results)-mid)
 
 		if lateStability > earlyStability+0.1 {
 			h.Trend = "improving"

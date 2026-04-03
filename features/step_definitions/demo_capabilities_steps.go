@@ -43,13 +43,13 @@ func InitializeDemoCapabilitiesSteps(ctx *godog.ScenarioContext) {
 
 // ── stub implementations ───────────────────────────────────────────────────
 
-func eachSubdirIsScanned(dir string) error                                { return godog.ErrPending }
-func theOutputListsEachDiscoveredSkill() error                            { return godog.ErrPending }
-func theOutputContainsSkillInventoryTable() error                         { return godog.ErrPending }
-func eachRowIncludesValidationStatus() error                              { return godog.ErrPending }
-func aSKILLMdAtWithRequiredFields(path string) error                      { return godog.ErrPending }
-func theSkillAppearsAsValid(skill string) error                           { return godog.ErrPending }
-func aSKILLMdWithMismatchedName() error                                   { return godog.ErrPending }
-func thatSkillAppearsAsInvalid() error                                    { return godog.ErrPending }
-func theOutputIdentifiesValidationFailureReason() error                   { return godog.ErrPending }
-func theOutputIncludesPresenceStatusOf(path string) error                 { return godog.ErrPending }
+func eachSubdirIsScanned(dir string) error                { return godog.ErrPending }
+func theOutputListsEachDiscoveredSkill() error            { return godog.ErrPending }
+func theOutputContainsSkillInventoryTable() error         { return godog.ErrPending }
+func eachRowIncludesValidationStatus() error              { return godog.ErrPending }
+func aSKILLMdAtWithRequiredFields(path string) error      { return godog.ErrPending }
+func theSkillAppearsAsValid(skill string) error           { return godog.ErrPending }
+func aSKILLMdWithMismatchedName() error                   { return godog.ErrPending }
+func thatSkillAppearsAsInvalid() error                    { return godog.ErrPending }
+func theOutputIdentifiesValidationFailureReason() error   { return godog.ErrPending }
+func theOutputIncludesPresenceStatusOf(path string) error { return godog.ErrPending }

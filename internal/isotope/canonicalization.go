@@ -22,34 +22,34 @@ const (
 // keywordMap converts localized keywords to canonical English.
 var keywordMap = map[string]GherkinKeyword{
 	// English
-	"Given":                KeywordGiven,
-	"When":                 KeywordWhen,
-	"Then":                 KeywordThen,
-	"And":                  KeywordAnd,
-	"But":                  KeywordBut,
+	"Given": KeywordGiven,
+	"When":  KeywordWhen,
+	"Then":  KeywordThen,
+	"And":   KeywordAnd,
+	"But":   KeywordBut,
 	// Spanish
-	"Dado":                 KeywordGiven,
-	"Cuando":               KeywordWhen,
-	"Entonces":             KeywordThen,
-	"Y":                    KeywordAnd,
-	"Pero":                 KeywordBut,
+	"Dado":     KeywordGiven,
+	"Cuando":   KeywordWhen,
+	"Entonces": KeywordThen,
+	"Y":        KeywordAnd,
+	"Pero":     KeywordBut,
 	// French
-	"Étant donné":          KeywordGiven,
-	"Étant donnée":         KeywordGiven,
-	"Quand":                KeywordWhen,
-	"Alors":                KeywordThen,
-	"Et":                   KeywordAnd,
-	"Mais":                 KeywordBut,
+	"Étant donné":  KeywordGiven,
+	"Étant donnée": KeywordGiven,
+	"Quand":        KeywordWhen,
+	"Alors":        KeywordThen,
+	"Et":           KeywordAnd,
+	"Mais":         KeywordBut,
 	// German
-	"Gegeben sei":          KeywordGiven,
-	"Wenn":                 KeywordWhen,
-	"Dann":                 KeywordThen,
+	"Gegeben sei": KeywordGiven,
+	"Wenn":        KeywordWhen,
+	"Dann":        KeywordThen,
 	// Japanese
-	"与えられた":            KeywordGiven,
-	"もし":                  KeywordWhen,
-	"ならば":                KeywordThen,
-	"そして":                KeywordAnd,
-	"しかし":                KeywordBut,
+	"与えられた": KeywordGiven,
+	"もし":    KeywordWhen,
+	"ならば":   KeywordThen,
+	"そして":   KeywordAnd,
+	"しかし":   KeywordBut,
 }
 
 // Step represents a single Gherkin step.
@@ -169,13 +169,13 @@ func normalizeKeyword(kw string) GherkinKeyword {
 func normalizeStepText(text string) string {
 	// List of articles to remove across languages
 	articles := []string{
-		"the", "a", "an",                              // English
-		"un", "une", "des",                            // French
+		"the", "a", "an", // English
+		"un", "une", "des", // French
 		"el", "la", "los", "las", "un", "unos", "unas", // Spanish
-		"le", "la", "l'", "les",                       // French variants
-		"ein", "eine", "einen",                        // German
-		"der", "die", "das",                           // German
-		"の", "を", "に", "は",                           // Japanese particles (simplified)
+		"le", "la", "l'", "les", // French variants
+		"ein", "eine", "einen", // German
+		"der", "die", "das", // German
+		"の", "を", "に", "は", // Japanese particles (simplified)
 	}
 
 	text = strings.ToLower(text)
@@ -254,10 +254,10 @@ func TokensToString(tokens []CanonicalToken) string {
 
 // Isotope represents a cryptographically signed test identifier.
 type Isotope struct {
-	Family  string // e.g., "iso-login"
-	Version int    // v1, v2, v3 for semantic changes
+	Family    string // e.g., "iso-login"
+	Version   int    // v1, v2, v3 for semantic changes
 	Signature string // HMAC-SHA256 signature
-	Raw      string // The canonical token string that was signed
+	Raw       string // The canonical token string that was signed
 }
 
 // String returns the isotope in string form.

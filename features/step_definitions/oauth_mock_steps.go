@@ -24,11 +24,11 @@ import (
 )
 
 var oauthState struct {
-	server      *auth.MockRedirectServer
-	cancel      context.CancelFunc
-	serverAddr  string
-	serverPath  string
-	mockCfg     config.OAuthMockRedirectConfig
+	server     *auth.MockRedirectServer
+	cancel     context.CancelFunc
+	serverAddr string
+	serverPath string
+	mockCfg    config.OAuthMockRedirectConfig
 }
 
 func resetOAuthState() {
@@ -43,11 +43,11 @@ func resetOAuthState() {
 		oauthState.server = nil
 	}
 	oauthState = struct {
-		server      *auth.MockRedirectServer
-		cancel      context.CancelFunc
-		serverAddr  string
-		serverPath  string
-		mockCfg     config.OAuthMockRedirectConfig
+		server     *auth.MockRedirectServer
+		cancel     context.CancelFunc
+		serverAddr string
+		serverPath string
+		mockCfg    config.OAuthMockRedirectConfig
 	}{}
 }
 

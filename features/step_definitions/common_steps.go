@@ -213,10 +213,10 @@ func aClaudeCodeSessionIsActive() error {
 	return nil // satisfied by the fact that this test is running inside Claude Code
 }
 
-func theAgentInvokesTheSkill(skill string) error          { return godog.ErrPending }
-func theSkillIsRead(path string) error                    { return godog.ErrPending }
-func theAgentExecutesDocumentedStepsInOrder() error       { return godog.ErrPending }
-func theTargetIsEnabledInConfig(id, config string) error  { return godog.ErrPending }
+func theAgentInvokesTheSkill(skill string) error         { return godog.ErrPending }
+func theSkillIsRead(path string) error                   { return godog.ErrPending }
+func theAgentExecutesDocumentedStepsInOrder() error      { return godog.ErrPending }
+func theTargetIsEnabledInConfig(id, config string) error { return godog.ErrPending }
 
 // resolveConfigPath resolves a config path relative to the project root.
 func resolveConfigPath(path string) string {

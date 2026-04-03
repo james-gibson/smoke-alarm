@@ -197,9 +197,9 @@ type ProgressiveProfile struct {
 }
 
 type ProgressiveStage struct {
-	Name     string
-	Cycles   int
-	Profile  *FaultInjectionProfile
+	Name    string
+	Cycles  int
+	Profile *FaultInjectionProfile
 }
 
 // NewProgressiveProfile creates a multi-stage failure scenario.

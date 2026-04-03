@@ -25,9 +25,9 @@ func TestRegisterTest(t *testing.T) {
 	service := NewHostedService("test-service")
 
 	test := &ServiceTest{
-		Description:     "Check entropy",
-		SLALatencyMs:    100,
-		SLAErrorRate:    0.01,
+		Description:      "Check entropy",
+		SLALatencyMs:     100,
+		SLAErrorRate:     0.01,
 		DeclaredBehavior: "Output should be random",
 		TestFunc: func() bool {
 			return true
@@ -53,8 +53,8 @@ func TestRunTest(t *testing.T) {
 	service := NewHostedService("test-service")
 
 	service.RegisterTest("entropy-check", &ServiceTest{
-		SLALatencyMs:    100,
-		SLAErrorRate:    0.01,
+		SLALatencyMs:     100,
+		SLAErrorRate:     0.01,
 		DeclaredBehavior: "Random output",
 		TestFunc: func() bool {
 			time.Sleep(10 * time.Millisecond)
@@ -418,8 +418,8 @@ func TestChaosLatencyEscalation(t *testing.T) {
 
 	service := NewHostedService("chaotic-service")
 	service.RegisterTest("latency-test", &ServiceTest{
-		SLALatencyMs:    50, // Strict SLA to catch latency violations
-		SLAErrorRate:    0.01,
+		SLALatencyMs: 50, // Strict SLA to catch latency violations
+		SLAErrorRate: 0.01,
 		TestFunc: func() bool {
 			time.Sleep(10 * time.Millisecond)
 			return true
@@ -608,16 +608,16 @@ func TestChaosDetectionMetrics(t *testing.T) {
 
 func TestChaosTestResultString(t *testing.T) {
 	result := ChaosTestResult{
-		ServiceID:       "test-svc",
-		Profile:         LatencyEscalationProfile(),
-		DetectionCycle:  5,
-		EvictionCycle:   8,
-		FinalDistance:   120,
-		FinalRung:       4,
-		TotalCycles:     15,
+		ServiceID:         "test-svc",
+		Profile:           LatencyEscalationProfile(),
+		DetectionCycle:    5,
+		EvictionCycle:     8,
+		FinalDistance:     120,
+		FinalRung:         4,
+		TotalCycles:       15,
 		RecoverySucceeded: true,
-		TimeToDetection: 5,
-		TimeToEviction:  8,
+		TimeToDetection:   5,
+		TimeToEviction:    8,
 	}
 
 	s := result.String()

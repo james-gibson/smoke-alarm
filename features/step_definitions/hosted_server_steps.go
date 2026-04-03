@@ -299,7 +299,7 @@ func theHealthEndpointReturnsStatusCode(addr string, code int) error {
 	return nil
 }
 
-func theTargetHasHurlTestNamed2(id, name string) error      { return godog.ErrPending }
+func theTargetHasHurlTestNamed2(id, name string) error          { return godog.ErrPending }
 func theHURLTestIsExecutedBeforeMCPHandshake(name string) error { return godog.ErrPending }
 
 // ── strict handshake ─────────────────────────────────────────────────────────
@@ -339,6 +339,6 @@ func theHostedServerIsRunning() error {
 	return nil
 }
 
-func theyAppearInGetHostedEvents() error  { return godog.ErrPending }
-func aConfigWithKeySetToFalse(key string) error { return godog.ErrPending }
+func theyAppearInGetHostedEvents() error         { return godog.ErrPending }
+func aConfigWithKeySetToFalse(key string) error  { return godog.ErrPending }
 func theProbeForTargetCompletes(id string) error { return godog.ErrPending }

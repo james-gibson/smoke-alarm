@@ -69,24 +69,26 @@ func InitializeStdioMCPSteps(ctx *godog.ScenarioContext) {
 
 // ── stub implementations ───────────────────────────────────────────────────
 
-func theCommandIsAvailableOnPATH(cmd string) error                            { return godog.ErrPending }
+func theCommandIsAvailableOnPATH(cmd string) error { return godog.ErrPending }
+
 // theTargetIsEnabledInConfig — owned by common_steps.go
 // theProbeForTargetRuns — owned by engine_steps.go
 // theProbeForTargetCompletes — owned by hosted_server_steps.go
-func aChildProcessIsSpawnedWithCommand(cmd string) error                      { return godog.ErrPending }
-func theProcessReceivesMCPInitializeOverStdin() error                         { return godog.ErrPending }
-func theProcessRespondsWithMCPInitialize() error                              { return godog.ErrPending }
-func noOrphanChildProcessesRemain(id string) error                            { return godog.ErrPending }
+func aChildProcessIsSpawnedWithCommand(cmd string) error { return godog.ErrPending }
+func theProcessReceivesMCPInitializeOverStdin() error    { return godog.ErrPending }
+func theProcessRespondsWithMCPInitialize() error         { return godog.ErrPending }
+func noOrphanChildProcessesRemain(id string) error       { return godog.ErrPending }
+
 // theTargetIsClassifiedAs — owned by engine_steps.go
-func theTargetRespondsToAllRequiredMethods(id string) error                   { return godog.ErrPending }
-func theTargetDoesNotRespondToMethod(id, method string) error                 { return godog.ErrPending }
-func theProbeResultContains(substr string) error                              { return godog.ErrPending }
-func theStdioCommandIsNotAvailable(cmd string) error                          { return godog.ErrPending }
-func theTargetProcessExitsWithCode(id string, code int) error                 { return godog.ErrPending }
-func theTargetHasTimeout(id, timeout string) error                            { return godog.ErrPending }
-func theSpawnedProcessDoesNotRespond(seconds int) error                       { return godog.ErrPending }
-func theTargetHasEnvVar(id, key, val string) error                            { return godog.ErrPending }
-func theProbeForTargetSpawnsProcess(id string) error                          { return godog.ErrPending }
-func theChildProcessEnvironmentContains(entry string) error                   { return godog.ErrPending }
-func theTargetHasCwd(id, cwd string) error                                    { return godog.ErrPending }
-func theChildProcessCwdIsProjectRoot() error                                  { return godog.ErrPending }
+func theTargetRespondsToAllRequiredMethods(id string) error   { return godog.ErrPending }
+func theTargetDoesNotRespondToMethod(id, method string) error { return godog.ErrPending }
+func theProbeResultContains(substr string) error              { return godog.ErrPending }
+func theStdioCommandIsNotAvailable(cmd string) error          { return godog.ErrPending }
+func theTargetProcessExitsWithCode(id string, code int) error { return godog.ErrPending }
+func theTargetHasTimeout(id, timeout string) error            { return godog.ErrPending }
+func theSpawnedProcessDoesNotRespond(seconds int) error       { return godog.ErrPending }
+func theTargetHasEnvVar(id, key, val string) error            { return godog.ErrPending }
+func theProbeForTargetSpawnsProcess(id string) error          { return godog.ErrPending }
+func theChildProcessEnvironmentContains(entry string) error   { return godog.ErrPending }
+func theTargetHasCwd(id, cwd string) error                    { return godog.ErrPending }
+func theChildProcessCwdIsProjectRoot() error                  { return godog.ErrPending }

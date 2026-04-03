@@ -317,7 +317,7 @@ func eachJSONArtifactContainsField(field string) error {
 // noJSONArtifactContainsRawSecret, tokenPlaceholdersMatchPattern, and
 // clientSecretPlaceholdersMatchPattern require secret masking in PersistedConfig
 // (not yet implemented — no placeholder substitution in persistence.go).
-func noJSONArtifactContainsRawSecret() error             { return godog.ErrPending }
+func noJSONArtifactContainsRawSecret() error              { return godog.ErrPending }
 func tokenPlaceholdersMatchPattern(pattern string) error  { return godog.ErrPending }
 func clientSecretPlaceholdersMatchPattern(p string) error { return godog.ErrPending }
 

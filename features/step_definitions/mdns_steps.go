@@ -88,28 +88,31 @@ func InitializeMDNSSteps(ctx *godog.ScenarioContext) {
 
 // ── stub implementations ──────────────────────────────────────────────────────
 
-func anAdvertiserWithNoDomain(serviceType string) error                          { return godog.ErrPending }
-func anAdvertiserWithServiceTypeDomainAndPort(st, domain string, port int) error { return godog.ErrPending }
-func anAdvertiserWithServiceTypeAndPort(st string, port int) error               { return godog.ErrPending }
-func theAdvertiserDomainIs(domain string) error                                  { return godog.ErrPending }
-func serviceIDReturns(expected string) error                                     { return godog.ErrPending }
-func parsePortIsCalledWith(addr string) error                                    { return godog.ErrPending }
-func theReturnedPortIs(port int) error                                           { return godog.ErrPending }
-func anAdvertiserWithTXTRecord(key, value string) error                          { return godog.ErrPending }
-func startIsCalledWithLiveContext() error                                         { return godog.ErrPending }
-func theServiceIsRegisteredOnPort(port int) error                                { return godog.ErrPending }
-func theRegistrationUsesServiceType(st string) error                             { return godog.ErrPending }
-func theRegistrationIncludesTXTRecord(record string) error                       { return godog.ErrPending }
-func aZeroconfRegistrationErrorIsInjected() error                                { return godog.ErrPending }
-func startReturnsANonNilError() error                                             { return godog.ErrPending }
-func anAdvertiserThatHasBeenStarted() error                                      { return godog.ErrPending }
-func anAdvertiserThatHasNotBeenStarted() error                                   { return godog.ErrPending }
-func shutdownIsCalled() error                                                    { return godog.ErrPending }
-func theZeroconfServerIsShutDown() error                                         { return godog.ErrPending }
-func subsequentStartCallsReturnFreshRegistration() error                         { return godog.ErrPending }
+func anAdvertiserWithNoDomain(serviceType string) error { return godog.ErrPending }
+func anAdvertiserWithServiceTypeDomainAndPort(st, domain string, port int) error {
+	return godog.ErrPending
+}
+func anAdvertiserWithServiceTypeAndPort(st string, port int) error { return godog.ErrPending }
+func theAdvertiserDomainIs(domain string) error                    { return godog.ErrPending }
+func serviceIDReturns(expected string) error                       { return godog.ErrPending }
+func parsePortIsCalledWith(addr string) error                      { return godog.ErrPending }
+func theReturnedPortIs(port int) error                             { return godog.ErrPending }
+func anAdvertiserWithTXTRecord(key, value string) error            { return godog.ErrPending }
+func startIsCalledWithLiveContext() error                          { return godog.ErrPending }
+func theServiceIsRegisteredOnPort(port int) error                  { return godog.ErrPending }
+func theRegistrationUsesServiceType(st string) error               { return godog.ErrPending }
+func theRegistrationIncludesTXTRecord(record string) error         { return godog.ErrPending }
+func aZeroconfRegistrationErrorIsInjected() error                  { return godog.ErrPending }
+func startReturnsANonNilError() error                              { return godog.ErrPending }
+func anAdvertiserThatHasBeenStarted() error                        { return godog.ErrPending }
+func anAdvertiserThatHasNotBeenStarted() error                     { return godog.ErrPending }
+func shutdownIsCalled() error                                      { return godog.ErrPending }
+func theZeroconfServerIsShutDown() error                           { return godog.ErrPending }
+func subsequentStartCallsReturnFreshRegistration() error           { return godog.ErrPending }
+
 // noPanicOccurs — owned by tui_steps.go
 // theContextIsCancelled — owned by ops_steps.go
-func anAdvertiserStartedWithCancellableContext() error                           { return godog.ErrPending }
-func theConfigHasTunerAdvertiseFalse() error                                     { return godog.ErrPending }
-func ocdSmokeAlarmStarts() error                                                 { return godog.ErrPending }
-func theMDNSAdvertiserIsNotStarted() error                                       { return godog.ErrPending }
+func anAdvertiserStartedWithCancellableContext() error { return godog.ErrPending }
+func theConfigHasTunerAdvertiseFalse() error           { return godog.ErrPending }
+func ocdSmokeAlarmStarts() error                       { return godog.ErrPending }
+func theMDNSAdvertiserIsNotStarted() error             { return godog.ErrPending }

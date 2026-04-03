@@ -100,38 +100,40 @@ func InitializeWarroomGuideSteps(ctx *godog.ScenarioContext) {
 
 // ── stub implementations ───────────────────────────────────────────────────
 
-func theOutputListsAsAnOption(option string) error                                     { return godog.ErrPending }
-func noIncidentScenarioProvided() error                                                { return godog.ErrPending }
-func theOutputIncludesScenarioSelectionPrompt() error                                  { return godog.ErrPending }
-func theAgentInvokesSkillWithScenarioAndSeverity(skill, scenario, sev string) error    { return godog.ErrPending }
-func theOutputContainsIncidentIDPattern(pattern string) error                          { return godog.ErrPending }
-func aWarroomGuideSessionIsActive(scenario, sev string) error                          { return godog.ErrPending }
-func theBridgeStatusShowsSeverity(sev string) error                                    { return godog.ErrPending }
-func theBridgeStatusShowsParticipantTable() error                                      { return godog.ErrPending }
-func allInitialParticipantsHaveStatus(status string) error                             { return godog.ErrPending }
-func aWarroomGuideSessionWithParticipantRequested(role string) error                   { return godog.ErrPending }
-func theParticipantProvidesJoinCode(role string) error                                 { return godog.ErrPending }
-func theParticipantStatusChangesTo(role, status string) error                          { return godog.ErrPending }
-func theJoinResponseTimeIsRecorded() error                                             { return godog.ErrPending }
-func aParticipantProvidesIncorrectJoinCode() error                                     { return godog.ErrPending }
-func theWarroomGuideRespondsWithInvalidCode() error                                    { return godog.ErrPending }
-func aWarroomGuideSessionWithP1P2P3() error                                            { return godog.ErrPending }
-func theP1AlarmIsPresentedBeforeP2() error                                             { return godog.ErrPending }
-func theP2AlarmIsPresentedBeforeP3() error                                             { return godog.ErrPending }
-func aWarroomGuideSessionWithP1AndP2() error                                           { return godog.ErrPending }
-func aParticipantAttemptsToResolveP2First() error                                      { return godog.ErrPending }
-func theWarroomGuideRejectsP2Dismissal() error                                         { return godog.ErrPending }
-func theResponseStatesP1MustBeResolvedFirst() error                                    { return godog.ErrPending }
-func aWarroomGuideSessionWithP1Active() error                                          { return godog.ErrPending }
-func aParticipantResolvesP1(note string) error                                         { return godog.ErrPending }
-func theP1AlarmStatusChangesTo(status string) error                                    { return godog.ErrPending }
-func theResolutionTimeIsRecorded() error                                               { return godog.ErrPending }
-func aWarroomGuideSessionWithAlarmTimeout(field string, minutes int) error             { return godog.ErrPending }
-func theP1AlarmHasBeenActiveNMinutes(minutes int) error                                { return godog.ErrPending }
-func theWarroomGuideTriggersEscalation() error                                         { return godog.ErrPending }
-func aNewParticipantIsRequestedWithEscalationCode() error                              { return godog.ErrPending }
-func aWarroomGuideSessionWithP1AndP2Alarms() error                                     { return godog.ErrPending }
-func bothP1AndP2AreResolved() error                                                    { return godog.ErrPending }
-func theWarroomGuideDisplaysIncidentSummary() error                                    { return godog.ErrPending }
-func theSummaryIncludesTotalDuration() error                                           { return godog.ErrPending }
-func theSummaryIncludesPerAlarmResolutionTime() error                                  { return godog.ErrPending }
+func theOutputListsAsAnOption(option string) error    { return godog.ErrPending }
+func noIncidentScenarioProvided() error               { return godog.ErrPending }
+func theOutputIncludesScenarioSelectionPrompt() error { return godog.ErrPending }
+func theAgentInvokesSkillWithScenarioAndSeverity(skill, scenario, sev string) error {
+	return godog.ErrPending
+}
+func theOutputContainsIncidentIDPattern(pattern string) error              { return godog.ErrPending }
+func aWarroomGuideSessionIsActive(scenario, sev string) error              { return godog.ErrPending }
+func theBridgeStatusShowsSeverity(sev string) error                        { return godog.ErrPending }
+func theBridgeStatusShowsParticipantTable() error                          { return godog.ErrPending }
+func allInitialParticipantsHaveStatus(status string) error                 { return godog.ErrPending }
+func aWarroomGuideSessionWithParticipantRequested(role string) error       { return godog.ErrPending }
+func theParticipantProvidesJoinCode(role string) error                     { return godog.ErrPending }
+func theParticipantStatusChangesTo(role, status string) error              { return godog.ErrPending }
+func theJoinResponseTimeIsRecorded() error                                 { return godog.ErrPending }
+func aParticipantProvidesIncorrectJoinCode() error                         { return godog.ErrPending }
+func theWarroomGuideRespondsWithInvalidCode() error                        { return godog.ErrPending }
+func aWarroomGuideSessionWithP1P2P3() error                                { return godog.ErrPending }
+func theP1AlarmIsPresentedBeforeP2() error                                 { return godog.ErrPending }
+func theP2AlarmIsPresentedBeforeP3() error                                 { return godog.ErrPending }
+func aWarroomGuideSessionWithP1AndP2() error                               { return godog.ErrPending }
+func aParticipantAttemptsToResolveP2First() error                          { return godog.ErrPending }
+func theWarroomGuideRejectsP2Dismissal() error                             { return godog.ErrPending }
+func theResponseStatesP1MustBeResolvedFirst() error                        { return godog.ErrPending }
+func aWarroomGuideSessionWithP1Active() error                              { return godog.ErrPending }
+func aParticipantResolvesP1(note string) error                             { return godog.ErrPending }
+func theP1AlarmStatusChangesTo(status string) error                        { return godog.ErrPending }
+func theResolutionTimeIsRecorded() error                                   { return godog.ErrPending }
+func aWarroomGuideSessionWithAlarmTimeout(field string, minutes int) error { return godog.ErrPending }
+func theP1AlarmHasBeenActiveNMinutes(minutes int) error                    { return godog.ErrPending }
+func theWarroomGuideTriggersEscalation() error                             { return godog.ErrPending }
+func aNewParticipantIsRequestedWithEscalationCode() error                  { return godog.ErrPending }
+func aWarroomGuideSessionWithP1AndP2Alarms() error                         { return godog.ErrPending }
+func bothP1AndP2AreResolved() error                                        { return godog.ErrPending }
+func theWarroomGuideDisplaysIncidentSummary() error                        { return godog.ErrPending }
+func theSummaryIncludesTotalDuration() error                               { return godog.ErrPending }
+func theSummaryIncludesPerAlarmResolutionTime() error                      { return godog.ErrPending }

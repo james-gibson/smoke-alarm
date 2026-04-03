@@ -37,10 +37,10 @@ func InitializeStartHereSteps(ctx *godog.ScenarioContext) {
 
 // ── stub implementations ───────────────────────────────────────────────────
 
-func theSkillHasCompletedSuccessfullyOnce(skill string) error             { return godog.ErrPending }
-func theAgentInvokesSkillAgain(skill string) error                        { return godog.ErrPending }
-func theOutputIsEquivalentToFirstRun() error                              { return godog.ErrPending }
-func noDuplicateStateFilesCreated(dir string) error                       { return godog.ErrPending }
-func theOutputShowsFileIsPresent(path string) error                       { return godog.ErrPending }
-func theOutputContainsSkillInventory(n int) error                         { return godog.ErrPending }
-func theOutputListsAsAvailableSkill(skill string) error                   { return godog.ErrPending }
+func theSkillHasCompletedSuccessfullyOnce(skill string) error { return godog.ErrPending }
+func theAgentInvokesSkillAgain(skill string) error            { return godog.ErrPending }
+func theOutputIsEquivalentToFirstRun() error                  { return godog.ErrPending }
+func noDuplicateStateFilesCreated(dir string) error           { return godog.ErrPending }
+func theOutputShowsFileIsPresent(path string) error           { return godog.ErrPending }
+func theOutputContainsSkillInventory(n int) error             { return godog.ErrPending }
+func theOutputListsAsAvailableSkill(skill string) error       { return godog.ErrPending }

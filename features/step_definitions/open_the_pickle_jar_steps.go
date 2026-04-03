@@ -120,98 +120,98 @@ func InitializeOpenThePickleJarScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(`^no step text contains a hardcoded string literal where a placeholder could be used$`, noStepTextContainsHardcodedStringLiteral)
 }
 
-func theSkillIsInstalledAt(name, path string) error                      { return godog.ErrPending }
-func validateSkillFileCalledOn(path string) error                        { return godog.ErrPending }
-func theResultIsValidWithNoErrors() error                                { return godog.ErrPending }
-func skillNameMatchesDirectoryName(name string) error                    { return godog.ErrPending }
-func theSkillSKILLMdIsRead(name string) error                            { return godog.ErrPending }
-func descriptionFieldContainsWord(word string) error                     { return godog.ErrPending }
-func agentInvokesSkillNoScope(skill string) error                        { return godog.ErrPending }
-func outputListsFeatureFilesIn(dir string) error                         { return godog.ErrPending }
-func outputIdentifiesUncoveredPackages() error                           { return godog.ErrPending }
-func outputProposesNextFeature() error                                   { return godog.ErrPending }
-func aSkillIsInstalledAt(name, path string) error                        { return godog.ErrPending }
-func noFileExists(path string) error                                     { return godog.ErrPending }
-func outputFlagsSkillLackingFeature(name string) error                   { return godog.ErrPending }
-func aPackageExistsWithGoSourceFiles(pkg string) error                   { return godog.ErrPending }
-func noFeatureFileReferencesPackage(pkg string) error                    { return godog.ErrPending }
-func outputIncludesInUncoveredList(pkg string) error                     { return godog.ErrPending }
-func agentHasInvokedOnce(skill string) error                             { return godog.ErrPending }
-func agentInvokesAgainNoScope(skill string) error                        { return godog.ErrPending }
-func secondOutputEquivalentToFirst() error                               { return godog.ErrPending }
-func noNewFilesWrittenTo(dir1, dir2 string) error                        { return godog.ErrPending }
-func agentInvokesWithScope(skill, scope string) error                    { return godog.ErrPending }
-func aFileIsWrittenAt(path string) error                                 { return godog.ErrPending }
-func fileHasCanonRecordComment() error                                   { return godog.ErrPending }
-func fileContainsExactlyOneBlock(block string) error                     { return godog.ErrPending }
-func agentWritesFeatureForScope(scope string) error                      { return godog.ErrPending }
-func featureFileContainsTag(tag string) error                            { return godog.ErrPending }
-func sourceFilesExistIn(dir string) error                                { return godog.ErrPending }
-func agentInvokesWithScopeString(skill, scope string) error              { return godog.ErrPending }
-func agentReadsGoSourceFiles() error                                     { return godog.ErrPending }
-func writtenScenariosReferenceExportedTypes() error                      { return godog.ErrPending }
-func fileContainsScenariosForDomain(file string) error                   { return godog.ErrPending }
-func featureHeaderIncludesSeeReference(file string) error                { return godog.ErrPending }
-func agentProducesFeatureFile() error                                    { return godog.ErrPending }
-func everyStepStartsWithVerb(keyword string) error                       { return godog.ErrPending }
-func noStepBeginsWithWord(keyword, w1, w2 string) error                  { return godog.ErrPending }
-func noHardcodedStringLiterals() error                                   { return godog.ErrPending }
-func noHardcodedIntegerLiterals() error                                  { return godog.ErrPending }
-func noSynonymousSteps() error                                           { return godog.ErrPending }
-func noSynonymVerbs(v1, v2 string) error                                 { return godog.ErrPending }
-func agentProducesScenarioOutline() error                                { return godog.ErrPending }
-func examplesBlockFollowsScenarioOutline(keyword string) error           { return godog.ErrPending }
-func examplesTableHasHeaderRow() error                                   { return godog.ErrPending }
-func aFeatureFileAndSourceCode(feature, src string) error                { return godog.ErrPending }
-func agentPerformsDriftAuditOnScope(scope string) error                  { return godog.ErrPending }
-func auditOutputContainsDriftTable() error                               { return godog.ErrPending }
-func featureReferencesNonexistentFunction(feature, fn string) error      { return godog.ErrPending }
-func verdictForScenarioIs(verdict string) error                          { return godog.ErrPending }
-func auditSuggestsReconciliation() error                                 { return godog.ErrPending }
-func testFileTestsUncoveredBehaviour(file string) error                  { return godog.ErrPending }
-func auditFlagsUncoveredBehaviour() error                                { return godog.ErrPending }
-func driftAuditFindsNMismatches(n int) error                             { return godog.ErrPending }
-func outputContainsNEntries(n int, label string) error                   { return godog.ErrPending }
-func stepDefinitionFilesExistIn(dir string) error                        { return godog.ErrPending }
-func outputIncludesStepDefSummary() error                                { return godog.ErrPending }
-func eachStepDefFileIsClassified(c1, c2, c3 string) error                { return godog.ErrPending }
-func aStepDefinitionFileExists(path string) error                        { return godog.ErrPending }
-func everyStepFunctionReturnsPending() error                             { return godog.ErrPending }
-func theAgentPerformsAuditPass() error                                   { return godog.ErrPending }
-func outputContainsThesisFindingFor(file string) error                   { return godog.ErrPending }
-func thesisFindingNotesCoverageNominal() error                           { return godog.ErrPending }
-func someStepFunctionsImplementedSomeStubbed() error                     { return godog.ErrPending }
-func thesisFindingClassifiesFileAs(class string) error                   { return godog.ErrPending }
-func noStepFunctionReturnsPending() error                                { return godog.ErrPending }
-func noThesisFindingRecordedFor(file string) error                       { return godog.ErrPending }
-func auditFindsNStubbedFiles(n int) error                                { return godog.ErrPending }
-func theAgentWritesAuditOutput() error                                   { return godog.ErrPending }
-func fileContainsSection(file, section string) error                     { return godog.ErrPending }
-func eachStubbedFileHasEntry() error                                     { return godog.ErrPending }
-func noDirectoryExists(dir string) error                                 { return godog.ErrPending }
-func outputNotesNoStepDefStubs() error                                   { return godog.ErrPending }
-func outputProposesScaffolding() error                                   { return godog.ErrPending }
-func auditDoesNotFail() error                                            { return godog.ErrPending }
-func agentWritesOutputForScope(scope string) error                       { return godog.ErrPending }
-func outputFilePathIs(path string) error                                 { return godog.ErrPending }
-func noFilesWrittenOutside(dir string) error                             { return godog.ErrPending }
-func agentInvokesWithScopeNoStub(skill, scope string) error              { return godog.ErrPending }
-func noFileWrittenTo(dir string) error                                   { return godog.ErrPending }
-func agentInvokesWithScopeAndStubRequest(skill, scope string) error      { return godog.ErrPending }
-func aStubFileIsWrittenAt(path string) error                             { return godog.ErrPending }
-func eachStepHasCorrespondingStub() error                                { return godog.ErrPending }
-func localInstanceOperatingInFederationMesh() error                      { return godog.ErrPending }
-func outputIdentifiesLocalInstanceByIDAndRole() error                    { return godog.ErrPending }
-func outputNotesLocalFeatureFiles() error                                { return godog.ErrPending }
-func instanceIsRegisteredPeer(inst, id string) error                     { return godog.ErrPending }
-func agentInvokesWithFederatedScope(skill, scope string) error           { return godog.ErrPending }
-func pickleJarInvocationRoutedToInstB() error                            { return godog.ErrPending }
-func auditCoversInstBLocalFiles() error                                  { return godog.ErrPending }
+func theSkillIsInstalledAt(name, path string) error                 { return godog.ErrPending }
+func validateSkillFileCalledOn(path string) error                   { return godog.ErrPending }
+func theResultIsValidWithNoErrors() error                           { return godog.ErrPending }
+func skillNameMatchesDirectoryName(name string) error               { return godog.ErrPending }
+func theSkillSKILLMdIsRead(name string) error                       { return godog.ErrPending }
+func descriptionFieldContainsWord(word string) error                { return godog.ErrPending }
+func agentInvokesSkillNoScope(skill string) error                   { return godog.ErrPending }
+func outputListsFeatureFilesIn(dir string) error                    { return godog.ErrPending }
+func outputIdentifiesUncoveredPackages() error                      { return godog.ErrPending }
+func outputProposesNextFeature() error                              { return godog.ErrPending }
+func aSkillIsInstalledAt(name, path string) error                   { return godog.ErrPending }
+func noFileExists(path string) error                                { return godog.ErrPending }
+func outputFlagsSkillLackingFeature(name string) error              { return godog.ErrPending }
+func aPackageExistsWithGoSourceFiles(pkg string) error              { return godog.ErrPending }
+func noFeatureFileReferencesPackage(pkg string) error               { return godog.ErrPending }
+func outputIncludesInUncoveredList(pkg string) error                { return godog.ErrPending }
+func agentHasInvokedOnce(skill string) error                        { return godog.ErrPending }
+func agentInvokesAgainNoScope(skill string) error                   { return godog.ErrPending }
+func secondOutputEquivalentToFirst() error                          { return godog.ErrPending }
+func noNewFilesWrittenTo(dir1, dir2 string) error                   { return godog.ErrPending }
+func agentInvokesWithScope(skill, scope string) error               { return godog.ErrPending }
+func aFileIsWrittenAt(path string) error                            { return godog.ErrPending }
+func fileHasCanonRecordComment() error                              { return godog.ErrPending }
+func fileContainsExactlyOneBlock(block string) error                { return godog.ErrPending }
+func agentWritesFeatureForScope(scope string) error                 { return godog.ErrPending }
+func featureFileContainsTag(tag string) error                       { return godog.ErrPending }
+func sourceFilesExistIn(dir string) error                           { return godog.ErrPending }
+func agentInvokesWithScopeString(skill, scope string) error         { return godog.ErrPending }
+func agentReadsGoSourceFiles() error                                { return godog.ErrPending }
+func writtenScenariosReferenceExportedTypes() error                 { return godog.ErrPending }
+func fileContainsScenariosForDomain(file string) error              { return godog.ErrPending }
+func featureHeaderIncludesSeeReference(file string) error           { return godog.ErrPending }
+func agentProducesFeatureFile() error                               { return godog.ErrPending }
+func everyStepStartsWithVerb(keyword string) error                  { return godog.ErrPending }
+func noStepBeginsWithWord(keyword, w1, w2 string) error             { return godog.ErrPending }
+func noHardcodedStringLiterals() error                              { return godog.ErrPending }
+func noHardcodedIntegerLiterals() error                             { return godog.ErrPending }
+func noSynonymousSteps() error                                      { return godog.ErrPending }
+func noSynonymVerbs(v1, v2 string) error                            { return godog.ErrPending }
+func agentProducesScenarioOutline() error                           { return godog.ErrPending }
+func examplesBlockFollowsScenarioOutline(keyword string) error      { return godog.ErrPending }
+func examplesTableHasHeaderRow() error                              { return godog.ErrPending }
+func aFeatureFileAndSourceCode(feature, src string) error           { return godog.ErrPending }
+func agentPerformsDriftAuditOnScope(scope string) error             { return godog.ErrPending }
+func auditOutputContainsDriftTable() error                          { return godog.ErrPending }
+func featureReferencesNonexistentFunction(feature, fn string) error { return godog.ErrPending }
+func verdictForScenarioIs(verdict string) error                     { return godog.ErrPending }
+func auditSuggestsReconciliation() error                            { return godog.ErrPending }
+func testFileTestsUncoveredBehaviour(file string) error             { return godog.ErrPending }
+func auditFlagsUncoveredBehaviour() error                           { return godog.ErrPending }
+func driftAuditFindsNMismatches(n int) error                        { return godog.ErrPending }
+func outputContainsNEntries(n int, label string) error              { return godog.ErrPending }
+func stepDefinitionFilesExistIn(dir string) error                   { return godog.ErrPending }
+func outputIncludesStepDefSummary() error                           { return godog.ErrPending }
+func eachStepDefFileIsClassified(c1, c2, c3 string) error           { return godog.ErrPending }
+func aStepDefinitionFileExists(path string) error                   { return godog.ErrPending }
+func everyStepFunctionReturnsPending() error                        { return godog.ErrPending }
+func theAgentPerformsAuditPass() error                              { return godog.ErrPending }
+func outputContainsThesisFindingFor(file string) error              { return godog.ErrPending }
+func thesisFindingNotesCoverageNominal() error                      { return godog.ErrPending }
+func someStepFunctionsImplementedSomeStubbed() error                { return godog.ErrPending }
+func thesisFindingClassifiesFileAs(class string) error              { return godog.ErrPending }
+func noStepFunctionReturnsPending() error                           { return godog.ErrPending }
+func noThesisFindingRecordedFor(file string) error                  { return godog.ErrPending }
+func auditFindsNStubbedFiles(n int) error                           { return godog.ErrPending }
+func theAgentWritesAuditOutput() error                              { return godog.ErrPending }
+func fileContainsSection(file, section string) error                { return godog.ErrPending }
+func eachStubbedFileHasEntry() error                                { return godog.ErrPending }
+func noDirectoryExists(dir string) error                            { return godog.ErrPending }
+func outputNotesNoStepDefStubs() error                              { return godog.ErrPending }
+func outputProposesScaffolding() error                              { return godog.ErrPending }
+func auditDoesNotFail() error                                       { return godog.ErrPending }
+func agentWritesOutputForScope(scope string) error                  { return godog.ErrPending }
+func outputFilePathIs(path string) error                            { return godog.ErrPending }
+func noFilesWrittenOutside(dir string) error                        { return godog.ErrPending }
+func agentInvokesWithScopeNoStub(skill, scope string) error         { return godog.ErrPending }
+func noFileWrittenTo(dir string) error                              { return godog.ErrPending }
+func agentInvokesWithScopeAndStubRequest(skill, scope string) error { return godog.ErrPending }
+func aStubFileIsWrittenAt(path string) error                        { return godog.ErrPending }
+func eachStepHasCorrespondingStub() error                           { return godog.ErrPending }
+func localInstanceOperatingInFederationMesh() error                 { return godog.ErrPending }
+func outputIdentifiesLocalInstanceByIDAndRole() error               { return godog.ErrPending }
+func outputNotesLocalFeatureFiles() error                           { return godog.ErrPending }
+func instanceIsRegisteredPeer(inst, id string) error                { return godog.ErrPending }
+func agentInvokesWithFederatedScope(skill, scope string) error      { return godog.ErrPending }
+func pickleJarInvocationRoutedToInstB() error                       { return godog.ErrPending }
+func auditCoversInstBLocalFiles() error                             { return godog.ErrPending }
 
-func itFindsFile(path string) error                                        { return godog.ErrPending }
-func itFindsFeaturesFile(name string) error                                { return godog.ErrPending }
-func agentInvokesNoScopeArg(skill string) error                            { return godog.ErrPending }
-func theScopeAnalysisIncludesRecommendations() error                       { return godog.ErrPending }
-func theSkillExistsAtPath(skill, path string) error                        { return godog.ErrPending }
-func noStepTextContainsHardcodedInteger() error                            { return godog.ErrPending }
-func noStepTextContainsHardcodedStringLiteral() error                      { return godog.ErrPending }
+func itFindsFile(path string) error                   { return godog.ErrPending }
+func itFindsFeaturesFile(name string) error           { return godog.ErrPending }
+func agentInvokesNoScopeArg(skill string) error       { return godog.ErrPending }
+func theScopeAnalysisIncludesRecommendations() error  { return godog.ErrPending }
+func theSkillExistsAtPath(skill, path string) error   { return godog.ErrPending }
+func noStepTextContainsHardcodedInteger() error       { return godog.ErrPending }
+func noStepTextContainsHardcodedStringLiteral() error { return godog.ErrPending }

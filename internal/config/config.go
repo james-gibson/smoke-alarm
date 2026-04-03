@@ -92,11 +92,11 @@ type TelemetryConfig struct {
 
 // TunerConfig controls integration with the Tuner passive-observer application.
 type TunerConfig struct {
-	Enabled     bool                   `yaml:"enabled"`
-	Advertise   bool                   `yaml:"advertise"`     // mDNS advertisement of _smoke-alarm._tcp
-	ServiceType string                 `yaml:"service_type"`  // default: _smoke-alarm._tcp
-	Audience    TunerAudienceConfig    `yaml:"audience"`
-	CallerHook  TunerCallerHookConfig  `yaml:"caller_hook"`
+	Enabled     bool                  `yaml:"enabled"`
+	Advertise   bool                  `yaml:"advertise"`    // mDNS advertisement of _smoke-alarm._tcp
+	ServiceType string                `yaml:"service_type"` // default: _smoke-alarm._tcp
+	Audience    TunerAudienceConfig   `yaml:"audience"`
+	CallerHook  TunerCallerHookConfig `yaml:"caller_hook"`
 }
 
 type TunerAudienceConfig struct {

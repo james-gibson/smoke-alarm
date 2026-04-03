@@ -249,18 +249,19 @@ func writeFile(path, content string) error {
 
 // ── Stubs for steps not yet exercised by active scenarios ────────────────────
 
-func configFileHasVersionField(cfgPath, field string) error        { return godog.ErrPending }
-func configFileHasVersionFieldSetTo(cfg, field, val string) error  { return godog.ErrPending }
-func configFileMissingRequiredField(field string) error            { return godog.ErrPending }
-func aTargetWithTransport(transport string) error                  { return godog.ErrPending }
+func configFileHasVersionField(cfgPath, field string) error       { return godog.ErrPending }
+func configFileHasVersionFieldSetTo(cfg, field, val string) error { return godog.ErrPending }
+func configFileMissingRequiredField(field string) error           { return godog.ErrPending }
+func aTargetWithTransport(transport string) error                 { return godog.ErrPending }
+
 // aTargetWithProtocol is defined in targets_steps.go
-func serviceNameIsSetTo(name string) error                         { return godog.ErrPending }
-func serviceModeIsSetTo(mode string) error                         { return godog.ErrPending }
-func configSchemaVersionIs(v string) error                         { return godog.ErrPending }
-func healthBlockHasListenAddr(addr string) error                   { return godog.ErrPending }
-func healthServerBindsTo(addr string) error                        { return godog.ErrPending }
-func aTargetMissingField(field string) error                       { return godog.ErrPending }
-func targetRejectedWithError(msg string) error                     { return godog.ErrPending }
-func oauthEnabledRedirectUrlAbsent() error                         { return godog.ErrPending }
-func allEnabledTargetsAreReachable(cfgPath string) error           { return godog.ErrPending }
-func theTargetInConfigIsUnreachable(targetID, cfg string) error    { return godog.ErrPending }
+func serviceNameIsSetTo(name string) error                      { return godog.ErrPending }
+func serviceModeIsSetTo(mode string) error                      { return godog.ErrPending }
+func configSchemaVersionIs(v string) error                      { return godog.ErrPending }
+func healthBlockHasListenAddr(addr string) error                { return godog.ErrPending }
+func healthServerBindsTo(addr string) error                     { return godog.ErrPending }
+func aTargetMissingField(field string) error                    { return godog.ErrPending }
+func targetRejectedWithError(msg string) error                  { return godog.ErrPending }
+func oauthEnabledRedirectUrlAbsent() error                      { return godog.ErrPending }
+func allEnabledTargetsAreReachable(cfgPath string) error        { return godog.ErrPending }
+func theTargetInConfigIsUnreachable(targetID, cfg string) error { return godog.ErrPending }

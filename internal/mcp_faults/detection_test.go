@@ -106,14 +106,14 @@ func TestAgentDetectsByzantineMCPServer(t *testing.T) {
 func TestMCPFailureWeightsMapTo42i(t *testing.T) {
 	// Test each failure type
 	failures := map[MCPFailureType]int{
-		TimeoutFailure:                8,
-		UnauthorizedAccessFailure:     24,
-		CorruptedResponseFailure:      32,
-		MalformedJSONFailure:          32,
-		ToolNotFoundFailure:           40,
-		ResourceExhaustionFailure:     16,
-		PartialResponseFailure:        12,
-		CapabilityMismatchFailure:     48,
+		TimeoutFailure:            8,
+		UnauthorizedAccessFailure: 24,
+		CorruptedResponseFailure:  32,
+		MalformedJSONFailure:      32,
+		ToolNotFoundFailure:       40,
+		ResourceExhaustionFailure: 16,
+		PartialResponseFailure:    12,
+		CapabilityMismatchFailure: 48,
 	}
 
 	for failureType, expectedWeight := range failures {

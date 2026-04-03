@@ -1276,7 +1276,6 @@ func aProbeTargetRegisteredForEndpoint(endpoint string) error {
 	return nil
 }
 
-
 func theProbeForTargetRuns(id string) error {
 	prevCount := engState.prober.callCount(id)
 	return waitForCallCount(id, prevCount+1)

@@ -84,33 +84,32 @@ func InitializeDiscoveryLlmstxtSteps(ctx *godog.ScenarioContext) {
 
 // ── stub implementations ───────────────────────────────────────────────────
 
-func discoveryIsEnabledWithLlmsTxtURIs(table *godog.Table) error            { return godog.ErrPending }
-func discoveryRunsOnce() error                                              { return godog.ErrPending }
-func eachURIIsFetchedOnce() error                                           { return godog.ErrPending }
-func fetchRequestsUseHTTPS() error                                          { return godog.ErrPending }
-func discoveryIsConfiguredWithURI(uri string) error                         { return godog.ErrPending }
-func configFlagIsSetToTrue(flag string) error                               { return godog.ErrPending }
-func configFlagIsSetToFalse(flag string) error                              { return godog.ErrPending }
-func theURIIsNotFetched(uri string) error                                   { return godog.ErrPending }
-func aWarningIsLoggedContaining(msg string) error                           { return godog.ErrPending }
-func anLlmsTxtURIThatDoesNotRespond(seconds int) error                      { return godog.ErrPending }
-func configFieldIsSetTo(key, val string) error                              { return godog.ErrPending }
-func theFetchIsAbandonedAfter(seconds int) error                            { return godog.ErrPending }
-func anLlmsTxtDocumentListsMCPEndpoint(uri, endpoint string) error          { return godog.ErrPending }
-func aProbeTargetIsRegisteredForEndpoint(endpoint string) error             { return godog.ErrPending }
-func theTargetProtocolIs(protocol string) error                             { return godog.ErrPending }
-func anLlmsTxtEndpointWasRegisteredPreviously(endpoint string) error        { return godog.ErrPending }
-func discoveryRunsAgain() error                                             { return godog.ErrPending }
-func theTargetRegistryContainsExactlyNEntry(n int, endpoint string) error   { return godog.ErrPending }
-func noNewTargetsAreAdded() error                                           { return godog.ErrPending }
-func anLlmsTxtDocumentListsEndpointWithOAuth(endpoint string) error         { return godog.ErrPending }
-func anOAuthConfigIsRegistered(endpoint string) error                       { return godog.ErrPending }
-func anLlmsTxtEndpointDeclaresOAuth(endpoint string) error                  { return godog.ErrPending }
-func noOAuthConfigIsRegistered(endpoint string) error                       { return godog.ErrPending }
-func nSecondsElapseAfterFirstRun(n int) error                               { return godog.ErrPending }
-func aSecondDiscoveryRunIsInitiated() error                                 { return godog.ErrPending }
-func noBusyPollingOccursBetweenRuns() error                                 { return godog.ErrPending }
-func theHealthEndpointReturnedStatusCode(addr string, code int) error       { return godog.ErrPending }
+func discoveryIsEnabledWithLlmsTxtURIs(table *godog.Table) error          { return godog.ErrPending }
+func discoveryRunsOnce() error                                            { return godog.ErrPending }
+func eachURIIsFetchedOnce() error                                         { return godog.ErrPending }
+func fetchRequestsUseHTTPS() error                                        { return godog.ErrPending }
+func discoveryIsConfiguredWithURI(uri string) error                       { return godog.ErrPending }
+func configFlagIsSetToTrue(flag string) error                             { return godog.ErrPending }
+func configFlagIsSetToFalse(flag string) error                            { return godog.ErrPending }
+func theURIIsNotFetched(uri string) error                                 { return godog.ErrPending }
+func aWarningIsLoggedContaining(msg string) error                         { return godog.ErrPending }
+func anLlmsTxtURIThatDoesNotRespond(seconds int) error                    { return godog.ErrPending }
+func configFieldIsSetTo(key, val string) error                            { return godog.ErrPending }
+func theFetchIsAbandonedAfter(seconds int) error                          { return godog.ErrPending }
+func anLlmsTxtDocumentListsMCPEndpoint(uri, endpoint string) error        { return godog.ErrPending }
+func aProbeTargetIsRegisteredForEndpoint(endpoint string) error           { return godog.ErrPending }
+func theTargetProtocolIs(protocol string) error                           { return godog.ErrPending }
+func anLlmsTxtEndpointWasRegisteredPreviously(endpoint string) error      { return godog.ErrPending }
+func discoveryRunsAgain() error                                           { return godog.ErrPending }
+func theTargetRegistryContainsExactlyNEntry(n int, endpoint string) error { return godog.ErrPending }
+func noNewTargetsAreAdded() error                                         { return godog.ErrPending }
+func anLlmsTxtDocumentListsEndpointWithOAuth(endpoint string) error       { return godog.ErrPending }
+func anOAuthConfigIsRegistered(endpoint string) error                     { return godog.ErrPending }
+func anLlmsTxtEndpointDeclaresOAuth(endpoint string) error                { return godog.ErrPending }
+func noOAuthConfigIsRegistered(endpoint string) error                     { return godog.ErrPending }
+func nSecondsElapseAfterFirstRun(n int) error                             { return godog.ErrPending }
+func aSecondDiscoveryRunIsInitiated() error                               { return godog.ErrPending }
+func noBusyPollingOccursBetweenRuns() error                               { return godog.ErrPending }
+func theHealthEndpointReturnedStatusCode(addr string, code int) error     { return godog.ErrPending }
 
-func networkAccessToLlmsTxtURIsIsAvailable() error                          { return godog.ErrPending }
-
+func networkAccessToLlmsTxtURIsIsAvailable() error { return godog.ErrPending }

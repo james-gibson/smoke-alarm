@@ -107,7 +107,7 @@ func theSSEConnectionRequestContainsHeader(header string) error             { re
 func theTokenValueIsNotLoggedInPlaintext() error                            { return godog.ErrPending }
 func theTargetHasHandshakeProfile(id, profile string) error                 { return godog.ErrPending }
 func noRequiredMethodsCheckIsPerformed() error                              { return godog.ErrPending }
-func classificationIsBasedSolelyOnHTTPStatus() error                       { return godog.ErrPending }
+func classificationIsBasedSolelyOnHTTPStatus() error                        { return godog.ErrPending }
 func theEndpointRespondsToAllMethodsIn(field string) error                  { return godog.ErrPending }
 func theTargetHasHurlTestNamed(id, name string) error                       { return godog.ErrPending }
 func thePreflightEndpointReturnsStatusCode(endpoint string, code int) error { return godog.ErrPending }

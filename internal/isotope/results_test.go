@@ -15,11 +15,11 @@ func TestRecordAndQueryResult(t *testing.T) {
 	}
 
 	result := TestResult{
-		Isotope:    isotope,
-		Result:     true,
-		Reason:     "test passed",
-		Timestamp:  time.Now(),
-		AlarmID:    "alarm-a",
+		Isotope:     isotope,
+		Result:      true,
+		Reason:      "test passed",
+		Timestamp:   time.Now(),
+		AlarmID:     "alarm-a",
 		FailureType: "",
 		ExecutionMs: 100,
 	}
@@ -87,10 +87,10 @@ func TestDetectFlakiness(t *testing.T) {
 	// Create alternating pass/fail pattern (flaky)
 	for i := 0; i < 10; i++ {
 		result := TestResult{
-			Isotope:    isotope,
-			Result:     i%2 == 0, // Alternating
-			Timestamp:  now.Add(time.Duration(i*100) * time.Millisecond),
-			AlarmID:    "alarm-a",
+			Isotope:   isotope,
+			Result:    i%2 == 0, // Alternating
+			Timestamp: now.Add(time.Duration(i*100) * time.Millisecond),
+			AlarmID:   "alarm-a",
 		}
 		ledger.RecordResult(result)
 	}
@@ -172,8 +172,8 @@ func TestVerifyFix(t *testing.T) {
 	// After fix: 4 consecutive passes
 	ledger.RecordResult(TestResult{Isotope: isotope, Result: true, Timestamp: t2, AlarmID: "alarm-a"})
 	ledger.RecordResult(TestResult{Isotope: isotope, Result: true, Timestamp: t3, AlarmID: "alarm-a"})
-	ledger.RecordResult(TestResult{Isotope: isotope, Result: true, Timestamp: t3.Add(100*time.Millisecond), AlarmID: "alarm-a"})
-	ledger.RecordResult(TestResult{Isotope: isotope, Result: true, Timestamp: t3.Add(200*time.Millisecond), AlarmID: "alarm-a"})
+	ledger.RecordResult(TestResult{Isotope: isotope, Result: true, Timestamp: t3.Add(100 * time.Millisecond), AlarmID: "alarm-a"})
+	ledger.RecordResult(TestResult{Isotope: isotope, Result: true, Timestamp: t3.Add(200 * time.Millisecond), AlarmID: "alarm-a"})
 
 	fixed := ledger.VerifyFix("iso-fixed", 1, fixTime, 4)
 	if !fixed {
@@ -202,20 +202,20 @@ func TestMeasureRefactoringEffectiveness(t *testing.T) {
 	// Before refactoring: 50% pass rate (alternating)
 	for i := 0; i < 10; i++ {
 		ledger.RecordResult(TestResult{
-			Isotope:    isotope,
-			Result:     i%2 == 0,
-			Timestamp:  now.Add(time.Duration(i*100) * time.Millisecond),
-			AlarmID:    "alarm-a",
+			Isotope:   isotope,
+			Result:    i%2 == 0,
+			Timestamp: now.Add(time.Duration(i*100) * time.Millisecond),
+			AlarmID:   "alarm-a",
 		})
 	}
 
 	// After refactoring: 100% pass rate
 	for i := 0; i < 5; i++ {
 		ledger.RecordResult(TestResult{
-			Isotope:    isotope,
-			Result:     true,
-			Timestamp:  refactoringTime.Add(time.Duration(i*100) * time.Millisecond),
-			AlarmID:    "alarm-a",
+			Isotope:   isotope,
+			Result:    true,
+			Timestamp: refactoringTime.Add(time.Duration(i*100) * time.Millisecond),
+			AlarmID:   "alarm-a",
 		})
 	}
 
@@ -293,10 +293,10 @@ func TestAggregateAcrossVariants(t *testing.T) {
 
 	for i, r := range results {
 		ledger.RecordResult(TestResult{
-			Isotope:    isotope,
-			Result:     r.pass,
-			Timestamp:  now.Add(time.Duration(i*100) * time.Millisecond),
-			AlarmID:    AlarmID(r.source),
+			Isotope:   isotope,
+			Result:    r.pass,
+			Timestamp: now.Add(time.Duration(i*100) * time.Millisecond),
+			AlarmID:   AlarmID(r.source),
 		})
 	}
 

@@ -96,31 +96,32 @@ func InitializeConfigToSimulationSteps(ctx *godog.ScenarioContext) {
 
 // ── stub implementations ───────────────────────────────────────────────────
 
-func theRequiredFileDoesNotExist(path string) error                      { return godog.ErrPending }
-func theOutputIdentifiesMissingFile(path string) error                   { return godog.ErrPending }
-func theOutputSuggestsRemediationAction() error                          { return godog.ErrPending }
+func theRequiredFileDoesNotExist(path string) error    { return godog.ErrPending }
+func theOutputIdentifiesMissingFile(path string) error { return godog.ErrPending }
+func theOutputSuggestsRemediationAction() error        { return godog.ErrPending }
+
 // aValidConfigFileExists — owned by common_steps.go
-func theAgentInvokesWithConfig(skill, config string) error               { return godog.ErrPending }
-func eachTargetIsListedAsSimulationParticipant() error                   { return godog.ErrPending }
-func eachParticipantHasAJoinCode() error                                 { return godog.ErrPending }
-func aConfigWithPollInterval(interval string) error                      { return godog.ErrPending }
-func theAgentInvokesWithThatConfig(skill string) error                   { return godog.ErrPending }
-func theSimulationEscalationSpeedReflects(interval string) error         { return godog.ErrPending }
-func aConfigWithFederationEnabled() error                                { return godog.ErrPending }
-func theSimulationScenarioIncludesFederationTopology() error             { return godog.ErrPending }
-func theAgentInvokesWithConfigAndVoice(skill, voice string) error        { return godog.ErrPending }
-func theOutputUsesUrgentImperativeLanguage() error                       { return godog.ErrPending }
-func theOutputContainsParticipantJoinCodeTable() error                   { return godog.ErrPending }
-func aConfigWith(field string) error                                     { return godog.ErrPending }
-func theAgentInvokesWithThatConfigAndVoice(skill, voice string) error    { return godog.ErrPending }
-func theSimulationIsLabelledAs(label string) error                       { return godog.ErrPending }
-func theOutputUsesExplanatoryLanguage() error                            { return godog.ErrPending }
-func theOutputContainsAtLeastOneLearningQuestion() error                 { return godog.ErrPending }
-func theOutputPresentsAtLeastNFailureScenarios(n int) error              { return godog.ErrPending }
-func theAgentInvokesWithConfigAndNoVoice(skill string) error             { return godog.ErrPending }
+func theAgentInvokesWithConfig(skill, config string) error                { return godog.ErrPending }
+func eachTargetIsListedAsSimulationParticipant() error                    { return godog.ErrPending }
+func eachParticipantHasAJoinCode() error                                  { return godog.ErrPending }
+func aConfigWithPollInterval(interval string) error                       { return godog.ErrPending }
+func theAgentInvokesWithThatConfig(skill string) error                    { return godog.ErrPending }
+func theSimulationEscalationSpeedReflects(interval string) error          { return godog.ErrPending }
+func aConfigWithFederationEnabled() error                                 { return godog.ErrPending }
+func theSimulationScenarioIncludesFederationTopology() error              { return godog.ErrPending }
+func theAgentInvokesWithConfigAndVoice(skill, voice string) error         { return godog.ErrPending }
+func theOutputUsesUrgentImperativeLanguage() error                        { return godog.ErrPending }
+func theOutputContainsParticipantJoinCodeTable() error                    { return godog.ErrPending }
+func aConfigWith(field string) error                                      { return godog.ErrPending }
+func theAgentInvokesWithThatConfigAndVoice(skill, voice string) error     { return godog.ErrPending }
+func theSimulationIsLabelledAs(label string) error                        { return godog.ErrPending }
+func theOutputUsesExplanatoryLanguage() error                             { return godog.ErrPending }
+func theOutputContainsAtLeastOneLearningQuestion() error                  { return godog.ErrPending }
+func theOutputPresentsAtLeastNFailureScenarios(n int) error               { return godog.ErrPending }
+func theAgentInvokesWithConfigAndNoVoice(skill string) error              { return godog.ErrPending }
 func theAgentInvokesWithThatConfigAndNoVoiceSpecified(skill string) error { return godog.ErrPending }
-func theOutputPromptsForVoiceSelection() error                           { return godog.ErrPending }
-func theOutputOffersOptions(opt1, opt2 string) error                     { return godog.ErrPending }
-func theOutputContainsWarroomSection() error                             { return godog.ErrPending }
-func theOutputContainsMentorSection() error                              { return godog.ErrPending }
-func theDetectedScenarioTypeIs(scenario string) error                    { return godog.ErrPending }
+func theOutputPromptsForVoiceSelection() error                            { return godog.ErrPending }
+func theOutputOffersOptions(opt1, opt2 string) error                      { return godog.ErrPending }
+func theOutputContainsWarroomSection() error                              { return godog.ErrPending }
+func theOutputContainsMentorSection() error                               { return godog.ErrPending }
+func theDetectedScenarioTypeIs(scenario string) error                     { return godog.ErrPending }

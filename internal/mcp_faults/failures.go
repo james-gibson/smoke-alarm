@@ -78,75 +78,75 @@ type MCPFailureMode struct {
 // DefaultMCPFailureModes maps failure types to their 42i costs.
 var DefaultMCPFailureModes = map[MCPFailureType]MCPFailureMode{
 	TimeoutFailure: {
-		Type:            TimeoutFailure,
-		Description:     "Server did not respond within SLA latency",
-		Direction:       "unpredictable-behavior",
-		DistanceWeight:  8, // Moderate cost (like a test failure)
-		Severity:        2, // Transient issues common
-		Recoverable:     true,
+		Type:           TimeoutFailure,
+		Description:    "Server did not respond within SLA latency",
+		Direction:      "unpredictable-behavior",
+		DistanceWeight: 8, // Moderate cost (like a test failure)
+		Severity:       2, // Transient issues common
+		Recoverable:    true,
 	},
 
 	UnauthorizedAccessFailure: {
-		Type:            UnauthorizedAccessFailure,
-		Description:     "Server denied access to requested tool or resource",
-		Direction:       "unauthorized-access",
-		DistanceWeight:  24, // Higher cost (permission violation)
-		Severity:        4, // Concerning—may be intentional restriction
-		Recoverable:     false, // Usually permanent
+		Type:           UnauthorizedAccessFailure,
+		Description:    "Server denied access to requested tool or resource",
+		Direction:      "unauthorized-access",
+		DistanceWeight: 24,    // Higher cost (permission violation)
+		Severity:       4,     // Concerning—may be intentional restriction
+		Recoverable:    false, // Usually permanent
 	},
 
 	CorruptedResponseFailure: {
-		Type:            CorruptedResponseFailure,
-		Description:     "Server response violated JSON-RPC protocol",
-		Direction:       "boundary-violation",
-		DistanceWeight:  32, // High cost (protocol violation)
-		Severity:        4, // Significant—suggests compromise
-		Recoverable:     false,
+		Type:           CorruptedResponseFailure,
+		Description:    "Server response violated JSON-RPC protocol",
+		Direction:      "boundary-violation",
+		DistanceWeight: 32, // High cost (protocol violation)
+		Severity:       4,  // Significant—suggests compromise
+		Recoverable:    false,
 	},
 
 	MalformedJSONFailure: {
-		Type:            MalformedJSONFailure,
-		Description:     "Server response contained invalid JSON",
-		Direction:       "boundary-violation",
-		DistanceWeight:  32,
-		Severity:        4,
-		Recoverable:     false,
+		Type:           MalformedJSONFailure,
+		Description:    "Server response contained invalid JSON",
+		Direction:      "boundary-violation",
+		DistanceWeight: 32,
+		Severity:       4,
+		Recoverable:    false,
 	},
 
 	ToolNotFoundFailure: {
-		Type:            ToolNotFoundFailure,
-		Description:     "Server listed tool in capabilities but then reported not found",
-		Direction:       "coordinated-signaling",
-		DistanceWeight:  40, // Very high (Byzantine: lying)
-		Severity:        5, // Critical—dishonest server
-		Recoverable:     false,
+		Type:           ToolNotFoundFailure,
+		Description:    "Server listed tool in capabilities but then reported not found",
+		Direction:      "coordinated-signaling",
+		DistanceWeight: 40, // Very high (Byzantine: lying)
+		Severity:       5,  // Critical—dishonest server
+		Recoverable:    false,
 	},
 
 	ResourceExhaustionFailure: {
-		Type:            ResourceExhaustionFailure,
-		Description:     "Server hit resource limits (rate limit, memory, connections)",
-		Direction:       "boundary-violation",
-		DistanceWeight:  16, // Moderate (can be transient)
-		Severity:        3,
-		Recoverable:     true, // Usually recovers after cooldown
+		Type:           ResourceExhaustionFailure,
+		Description:    "Server hit resource limits (rate limit, memory, connections)",
+		Direction:      "boundary-violation",
+		DistanceWeight: 16, // Moderate (can be transient)
+		Severity:       3,
+		Recoverable:    true, // Usually recovers after cooldown
 	},
 
 	PartialResponseFailure: {
-		Type:            PartialResponseFailure,
-		Description:     "Server sent incomplete message (connection dropped mid-stream)",
-		Direction:       "unpredictable-behavior",
-		DistanceWeight:  12,
-		Severity:        2,
-		Recoverable:     true,
+		Type:           PartialResponseFailure,
+		Description:    "Server sent incomplete message (connection dropped mid-stream)",
+		Direction:      "unpredictable-behavior",
+		DistanceWeight: 12,
+		Severity:       2,
+		Recoverable:    true,
 	},
 
 	CapabilityMismatchFailure: {
-		Type:            CapabilityMismatchFailure,
-		Description:     "Server's actual capabilities don't match its advertisement",
-		Direction:       "coordinated-signaling",
-		DistanceWeight:  48, // Very high (Byzantine: deception)
-		Severity:        5,  // Critical
-		Recoverable:     false,
+		Type:           CapabilityMismatchFailure,
+		Description:    "Server's actual capabilities don't match its advertisement",
+		Direction:      "coordinated-signaling",
+		DistanceWeight: 48, // Very high (Byzantine: deception)
+		Severity:       5,  // Critical
+		Recoverable:    false,
 	},
 }
 
@@ -166,12 +166,12 @@ func GetFailureMode(ft MCPFailureType) MCPFailureMode {
 	}
 	// Fallback for unknown types
 	return MCPFailureMode{
-		Type:            ft,
-		Description:     "Unknown MCP failure type",
-		Direction:       "unpredictable-behavior",
-		DistanceWeight:  4,
-		Severity:        1,
-		Recoverable:     true,
+		Type:           ft,
+		Description:    "Unknown MCP failure type",
+		Direction:      "unpredictable-behavior",
+		DistanceWeight: 4,
+		Severity:       1,
+		Recoverable:    true,
 	}
 }
 
@@ -190,9 +190,9 @@ type MCPFailureEvent struct {
 	HTTPStatus   int // if HTTP-based
 
 	// Timestamps and metrics
-	AttemptNumber int       // which retry attempt was this?
-	LatencyMs     int       // how long before timeout/error?
-	RecoveredAt   int       // which attempt recovered? (-1 if never)
+	AttemptNumber int // which retry attempt was this?
+	LatencyMs     int // how long before timeout/error?
+	RecoveredAt   int // which attempt recovered? (-1 if never)
 }
 
 // String returns human-readable failure event.
@@ -209,10 +209,10 @@ type MCPServerHealthSummary struct {
 	ServerID         string
 	TotalFailures    int
 	FailuresByType   map[MCPFailureType]int
-	TotalDistance    int          // 42i_distance from this server
+	TotalDistance    int // 42i_distance from this server
 	AverageLatencyMs int
 	LastFailureTime  string
-	IsCompromised    bool         // consensus: this server is Byzantine
+	IsCompromised    bool // consensus: this server is Byzantine
 }
 
 // String returns human-readable summary.

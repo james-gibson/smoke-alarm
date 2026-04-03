@@ -8,17 +8,17 @@ import (
 // DefaultWeights maps test isotope families to their 42i failure weights (gaps in imaginary space).
 // Each failure moves an agent toward -42i (away from seed-42 ground truth).
 var DefaultWeights = map[string]int{
-	"entropy-check":               16, // Behavior unpredictability
-	"input-correlation":           12, // Input responsiveness
-	"constant-output-detection":   20, // Output independence
-	"isotope-variation":            8, // Signature uniqueness
-	"timing-correlation":          24, // Entity independence
-	"agreement-pattern":           32, // Decision independence
-	"state-bleed-detection":       28, // Isolation
-	"harness-blindness":           16, // Tool scope
+	"entropy-check":                16, // Behavior unpredictability
+	"input-correlation":            12, // Input responsiveness
+	"constant-output-detection":    20, // Output independence
+	"isotope-variation":            8,  // Signature uniqueness
+	"timing-correlation":           24, // Entity independence
+	"agreement-pattern":            32, // Decision independence
+	"state-bleed-detection":        28, // Isolation
+	"harness-blindness":            16, // Tool scope
 	"declared-behavior-compliance": 12, // Spec adherence
-	"scope-compliance":            20, // Boundary respect
-	"secret-flow-violation":       24, // Isotope containment
+	"scope-compliance":             20, // Boundary respect
+	"secret-flow-violation":        24, // Isotope containment
 }
 
 // RungThreshold defines 42i_distance boundaries for capability rungs.
@@ -74,8 +74,8 @@ type AgentState struct {
 // NewAgentState creates a fresh agent state at seed-42 (rung 0).
 func NewAgentState(agentID string) *AgentState {
 	return &AgentState{
-		AgentID:     agentID,
-		FailedTests: make(map[string]int),
+		AgentID:       agentID,
+		FailedTests:   make(map[string]int),
 		TotalDistance: 0,
 		Position: Position{
 			Real:      42.0,
@@ -252,11 +252,11 @@ func (as *AgentState) CalculateAdjustedCost() int {
 
 // ConsensusGap represents a 42i gap from Byzantine consensus failure.
 type ConsensusGap struct {
-	IsotopeFamily  string
-	AlarmCount     int // How many alarms disagreed
-	TotalAlarms    int
-	GapWeight      int // 42i contribution
-	Reason         string
+	IsotopeFamily string
+	AlarmCount    int // How many alarms disagreed
+	TotalAlarms   int
+	GapWeight     int // 42i contribution
+	Reason        string
 }
 
 // RecordConsensusFailure adds a 42i gap when alarms fail to reach consensus.
@@ -289,16 +289,16 @@ func GetConsensusGap(agreedCount, totalCount int) int {
 // MCPFailureEvent records a single MCP/ACP protocol failure.
 // Maps to 42i cost based on failure type and direction.
 type MCPFailureEvent struct {
-	FailureType     string // e.g., "timeout", "unauthorized-access", "corrupted-response"
-	ServerID        string // Which MCP/ACP server failed
-	ToolName        string // Which tool (if applicable)
-	MethodName      string // JSON-RPC method (e.g., "tools/call")
-	DistanceWeight  int    // How much 42i_distance to add
-	Direction       string // Which 42i direction (unpredictable-behavior, etc.)
-	Severity        int    // 1-5 scale
-	ErrorMessage    string
-	LatencyMs       int
-	Recoverable     bool
+	FailureType    string // e.g., "timeout", "unauthorized-access", "corrupted-response"
+	ServerID       string // Which MCP/ACP server failed
+	ToolName       string // Which tool (if applicable)
+	MethodName     string // JSON-RPC method (e.g., "tools/call")
+	DistanceWeight int    // How much 42i_distance to add
+	Direction      string // Which 42i direction (unpredictable-behavior, etc.)
+	Severity       int    // 1-5 scale
+	ErrorMessage   string
+	LatencyMs      int
+	Recoverable    bool
 }
 
 // RecordMCPFailure adds MCP/ACP failure to agent's 42i_distance.

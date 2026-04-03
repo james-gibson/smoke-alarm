@@ -50,8 +50,8 @@ func (s *stubAlertNotifier) Notify(_ context.Context, _ engine.AlertEvent) error
 
 // alState holds per-scenario alerts step state.
 var alState struct {
-	logBuf  bytes.Buffer
-	logger  *slog.Logger
+	logBuf   bytes.Buffer
+	logger   *slog.Logger
 	logNotif *alerts.LogNotifier
 
 	// current generic notifier — set by aNotifierWithMinSeverity
@@ -358,20 +358,20 @@ func theLogEntryMessageDoesNotContain(_ string) error {
 // cannot inject a mock CommandRunner from outside package alerts. All DesktopNotifier
 // scenarios remain ErrPending until alerts.WithCommandRunner is exposed.
 
-func aDesktopNotifierEnabled() error                                                 { return godog.ErrPending }
-func thePlatformIs(_ string) error                                                   { return godog.ErrPending }
-func binaryIsAvailableOnPATH(_ string) error                                         { return godog.ErrPending }
-func osascriptIsInvoked() error                                                      { return godog.ErrPending }
-func theNotificationTitleContains(_ string) error                                    { return godog.ErrPending }
-func notifySendIsInvokedWithUrgency(_ string) error                                  { return godog.ErrPending }
-func anAlertEventEmittedWithRegression() error                                       { return godog.ErrPending }
-func aDesktopNotifierWithDedupeWindow(_ string) error                                { return godog.ErrPending }
-func nIdenticalAlertsEmittedWithinSeconds(_, _ int) error                            { return godog.ErrPending }
-func osascriptIsInvokedExactlyOnce() error                                           { return godog.ErrPending }
-func binaryIsNotAvailableOnPATH(_ string) error                                      { return godog.ErrPending }
-func anAlertEventIsEmitted() error                                                   { return godog.ErrPending }
-func theErrorIs(_ string) error                                                      { return godog.ErrPending }
-func theErrorContainsStr(_ string) error                                             { return godog.ErrPending }
+func aDesktopNotifierEnabled() error                      { return godog.ErrPending }
+func thePlatformIs(_ string) error                        { return godog.ErrPending }
+func binaryIsAvailableOnPATH(_ string) error              { return godog.ErrPending }
+func osascriptIsInvoked() error                           { return godog.ErrPending }
+func theNotificationTitleContains(_ string) error         { return godog.ErrPending }
+func notifySendIsInvokedWithUrgency(_ string) error       { return godog.ErrPending }
+func anAlertEventEmittedWithRegression() error            { return godog.ErrPending }
+func aDesktopNotifierWithDedupeWindow(_ string) error     { return godog.ErrPending }
+func nIdenticalAlertsEmittedWithinSeconds(_, _ int) error { return godog.ErrPending }
+func osascriptIsInvokedExactlyOnce() error                { return godog.ErrPending }
+func binaryIsNotAvailableOnPATH(_ string) error           { return godog.ErrPending }
+func anAlertEventIsEmitted() error                        { return godog.ErrPending }
+func theErrorIs(_ string) error                           { return godog.ErrPending }
+func theErrorContainsStr(_ string) error                  { return godog.ErrPending }
 
 // ── severity rank ─────────────────────────────────────────────────────────────
 
@@ -455,8 +455,8 @@ func theCombinedErrorIncludesFailingNotifier() error {
 // regression dispatch require wiring config→engine→alerts in step definitions.
 
 func theConfigHasAlertSeverity(_, _, _ string) error  { return godog.ErrPending }
-func aProbeResultProducesState(_ string) error         { return godog.ErrPending }
-func theAlertEventSeverityIs(_ string) error           { return godog.ErrPending }
-func configKeyIsInt(_ string, _ int) error             { return godog.ErrPending }
-func theFirstProbeResultForRegressionReceived() error  { return godog.ErrPending }
-func anAlertIsEmittedImmediately() error               { return godog.ErrPending }
+func aProbeResultProducesState(_ string) error        { return godog.ErrPending }
+func theAlertEventSeverityIs(_ string) error          { return godog.ErrPending }
+func configKeyIsInt(_ string, _ int) error            { return godog.ErrPending }
+func theFirstProbeResultForRegressionReceived() error { return godog.ErrPending }
+func anAlertIsEmittedImmediately() error              { return godog.ErrPending }

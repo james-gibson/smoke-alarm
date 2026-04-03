@@ -63,21 +63,21 @@ func InitializeWarroomBuilderSteps(ctx *godog.ScenarioContext) {
 
 // ── stub implementations ───────────────────────────────────────────────────
 
-func noIncidentParametersProvided() error                                        { return godog.ErrPending }
-func theOutputIncludesIncidentTypeQuestionnaire() error                          { return godog.ErrPending }
-func theOutputListsIncidentTypeOption(option string) error                       { return godog.ErrPending }
-func theOutputIncludesSeverityOptions(sev1, sev2, sev3 string) error             { return godog.ErrPending }
-func incidentParametersWithTypeAndSeverity(incType, sev string) error            { return godog.ErrPending }
-func participantsAreRequired(r1, r2, r3 string) error                            { return godog.ErrPending }
-func theAgentInvokesSkillWithParameters(skill string) error                      { return godog.ErrPending }
-func aYAMLConfigIsGeneratedWithVersion(version string) error                     { return godog.ErrPending }
-func theYAMLConfigContainsBlock(block string) error                              { return godog.ErrPending }
-func theYAMLConfigContainsBlockWithField(block, field string) error              { return godog.ErrPending }
-func theGeneratedYAMLHasPollInterval(interval string) error                      { return godog.ErrPending }
-func theGeneratedYAMLHasKnownStateField(field string) error                      { return godog.ErrPending }
-func incidentParametersWithSeverity(sev string) error                            { return godog.ErrPending }
-func anIncidentScriptIsGenerated() error                                         { return godog.ErrPending }
-func theScriptContainsAlarmSequence() error                                      { return godog.ErrPending }
-func theSkillIsInvokedTwice(skill string) error                                  { return godog.ErrPending }
-func joinCodesInSecondRunDiffer() error                                          { return godog.ErrPending }
-func theOutputIdentifiesGeneratedConfigPath(prefix string) error                 { return godog.ErrPending }
+func noIncidentParametersProvided() error                             { return godog.ErrPending }
+func theOutputIncludesIncidentTypeQuestionnaire() error               { return godog.ErrPending }
+func theOutputListsIncidentTypeOption(option string) error            { return godog.ErrPending }
+func theOutputIncludesSeverityOptions(sev1, sev2, sev3 string) error  { return godog.ErrPending }
+func incidentParametersWithTypeAndSeverity(incType, sev string) error { return godog.ErrPending }
+func participantsAreRequired(r1, r2, r3 string) error                 { return godog.ErrPending }
+func theAgentInvokesSkillWithParameters(skill string) error           { return godog.ErrPending }
+func aYAMLConfigIsGeneratedWithVersion(version string) error          { return godog.ErrPending }
+func theYAMLConfigContainsBlock(block string) error                   { return godog.ErrPending }
+func theYAMLConfigContainsBlockWithField(block, field string) error   { return godog.ErrPending }
+func theGeneratedYAMLHasPollInterval(interval string) error           { return godog.ErrPending }
+func theGeneratedYAMLHasKnownStateField(field string) error           { return godog.ErrPending }
+func incidentParametersWithSeverity(sev string) error                 { return godog.ErrPending }
+func anIncidentScriptIsGenerated() error                              { return godog.ErrPending }
+func theScriptContainsAlarmSequence() error                           { return godog.ErrPending }
+func theSkillIsInvokedTwice(skill string) error                       { return godog.ErrPending }
+func joinCodesInSecondRunDiffer() error                               { return godog.ErrPending }
+func theOutputIdentifiesGeneratedConfigPath(prefix string) error      { return godog.ErrPending }

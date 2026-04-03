@@ -150,16 +150,16 @@ func (m *MCPServerManager) GetServerHealth(serverID string) ServerMCPHealth {
 	}
 
 	return ServerMCPHealth{
-		ServerID:           serverID,
-		Status:             status,
-		Distance42i:        agent.TotalDistance,
-		Rung:               agent.Position.Rung,
-		Direction:          agent.Position.Direction,
-		IsCompromised:      isCompromised,
-		UnderAttack:        underAttack,
-		SuspiciousCallCnt:  clusterMetrics.TotalInvalidCalls,
-		ToolsUnderAttack:   clusterMetrics.SuspiciousTools,
-		LastUpdated:        time.Now(),
+		ServerID:          serverID,
+		Status:            status,
+		Distance42i:       agent.TotalDistance,
+		Rung:              agent.Position.Rung,
+		Direction:         agent.Position.Direction,
+		IsCompromised:     isCompromised,
+		UnderAttack:       underAttack,
+		SuspiciousCallCnt: clusterMetrics.TotalInvalidCalls,
+		ToolsUnderAttack:  clusterMetrics.SuspiciousTools,
+		LastUpdated:       time.Now(),
 	}
 }
 
@@ -234,16 +234,16 @@ func mapSuspicionToFailureType(suspicion string) mcp_faults.MCPFailureType {
 
 // ServerMCPHealth summarizes health of one MCP server.
 type ServerMCPHealth struct {
-	ServerID           string
-	Status             string // "healthy", "degraded", "compromised", "under-attack"
-	Distance42i        int    // 42i_distance from MCP failures
-	Rung               int    // 42i rung position
-	Direction          string // 42i direction (unpredictable, dishonest, etc.)
-	IsCompromised      bool
-	UnderAttack        bool
-	SuspiciousCallCnt  int
-	ToolsUnderAttack   []string
-	LastUpdated        time.Time
+	ServerID          string
+	Status            string // "healthy", "degraded", "compromised", "under-attack"
+	Distance42i       int    // 42i_distance from MCP failures
+	Rung              int    // 42i rung position
+	Direction         string // 42i direction (unpredictable, dishonest, etc.)
+	IsCompromised     bool
+	UnderAttack       bool
+	SuspiciousCallCnt int
+	ToolsUnderAttack  []string
+	LastUpdated       time.Time
 }
 
 // String returns human-readable health summary.

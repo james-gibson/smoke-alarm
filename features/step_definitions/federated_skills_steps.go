@@ -102,77 +102,77 @@ func InitializeFederatedSkillsScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(`^each entry follows the "\[instance-id\] skill-name" format$`, eachEntryFollowsFederatedSkillFormat)
 }
 
-func aFederationMeshRunningWithInstances(n int) error        { return godog.ErrPending }
-func eachInstanceHasAtLeastOneSkill() error                  { return godog.ErrPending }
-func instanceHasSkillsInstalled(inst, s1, s2 string) error   { return godog.ErrPending }
-func instanceHasSingleSkillInstalled(inst, skill string) error { return godog.ErrPending }
-func instASendsPostToIntroductions() error                   { return godog.ErrPending }
-func instanceRecordContainsSkillInventory() error            { return godog.ErrPending }
-func instASendsPostToHeartbeats() error                      { return godog.ErrPending }
-func instanceIsRunningWithSkill(inst, skill string) error    { return godog.ErrPending }
-func theSkillIsAddedToInstA(skill string) error              { return godog.ErrPending }
-func instASendsNextHeartbeat() error                         { return godog.ErrPending }
-func heartbeatContainsBothSkills(s1, s2 string) error        { return godog.ErrPending }
-func instanceHasIdentityAndSkill(inst, id, skill string) error { return godog.ErrPending }
-func introducerAggregatesSkillInventories() error            { return godog.ErrPending }
-func theFederatedSkillIDIs(id string) error                  { return godog.ErrPending }
-func theIntroducerHasSkillLocally(inst, skill string) error  { return godog.ErrPending }
-func theSkillIDIsWithoutNamespacePrefix(id string) error     { return godog.ErrPending }
-func instanceWithIDHasSkill(inst, id, skill string) error    { return godog.ErrPending }
-func introducerAggregatesInventories() error                 { return godog.ErrPending }
-func theFederatedSkillIDsAre(table *godog.Table) error       { return godog.ErrPending }
-func followerPeersWithDistinctSkills(n int) error            { return godog.ErrPending }
-func eachEntryContainsSkillInventory(array string) error     { return godog.ErrPending }
-func skillInventoryListsInstalledSkills() error              { return godog.ErrPending }
-func aFollowerPeerWithNoSkills() error                       { return godog.ErrPending }
-func thatPeersSkillInventoryIsEmpty() error                  { return godog.ErrPending }
-func federatedSkillRegistryContains(id string) error         { return godog.ErrPending }
-func aLookupPerformedForFederatedSkillID(id string) error    { return godog.ErrPending }
-func theResultIdentifiesInstanceAsHost(inst string) error    { return godog.ErrPending }
-func theLocalSkillNameIs(name string) error                  { return godog.ErrPending }
-func theResultIsNotFound() error                             { return godog.ErrPending }
-func theLocalInstanceIsWithID(inst, id string) error         { return godog.ErrPending }
-func theFederatedSkillIsHostedOnInstB(skill string) error    { return godog.ErrPending }
-func theAgentOnInstAInvokes(skill string) error              { return godog.ErrPending }
-func theInvocationIsRoutedToInstB() error                    { return godog.ErrPending }
-func theRoutingTraceContainsTwoHops(h1, h2 string) error     { return godog.ErrPending }
-func a3InstanceLinearMesh() error                            { return godog.ErrPending }
-func instAInvokesSkillViaInstB() error                       { return godog.ErrPending }
-func theRoutingTraceOnArrivalAtInstC(h1, h2, h3 string) error { return godog.ErrPending }
-func instanceReceivesSkillInvocation(inst string) error      { return godog.ErrPending }
-func routingTraceContainsOwnID(inst string) error            { return godog.ErrPending }
-func theInvocationIsProcessed() error                        { return godog.ErrPending }
-func theInvocationIsRejectedWithCycleError() error           { return godog.ErrPending }
-func instanceAInvokesSkillOnB() error                        { return godog.ErrPending }
-func instanceBRoutesBackToA() error                          { return godog.ErrPending }
-func instanceAReceivesReroutedInvocation() error             { return godog.ErrPending }
-func theInvocationIsRejected() error                         { return godog.ErrPending }
-func theErrorIdentifiesBothInstanceIDs() error               { return godog.ErrPending }
-func agentOperatingOnInstance(inst string) error             { return godog.ErrPending }
-func openPickleJarInvokedNoScope() error                     { return godog.ErrPending }
-func outputListsSkillsOnInstB() error                        { return godog.ErrPending }
-func outputIdentifiesInstBByIDAndRole() error                { return godog.ErrPending }
-func outputNotesSharedSkills() error                         { return godog.ErrPending }
-func theLocalInstanceIsTheIntroducer() error                 { return godog.ErrPending }
+func aFederationMeshRunningWithInstances(n int) error                { return godog.ErrPending }
+func eachInstanceHasAtLeastOneSkill() error                          { return godog.ErrPending }
+func instanceHasSkillsInstalled(inst, s1, s2 string) error           { return godog.ErrPending }
+func instanceHasSingleSkillInstalled(inst, skill string) error       { return godog.ErrPending }
+func instASendsPostToIntroductions() error                           { return godog.ErrPending }
+func instanceRecordContainsSkillInventory() error                    { return godog.ErrPending }
+func instASendsPostToHeartbeats() error                              { return godog.ErrPending }
+func instanceIsRunningWithSkill(inst, skill string) error            { return godog.ErrPending }
+func theSkillIsAddedToInstA(skill string) error                      { return godog.ErrPending }
+func instASendsNextHeartbeat() error                                 { return godog.ErrPending }
+func heartbeatContainsBothSkills(s1, s2 string) error                { return godog.ErrPending }
+func instanceHasIdentityAndSkill(inst, id, skill string) error       { return godog.ErrPending }
+func introducerAggregatesSkillInventories() error                    { return godog.ErrPending }
+func theFederatedSkillIDIs(id string) error                          { return godog.ErrPending }
+func theIntroducerHasSkillLocally(inst, skill string) error          { return godog.ErrPending }
+func theSkillIDIsWithoutNamespacePrefix(id string) error             { return godog.ErrPending }
+func instanceWithIDHasSkill(inst, id, skill string) error            { return godog.ErrPending }
+func introducerAggregatesInventories() error                         { return godog.ErrPending }
+func theFederatedSkillIDsAre(table *godog.Table) error               { return godog.ErrPending }
+func followerPeersWithDistinctSkills(n int) error                    { return godog.ErrPending }
+func eachEntryContainsSkillInventory(array string) error             { return godog.ErrPending }
+func skillInventoryListsInstalledSkills() error                      { return godog.ErrPending }
+func aFollowerPeerWithNoSkills() error                               { return godog.ErrPending }
+func thatPeersSkillInventoryIsEmpty() error                          { return godog.ErrPending }
+func federatedSkillRegistryContains(id string) error                 { return godog.ErrPending }
+func aLookupPerformedForFederatedSkillID(id string) error            { return godog.ErrPending }
+func theResultIdentifiesInstanceAsHost(inst string) error            { return godog.ErrPending }
+func theLocalSkillNameIs(name string) error                          { return godog.ErrPending }
+func theResultIsNotFound() error                                     { return godog.ErrPending }
+func theLocalInstanceIsWithID(inst, id string) error                 { return godog.ErrPending }
+func theFederatedSkillIsHostedOnInstB(skill string) error            { return godog.ErrPending }
+func theAgentOnInstAInvokes(skill string) error                      { return godog.ErrPending }
+func theInvocationIsRoutedToInstB() error                            { return godog.ErrPending }
+func theRoutingTraceContainsTwoHops(h1, h2 string) error             { return godog.ErrPending }
+func a3InstanceLinearMesh() error                                    { return godog.ErrPending }
+func instAInvokesSkillViaInstB() error                               { return godog.ErrPending }
+func theRoutingTraceOnArrivalAtInstC(h1, h2, h3 string) error        { return godog.ErrPending }
+func instanceReceivesSkillInvocation(inst string) error              { return godog.ErrPending }
+func routingTraceContainsOwnID(inst string) error                    { return godog.ErrPending }
+func theInvocationIsProcessed() error                                { return godog.ErrPending }
+func theInvocationIsRejectedWithCycleError() error                   { return godog.ErrPending }
+func instanceAInvokesSkillOnB() error                                { return godog.ErrPending }
+func instanceBRoutesBackToA() error                                  { return godog.ErrPending }
+func instanceAReceivesReroutedInvocation() error                     { return godog.ErrPending }
+func theInvocationIsRejected() error                                 { return godog.ErrPending }
+func theErrorIdentifiesBothInstanceIDs() error                       { return godog.ErrPending }
+func agentOperatingOnInstance(inst string) error                     { return godog.ErrPending }
+func openPickleJarInvokedNoScope() error                             { return godog.ErrPending }
+func outputListsSkillsOnInstB() error                                { return godog.ErrPending }
+func outputIdentifiesInstBByIDAndRole() error                        { return godog.ErrPending }
+func outputNotesSharedSkills() error                                 { return godog.ErrPending }
+func theLocalInstanceIsTheIntroducer() error                         { return godog.ErrPending }
 func instanceIsRegisteredPeerWithSkill(inst, id, skill string) error { return godog.ErrPending }
-func openPickleJarInvokedWithScope(scope string) error       { return godog.ErrPending }
-func theInvocationIsRoutedToInstBAlias() error               { return godog.ErrPending }
-func resultingAuditCoversInstBDomain() error                 { return godog.ErrPending }
-func outputIncludesInstBIDInHeader() error                   { return godog.ErrPending }
-func federationMeshWithFeatureDivergence() error             { return godog.ErrPending }
-func openPickleJarOnInstAWithScope(scope string) error       { return godog.ErrPending }
-func auditNotesFederationFeatureOnInstA() error              { return godog.ErrPending }
-func auditNotesInstBMissingFederationFeature() error         { return godog.ErrPending }
-func instanceRegisteredWithSkills(inst, skill string) error  { return godog.ErrPending }
-func instBStopsHeartbeatingForSeconds(n int) error           { return godog.ErrPending }
-func skillNoLongerPresentInRegistry(id string) error         { return godog.ErrPending }
-func registryEventFiredForInstBSkills(eventType string) error { return godog.ErrPending }
-func instanceRegisteredWithTwoSkills(inst, s1, s2 string) error { return godog.ErrPending }
-func removeCalledForInstBID() error                          { return godog.ErrPending }
-func bothSkillsAreRemoved(s1, s2 string) error               { return godog.ErrPending }
-func federatedSkillCountDecreasesBy(n int) error             { return godog.ErrPending }
-func theInstanceHasTwoSkillsInstalled(s1, s2 string) error   { return godog.ErrPending }
-func documentContainsSkillsField(field string) error         { return godog.ErrPending }
-func theIntroducerHasPeersWithSkills(peers, skills int) error { return godog.ErrPending }
-func documentContainsFieldWithEntries(field string, n int) error { return godog.ErrPending }
-func eachEntryFollowsFederatedSkillFormat() error            { return godog.ErrPending }
+func openPickleJarInvokedWithScope(scope string) error               { return godog.ErrPending }
+func theInvocationIsRoutedToInstBAlias() error                       { return godog.ErrPending }
+func resultingAuditCoversInstBDomain() error                         { return godog.ErrPending }
+func outputIncludesInstBIDInHeader() error                           { return godog.ErrPending }
+func federationMeshWithFeatureDivergence() error                     { return godog.ErrPending }
+func openPickleJarOnInstAWithScope(scope string) error               { return godog.ErrPending }
+func auditNotesFederationFeatureOnInstA() error                      { return godog.ErrPending }
+func auditNotesInstBMissingFederationFeature() error                 { return godog.ErrPending }
+func instanceRegisteredWithSkills(inst, skill string) error          { return godog.ErrPending }
+func instBStopsHeartbeatingForSeconds(n int) error                   { return godog.ErrPending }
+func skillNoLongerPresentInRegistry(id string) error                 { return godog.ErrPending }
+func registryEventFiredForInstBSkills(eventType string) error        { return godog.ErrPending }
+func instanceRegisteredWithTwoSkills(inst, s1, s2 string) error      { return godog.ErrPending }
+func removeCalledForInstBID() error                                  { return godog.ErrPending }
+func bothSkillsAreRemoved(s1, s2 string) error                       { return godog.ErrPending }
+func federatedSkillCountDecreasesBy(n int) error                     { return godog.ErrPending }
+func theInstanceHasTwoSkillsInstalled(s1, s2 string) error           { return godog.ErrPending }
+func documentContainsSkillsField(field string) error                 { return godog.ErrPending }
+func theIntroducerHasPeersWithSkills(peers, skills int) error        { return godog.ErrPending }
+func documentContainsFieldWithEntries(field string, n int) error     { return godog.ErrPending }
+func eachEntryFollowsFederatedSkillFormat() error                    { return godog.ErrPending }

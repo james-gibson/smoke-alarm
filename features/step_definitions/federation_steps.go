@@ -171,83 +171,85 @@ func InitializeFederationScenario(ctx *godog.ScenarioContext) {
 
 // Pending stub implementations — replace with real logic when wiring Cucumber.
 
-func noOtherInstanceRunningOnPortRange() error              { return godog.ErrPending }
-func anInstanceStartsWithPorts(base, max int) error         { return godog.ErrPending }
-func theInstanceBindsPort(port int) error                   { return godog.ErrPending }
-func theInstanceIdentityRoleIs(role string) error           { return godog.ErrPending }
-func theIdentityIsPersistedTo(path string) error            { return godog.ErrPending }
-func anIntroducerAlreadyBoundOnPort(port int) error         { return godog.ErrPending }
-func aSecondInstanceStartsSamePorts() error                 { return godog.ErrPending }
-func theSecondInstanceBindsPortPlusOne(port int) error      { return godog.ErrPending }
-func theSecondInstanceIdentityRoleIs(role string) error     { return godog.ErrPending }
-func allPortsAlreadyBound() error                           { return godog.ErrPending }
-func claimSlotIsCalled() error                              { return godog.ErrPending }
+func noOtherInstanceRunningOnPortRange() error          { return godog.ErrPending }
+func anInstanceStartsWithPorts(base, max int) error     { return godog.ErrPending }
+func theInstanceBindsPort(port int) error               { return godog.ErrPending }
+func theInstanceIdentityRoleIs(role string) error       { return godog.ErrPending }
+func theIdentityIsPersistedTo(path string) error        { return godog.ErrPending }
+func anIntroducerAlreadyBoundOnPort(port int) error     { return godog.ErrPending }
+func aSecondInstanceStartsSamePorts() error             { return godog.ErrPending }
+func theSecondInstanceBindsPortPlusOne(port int) error  { return godog.ErrPending }
+func theSecondInstanceIdentityRoleIs(role string) error { return godog.ErrPending }
+func allPortsAlreadyBound() error                       { return godog.ErrPending }
+func claimSlotIsCalled() error                          { return godog.ErrPending }
+
 // theErrorIs — owned by alerts_steps.go
-func aConfigWithNoFederationBasePort() error                { return godog.ErrPending }
-func portsAreTheCandidates(from, to int) error              { return godog.ErrPending }
-func twoClaimSlotCallsIdentical() error                     { return godog.ErrPending }
-func bothInstanceIDsAreComputed() error                     { return godog.ErrPending }
-func bothIDsAreEqual() error                                { return godog.ErrPending }
-func twoClaimSlotCallsDifferentPorts() error                { return godog.ErrPending }
-func theTwoInstanceIDsAreDifferent() error                  { return godog.ErrPending }
-func aPersistedIdentityExistsWithPort(port int) error       { return godog.ErrPending }
-func claimSlotCalledAndPortIsFree(port int) error           { return godog.ErrPending }
-func theInstanceClaimsPortFirst(port int) error             { return godog.ErrPending }
-func twoProcessesAttemptClaimSlotSimultaneously() error     { return godog.ErrPending }
-func exactlyOneProcessSucceedsAsIntroducer() error          { return godog.ErrPending }
-func theOtherProcessBecomesFollowerOrError() error          { return godog.ErrPending }
-func aStaleLockFileExists() error                           { return godog.ErrPending }
-func theStaleLockIsRemoved() error                          { return godog.ErrPending }
-func claimSlotProceedsNormally() error                      { return godog.ErrPending }
-func theIntroducerHoldsSlotClaimOnPort(port int) error      { return godog.ErrPending }
-func theFederationServerStarts() error                      { return godog.ErrPending }
-func postIntroductionsIsServed() error                      { return godog.ErrPending }
-func postHeartbeatsIsServed() error                         { return godog.ErrPending }
-func getMembershipIsServed() error                          { return godog.ErrPending }
-func theFederationServerIsRunningAsIntroducer() error       { return godog.ErrPending }
-func aFollowerPostsToIntroductions() error                  { return godog.ErrPending }
-func thePeerAppearsInRegistry() error                       { return godog.ErrPending }
-func aPostSentWithEmptyField(field string) error            { return godog.ErrPending }
-func aGETRequestSentToIntroductions() error                 { return godog.ErrPending }
-func aFollowerAlreadyRegistered() error                     { return godog.ErrPending }
-func theFollowerPostsToHeartbeats() error                   { return godog.ErrPending }
-func thePeersLastSeenAtIsUpdated() error                    { return godog.ErrPending }
-func theFederationServerHasRegisteredPeers(n int) error     { return godog.ErrPending }
-func theArrayLengthIs(key string, n int) error              { return godog.ErrPending }
+func aConfigWithNoFederationBasePort() error            { return godog.ErrPending }
+func portsAreTheCandidates(from, to int) error          { return godog.ErrPending }
+func twoClaimSlotCallsIdentical() error                 { return godog.ErrPending }
+func bothInstanceIDsAreComputed() error                 { return godog.ErrPending }
+func bothIDsAreEqual() error                            { return godog.ErrPending }
+func twoClaimSlotCallsDifferentPorts() error            { return godog.ErrPending }
+func theTwoInstanceIDsAreDifferent() error              { return godog.ErrPending }
+func aPersistedIdentityExistsWithPort(port int) error   { return godog.ErrPending }
+func claimSlotCalledAndPortIsFree(port int) error       { return godog.ErrPending }
+func theInstanceClaimsPortFirst(port int) error         { return godog.ErrPending }
+func twoProcessesAttemptClaimSlotSimultaneously() error { return godog.ErrPending }
+func exactlyOneProcessSucceedsAsIntroducer() error      { return godog.ErrPending }
+func theOtherProcessBecomesFollowerOrError() error      { return godog.ErrPending }
+func aStaleLockFileExists() error                       { return godog.ErrPending }
+func theStaleLockIsRemoved() error                      { return godog.ErrPending }
+func claimSlotProceedsNormally() error                  { return godog.ErrPending }
+func theIntroducerHoldsSlotClaimOnPort(port int) error  { return godog.ErrPending }
+func theFederationServerStarts() error                  { return godog.ErrPending }
+func postIntroductionsIsServed() error                  { return godog.ErrPending }
+func postHeartbeatsIsServed() error                     { return godog.ErrPending }
+func getMembershipIsServed() error                      { return godog.ErrPending }
+func theFederationServerIsRunningAsIntroducer() error   { return godog.ErrPending }
+func aFollowerPostsToIntroductions() error              { return godog.ErrPending }
+func thePeerAppearsInRegistry() error                   { return godog.ErrPending }
+func aPostSentWithEmptyField(field string) error        { return godog.ErrPending }
+func aGETRequestSentToIntroductions() error             { return godog.ErrPending }
+func aFollowerAlreadyRegistered() error                 { return godog.ErrPending }
+func theFollowerPostsToHeartbeats() error               { return godog.ErrPending }
+func thePeersLastSeenAtIsUpdated() error                { return godog.ErrPending }
+func theFederationServerHasRegisteredPeers(n int) error { return godog.ErrPending }
+func theArrayLengthIs(key string, n int) error          { return godog.ErrPending }
+
 // configFieldIsSetTo — owned by discovery_llmstxt_steps.go
-func theFollowerSendsNoHeartbeatForSeconds(n int) error     { return godog.ErrPending }
-func theFollowerIsRemovedFromRegistry() error               { return godog.ErrPending }
-func theRemovalReasonIs(reason string) error                { return godog.ErrPending }
-func theRemovalIsReflectedInMembership() error              { return godog.ErrPending }
-func theFollowerSendsHeartbeatAtSeconds(n int) error        { return godog.ErrPending }
-func theFollowerRemainsInRegistryAfterSeconds(n int) error  { return godog.ErrPending }
-func registryAtMaxPeers(n int) error                        { return godog.ErrPending }
-func upsertCalledWithNewPeerRecord() error                  { return godog.ErrPending }
-func registryPeerCountDoesNotIncrease() error               { return godog.ErrPending }
+func theFollowerSendsNoHeartbeatForSeconds(n int) error    { return godog.ErrPending }
+func theFollowerIsRemovedFromRegistry() error              { return godog.ErrPending }
+func theRemovalReasonIs(reason string) error               { return godog.ErrPending }
+func theRemovalIsReflectedInMembership() error             { return godog.ErrPending }
+func theFollowerSendsHeartbeatAtSeconds(n int) error       { return godog.ErrPending }
+func theFollowerRemainsInRegistryAfterSeconds(n int) error { return godog.ErrPending }
+func registryAtMaxPeers(n int) error                       { return godog.ErrPending }
+func upsertCalledWithNewPeerRecord() error                 { return godog.ErrPending }
+func registryPeerCountDoesNotIncrease() error              { return godog.ErrPending }
 func noErrorIsReturned() error {
 	if ksState.lastErr != nil {
 		return fmt.Errorf("expected no error, got: %v", ksState.lastErr)
 	}
 	return nil
 }
-func upsertCalledWithOwnID() error                          { return godog.ErrPending }
-func registryPeerCountDoesNotChange() error                 { return godog.ErrPending }
-func noEventIsFired() error                                 { return godog.ErrPending }
-func aFollowerClientConfiguredWithIntroducerURL() error     { return godog.ErrPending }
-func startIsCalled() error                                  { return godog.ErrPending }
-func postIntroductionsSentBeforeFirstInterval() error       { return godog.ErrPending }
-func aFollowerClientNotYetIntroduced() error                { return godog.ErrPending }
-func theHeartbeatIntervalElapses() error                    { return godog.ErrPending }
-func noPostToHeartbeatsSent() error                         { return godog.ErrPending }
-func theIntroducerResponseContainsPeerRecords(n int) error  { return godog.ErrPending }
-func theFollowerProcessesIntroductionResponse() error       { return godog.ErrPending }
-func bothPeersAreUpserted() error                           { return godog.ErrPending }
-func theFollowerRegistrySnapshotSaved() error               { return godog.ErrPending }
-func theIntroducerURLIsUnreachable() error                  { return godog.ErrPending }
-func theFollowerAttemptsToSendIntroduction() error          { return godog.ErrPending }
-func theClientRetriesOnNextInterval() error                 { return godog.ErrPending }
-func theFollowerIntroducedAndIntroducerUnreachable() error  { return godog.ErrPending }
-func saveSnapshotIsCalled() error                           { return godog.ErrPending }
+func upsertCalledWithOwnID() error                         { return godog.ErrPending }
+func registryPeerCountDoesNotChange() error                { return godog.ErrPending }
+func noEventIsFired() error                                { return godog.ErrPending }
+func aFollowerClientConfiguredWithIntroducerURL() error    { return godog.ErrPending }
+func startIsCalled() error                                 { return godog.ErrPending }
+func postIntroductionsSentBeforeFirstInterval() error      { return godog.ErrPending }
+func aFollowerClientNotYetIntroduced() error               { return godog.ErrPending }
+func theHeartbeatIntervalElapses() error                   { return godog.ErrPending }
+func noPostToHeartbeatsSent() error                        { return godog.ErrPending }
+func theIntroducerResponseContainsPeerRecords(n int) error { return godog.ErrPending }
+func theFollowerProcessesIntroductionResponse() error      { return godog.ErrPending }
+func bothPeersAreUpserted() error                          { return godog.ErrPending }
+func theFollowerRegistrySnapshotSaved() error              { return godog.ErrPending }
+func theIntroducerURLIsUnreachable() error                 { return godog.ErrPending }
+func theFollowerAttemptsToSendIntroduction() error         { return godog.ErrPending }
+func theClientRetriesOnNextInterval() error                { return godog.ErrPending }
+func theFollowerIntroducedAndIntroducerUnreachable() error { return godog.ErrPending }
+func saveSnapshotIsCalled() error                          { return godog.ErrPending }
 func theFileExists(path string) error {
 	abs := resolveTestFilePath(path)
 	if _, err := os.Stat(abs); err != nil {
@@ -268,61 +270,61 @@ func resolveTestFilePath(path string) string {
 	}
 	return filepath.Join(projectRoot, path)
 }
-func noTemporaryFileRemains() error                         { return godog.ErrPending }
-func theSnapshotJSONContains(key string) error              { return godog.ErrPending }
-func theRegistryIsAtVersion(n int) error                    { return godog.ErrPending }
-func aPeerIsUpserted() error                                { return godog.ErrPending }
-func theRegistryVersionIsIncremented(base int) error        { return godog.ErrPending }
-func theRegistryHasNoPeerWithID(id string) error            { return godog.ErrPending }
-func upsertCalledWithID(id string) error                    { return godog.ErrPending }
-func theOnChangeCallbackReceivesEvent(eventType string) error { return godog.ErrPending }
-func theRegistryAlreadyHasPeerWithID(id string) error       { return godog.ErrPending }
-func upsertCalledAgainSameID() error                        { return godog.ErrPending }
-func theRegistryHasPeerWithID(id string) error              { return godog.ErrPending }
-func removeCalledWithThatID() error                         { return godog.ErrPending }
-func aPollerConfiguredWithDownstream(ep1, ep2 string) error { return godog.ErrPending }
-func aPollCycleRuns() error                                 { return godog.ErrPending }
-func getStatusIsRequested(host string) error                { return godog.ErrPending }
-func aDownstreamReturnsTarget(endpoint, id string) error    { return godog.ErrPending }
-func theAggregatedTargetIDIs(id string) error               { return godog.ErrPending }
-func aDownstreamEndpointIsUnreachable(ep string) error      { return godog.ErrPending }
-func aTargetWithIDIncluded(id string) error                 { return godog.ErrPending }
-func theTargetStateIs(state string) error                   { return godog.ErrPending }
+func noTemporaryFileRemains() error                               { return godog.ErrPending }
+func theSnapshotJSONContains(key string) error                    { return godog.ErrPending }
+func theRegistryIsAtVersion(n int) error                          { return godog.ErrPending }
+func aPeerIsUpserted() error                                      { return godog.ErrPending }
+func theRegistryVersionIsIncremented(base int) error              { return godog.ErrPending }
+func theRegistryHasNoPeerWithID(id string) error                  { return godog.ErrPending }
+func upsertCalledWithID(id string) error                          { return godog.ErrPending }
+func theOnChangeCallbackReceivesEvent(eventType string) error     { return godog.ErrPending }
+func theRegistryAlreadyHasPeerWithID(id string) error             { return godog.ErrPending }
+func upsertCalledAgainSameID() error                              { return godog.ErrPending }
+func theRegistryHasPeerWithID(id string) error                    { return godog.ErrPending }
+func removeCalledWithThatID() error                               { return godog.ErrPending }
+func aPollerConfiguredWithDownstream(ep1, ep2 string) error       { return godog.ErrPending }
+func aPollCycleRuns() error                                       { return godog.ErrPending }
+func getStatusIsRequested(host string) error                      { return godog.ErrPending }
+func aDownstreamReturnsTarget(endpoint, id string) error          { return godog.ErrPending }
+func theAggregatedTargetIDIs(id string) error                     { return godog.ErrPending }
+func aDownstreamEndpointIsUnreachable(ep string) error            { return godog.ErrPending }
+func aTargetWithIDIncluded(id string) error                       { return godog.ErrPending }
+func theTargetStateIs(state string) error                         { return godog.ErrPending }
 func aPollerWithDownstreamEndpoints(endpoints, targets int) error { return godog.ErrPending }
-func updateFnCalledWithTargets(n int) error                 { return godog.ErrPending }
-func endpointsAre(ep1, ep2, ep3 string) error               { return godog.ErrPending }
-func sortEndpointsIsCalled() error                          { return godog.ErrPending }
-func theSortedResultIs(ep1, ep2, ep3 string) error          { return godog.ErrPending }
-func instanceAIsIntroducerWithDownstreamB() error           { return godog.ErrPending }
-func instanceBIsFollowerWithDownstreamC() error             { return godog.ErrPending }
-func instanceCHasNoDownstream() error                       { return godog.ErrPending }
-func theTopologyIsValidated() error                         { return godog.ErrPending }
-func noRoutingCycleDetected() error                         { return godog.ErrPending }
-func everyMessageCarriesRoutingTrace() error                { return godog.ErrPending }
-func instanceABCycle() error                                { return godog.ErrPending }
-func aCycleErrorIsReturned() error                          { return godog.ErrPending }
-func noInstancesRunningOnPortRange() error                  { return godog.ErrPending }
-func instance1StartsWithFederation() error                  { return godog.ErrPending }
-func instance1BindsBasePort() error                         { return godog.ErrPending }
-func instance2StartsWithSamePortRange() error               { return godog.ErrPending }
-func instance2JoinsAsFollower() error                       { return godog.ErrPending }
-func instance2AppearsInMembership() error                   { return godog.ErrPending }
-func instance3StartsWithSamePortRange() error               { return godog.ErrPending }
-func instance3JoinsAsFollower() error                       { return godog.ErrPending }
-func bothInstancesAppearInMembership() error                { return godog.ErrPending }
-func aMeshOf3InstancesIsRunning() error                     { return godog.ErrPending }
-func followerInstance2IsStopped() error                     { return godog.ErrPending }
-func withinSecondsInstance2Absent(n int) error              { return godog.ErrPending }
-func instance3RemainsPresent() error                        { return godog.ErrPending }
+func updateFnCalledWithTargets(n int) error                       { return godog.ErrPending }
+func endpointsAre(ep1, ep2, ep3 string) error                     { return godog.ErrPending }
+func sortEndpointsIsCalled() error                                { return godog.ErrPending }
+func theSortedResultIs(ep1, ep2, ep3 string) error                { return godog.ErrPending }
+func instanceAIsIntroducerWithDownstreamB() error                 { return godog.ErrPending }
+func instanceBIsFollowerWithDownstreamC() error                   { return godog.ErrPending }
+func instanceCHasNoDownstream() error                             { return godog.ErrPending }
+func theTopologyIsValidated() error                               { return godog.ErrPending }
+func noRoutingCycleDetected() error                               { return godog.ErrPending }
+func everyMessageCarriesRoutingTrace() error                      { return godog.ErrPending }
+func instanceABCycle() error                                      { return godog.ErrPending }
+func aCycleErrorIsReturned() error                                { return godog.ErrPending }
+func noInstancesRunningOnPortRange() error                        { return godog.ErrPending }
+func instance1StartsWithFederation() error                        { return godog.ErrPending }
+func instance1BindsBasePort() error                               { return godog.ErrPending }
+func instance2StartsWithSamePortRange() error                     { return godog.ErrPending }
+func instance2JoinsAsFollower() error                             { return godog.ErrPending }
+func instance2AppearsInMembership() error                         { return godog.ErrPending }
+func instance3StartsWithSamePortRange() error                     { return godog.ErrPending }
+func instance3JoinsAsFollower() error                             { return godog.ErrPending }
+func bothInstancesAppearInMembership() error                      { return godog.ErrPending }
+func aMeshOf3InstancesIsRunning() error                           { return godog.ErrPending }
+func followerInstance2IsStopped() error                           { return godog.ErrPending }
+func withinSecondsInstance2Absent(n int) error                    { return godog.ErrPending }
+func instance3RemainsPresent() error                              { return godog.ErrPending }
 
-func aGETRequestSentToMembershipOnIntroducer() error        { return godog.ErrPending }
-func aGETRequestSentToMembershipFed() error                 { return godog.ErrPending }
-func aGETRequestSentToWellKnown() error                     { return godog.ErrPending }
-func aGETRequestSentToWellKnownOnIntroducer() error         { return godog.ErrPending }
-func federationIsEnabledInTheConfig() error                 { return godog.ErrPending }
-func noComponentWithEmptyNameInResponse() error             { return godog.ErrPending }
-func aFollowerIsRegisteredWithTheIntroducer() error         { return godog.ErrPending }
-func theRunningInstanceReportsVersionViaStatus(v string) error { return godog.ErrPending }
+func aGETRequestSentToMembershipOnIntroducer() error            { return godog.ErrPending }
+func aGETRequestSentToMembershipFed() error                     { return godog.ErrPending }
+func aGETRequestSentToWellKnown() error                         { return godog.ErrPending }
+func aGETRequestSentToWellKnownOnIntroducer() error             { return godog.ErrPending }
+func federationIsEnabledInTheConfig() error                     { return godog.ErrPending }
+func noComponentWithEmptyNameInResponse() error                 { return godog.ErrPending }
+func aFollowerIsRegisteredWithTheIntroducer() error             { return godog.ErrPending }
+func theRunningInstanceReportsVersionViaStatus(v string) error  { return godog.ErrPending }
 func theSecondInstanceBindsPortPlusDelta(base, delta int) error { return godog.ErrPending }
-func theRegistryVersionIsPlus(base, delta int) error        { return godog.ErrPending }
-func instanceIsARegisteredPeer(name, id string) error       { return godog.ErrPending }
+func theRegistryVersionIsPlus(base, delta int) error            { return godog.ErrPending }
+func instanceIsARegisteredPeer(name, id string) error           { return godog.ErrPending }

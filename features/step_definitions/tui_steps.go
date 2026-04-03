@@ -91,85 +91,85 @@ func InitializeTUIScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(`^service\.mode is "([^"]*)" in the config$`, serviceModeIsInTheConfig)
 }
 
-func aDashboardModelConstructed() error                           { return godog.ErrPending }
-func initIsCalled() error                                         { return godog.ErrPending }
-func returnedCmdContainsTickCmd() error                           { return godog.ErrPending }
-func returnedCmdContainsLoadCmd() error                           { return godog.ErrPending }
-func aDashboardModelAtInitialState() error                        { return godog.ErrPending }
-func modelStateUnchangedAfterInit() error                         { return godog.ErrPending }
-func aDashboardModelIsRunning() error                             { return godog.ErrPending }
-func updateReceivesTickMsg() error                                { return godog.ErrPending }
-func returnedCmdIsLoadCmd() error                                 { return godog.ErrPending }
-func newTickCmdScheduled() error                                  { return godog.ErrPending }
-func modelHasKnownTargetStates() error                            { return godog.ErrPending }
-func targetStatesUnchangedUntilLoadMsg() error                    { return godog.ErrPending }
-func aDashboardModelWithStaleSnapshot() error                     { return godog.ErrPending }
-func updateReceivesFresherLoadMsg() error                         { return godog.ErrPending }
-func modelSnapshotReplaced() error                                { return godog.ErrPending }
-func modelLastUpdatedTimeUpdated() error                          { return godog.ErrPending }
-func updateReceivesLoadMsgWithTargets(n int) error                { return godog.ErrPending }
-func modelTargetListIsEmpty() error                               { return godog.ErrPending }
-func viewRendersStatusTableNoRows() error                         { return godog.ErrPending }
-func updateReceivesKeyMsg(key string) error                       { return godog.ErrPending }
-func returnedCmdIsTeaQuit() error                                 { return godog.ErrPending }
-func modelHasTargetsAndSelectedIndex(targets, index int) error    { return godog.ErrPending }
-func selectedIndexBecomes(n int) error                            { return godog.ErrPending }
-func selectedIndexRemains(n int) error                            { return godog.ErrPending }
-func eventsPaneIsHidden() error                                   { return godog.ErrPending }
-func eventsPaneBecomesVisible() error                             { return godog.ErrPending }
-func eventsPaneIsVisible() error                                  { return godog.ErrPending }
-func eventsPaneBecomesHidden() error                              { return godog.ErrPending }
-func currentTerminalSize(w, h int) error                          { return godog.ErrPending }
-func updateReceivesWindowSizeMsg(w, h int) error                  { return godog.ErrPending }
-func modelWidthIs(n int) error                                    { return godog.ErrPending }
-func modelHeightIs(n int) error                                   { return godog.ErrPending }
-func terminalResizedToWidth(n int) error                          { return godog.ErrPending }
-func viewIsCalled() error                                         { return godog.ErrPending }
-func renderedOutputWidthDoesNotExceed(n int) error                { return godog.ErrPending }
-func twoDashboardModelsIdenticalState() error                     { return godog.ErrPending }
-func viewIsCalledOnEach() error                                   { return godog.ErrPending }
-func bothReturnIdenticalOutput() error                            { return godog.ErrPending }
-func aDashboardModelWithPopulatedState() error                    { return godog.ErrPending }
-func noSideEffectsDuringView() error                              { return godog.ErrPending }
-func modelSnapshotContainsTargets(n int) error                    { return godog.ErrPending }
-func statusTableContainsDataRows(n int) error                     { return godog.ErrPending }
-func aSnapshotWithTargetDetails(id, state string, ms int) error   { return godog.ErrPending }
-func statusTableRowContains(state, latency string) error          { return godog.ErrPending }
-func selectedRowHasDifferentStyle() error                         { return godog.ErrPending }
-func modelHasTargetSelected(id string) error                      { return godog.ErrPending }
-func detailsPaneContainsDetails() error                           { return godog.ErrPending }
-func detailsPaneContainsTimestamp() error                         { return godog.ErrPending }
-func modelHasTargets(n int) error                                 { return godog.ErrPending }
-func detailsPaneRendersEmpty() error                              { return godog.ErrPending }
-func modelSnapshotContainsEvents(n int) error                     { return godog.ErrPending }
-func eventsSectionListsAllEvents(n int) error                     { return godog.ErrPending }
-func renderedOutputNoEventsSection() error                        { return godog.ErrPending }
-func optionsMaxEventsIs(n int) error                              { return godog.ErrPending }
-func snapshotContainsEvents(n int) error                          { return godog.ErrPending }
-func onlyNEventsRendered(n int) error                             { return godog.ErrPending }
-func snapshotContainsMCPAndACP(mcp, acp int) error                { return godog.ErrPending }
-func topologyPaneShows(s1, s2 string) error                       { return godog.ErrPending }
-func dashboardWithDemoTrue() error                                { return godog.ErrPending }
-func renderedOutputContainsStateMachine() error                   { return godog.ErrPending }
-func dashboardWithDemoFalse() error                               { return godog.ErrPending }
-func renderedOutputNoStateMachine() error                         { return godog.ErrPending }
-func aMockSnapshotProvider() error                                { return godog.ErrPending }
-func dashboardConstructedWithProvider() error                     { return godog.ErrPending }
-func aLoadMsgCycleRuns() error                                    { return godog.ErrPending }
-func modelSnapshotMatchesMockProvider() error                     { return godog.ErrPending }
-func aSnapshotProviderReturningNil() error                        { return godog.ErrPending }
-func updateReceivesResultingLoadMsg() error                       { return godog.ErrPending }
-func previousModelSnapshotRetained() error                        { return godog.ErrPending }
-func noPanicOccurs() error                                        { return godog.ErrPending }
-func aDashboardStartedViaRun() error                              { return godog.ErrPending }
-func theUserPresses(key string) error                             { return godog.ErrPending }
-func runReturnsWithoutError() error                               { return godog.ErrPending }
-func noTTYIsAvailable() error                                     { return godog.ErrPending }
-func runIsCalledTUI() error                                       { return godog.ErrPending }
-func runReturnsNonNilError() error                                { return godog.ErrPending }
+func aDashboardModelConstructed() error                         { return godog.ErrPending }
+func initIsCalled() error                                       { return godog.ErrPending }
+func returnedCmdContainsTickCmd() error                         { return godog.ErrPending }
+func returnedCmdContainsLoadCmd() error                         { return godog.ErrPending }
+func aDashboardModelAtInitialState() error                      { return godog.ErrPending }
+func modelStateUnchangedAfterInit() error                       { return godog.ErrPending }
+func aDashboardModelIsRunning() error                           { return godog.ErrPending }
+func updateReceivesTickMsg() error                              { return godog.ErrPending }
+func returnedCmdIsLoadCmd() error                               { return godog.ErrPending }
+func newTickCmdScheduled() error                                { return godog.ErrPending }
+func modelHasKnownTargetStates() error                          { return godog.ErrPending }
+func targetStatesUnchangedUntilLoadMsg() error                  { return godog.ErrPending }
+func aDashboardModelWithStaleSnapshot() error                   { return godog.ErrPending }
+func updateReceivesFresherLoadMsg() error                       { return godog.ErrPending }
+func modelSnapshotReplaced() error                              { return godog.ErrPending }
+func modelLastUpdatedTimeUpdated() error                        { return godog.ErrPending }
+func updateReceivesLoadMsgWithTargets(n int) error              { return godog.ErrPending }
+func modelTargetListIsEmpty() error                             { return godog.ErrPending }
+func viewRendersStatusTableNoRows() error                       { return godog.ErrPending }
+func updateReceivesKeyMsg(key string) error                     { return godog.ErrPending }
+func returnedCmdIsTeaQuit() error                               { return godog.ErrPending }
+func modelHasTargetsAndSelectedIndex(targets, index int) error  { return godog.ErrPending }
+func selectedIndexBecomes(n int) error                          { return godog.ErrPending }
+func selectedIndexRemains(n int) error                          { return godog.ErrPending }
+func eventsPaneIsHidden() error                                 { return godog.ErrPending }
+func eventsPaneBecomesVisible() error                           { return godog.ErrPending }
+func eventsPaneIsVisible() error                                { return godog.ErrPending }
+func eventsPaneBecomesHidden() error                            { return godog.ErrPending }
+func currentTerminalSize(w, h int) error                        { return godog.ErrPending }
+func updateReceivesWindowSizeMsg(w, h int) error                { return godog.ErrPending }
+func modelWidthIs(n int) error                                  { return godog.ErrPending }
+func modelHeightIs(n int) error                                 { return godog.ErrPending }
+func terminalResizedToWidth(n int) error                        { return godog.ErrPending }
+func viewIsCalled() error                                       { return godog.ErrPending }
+func renderedOutputWidthDoesNotExceed(n int) error              { return godog.ErrPending }
+func twoDashboardModelsIdenticalState() error                   { return godog.ErrPending }
+func viewIsCalledOnEach() error                                 { return godog.ErrPending }
+func bothReturnIdenticalOutput() error                          { return godog.ErrPending }
+func aDashboardModelWithPopulatedState() error                  { return godog.ErrPending }
+func noSideEffectsDuringView() error                            { return godog.ErrPending }
+func modelSnapshotContainsTargets(n int) error                  { return godog.ErrPending }
+func statusTableContainsDataRows(n int) error                   { return godog.ErrPending }
+func aSnapshotWithTargetDetails(id, state string, ms int) error { return godog.ErrPending }
+func statusTableRowContains(state, latency string) error        { return godog.ErrPending }
+func selectedRowHasDifferentStyle() error                       { return godog.ErrPending }
+func modelHasTargetSelected(id string) error                    { return godog.ErrPending }
+func detailsPaneContainsDetails() error                         { return godog.ErrPending }
+func detailsPaneContainsTimestamp() error                       { return godog.ErrPending }
+func modelHasTargets(n int) error                               { return godog.ErrPending }
+func detailsPaneRendersEmpty() error                            { return godog.ErrPending }
+func modelSnapshotContainsEvents(n int) error                   { return godog.ErrPending }
+func eventsSectionListsAllEvents(n int) error                   { return godog.ErrPending }
+func renderedOutputNoEventsSection() error                      { return godog.ErrPending }
+func optionsMaxEventsIs(n int) error                            { return godog.ErrPending }
+func snapshotContainsEvents(n int) error                        { return godog.ErrPending }
+func onlyNEventsRendered(n int) error                           { return godog.ErrPending }
+func snapshotContainsMCPAndACP(mcp, acp int) error              { return godog.ErrPending }
+func topologyPaneShows(s1, s2 string) error                     { return godog.ErrPending }
+func dashboardWithDemoTrue() error                              { return godog.ErrPending }
+func renderedOutputContainsStateMachine() error                 { return godog.ErrPending }
+func dashboardWithDemoFalse() error                             { return godog.ErrPending }
+func renderedOutputNoStateMachine() error                       { return godog.ErrPending }
+func aMockSnapshotProvider() error                              { return godog.ErrPending }
+func dashboardConstructedWithProvider() error                   { return godog.ErrPending }
+func aLoadMsgCycleRuns() error                                  { return godog.ErrPending }
+func modelSnapshotMatchesMockProvider() error                   { return godog.ErrPending }
+func aSnapshotProviderReturningNil() error                      { return godog.ErrPending }
+func updateReceivesResultingLoadMsg() error                     { return godog.ErrPending }
+func previousModelSnapshotRetained() error                      { return godog.ErrPending }
+func noPanicOccurs() error                                      { return godog.ErrPending }
+func aDashboardStartedViaRun() error                            { return godog.ErrPending }
+func theUserPresses(key string) error                           { return godog.ErrPending }
+func runReturnsWithoutError() error                             { return godog.ErrPending }
+func noTTYIsAvailable() error                                   { return godog.ErrPending }
+func runIsCalledTUI() error                                     { return godog.ErrPending }
+func runReturnsNonNilError() error                              { return godog.ErrPending }
 
-func theModelHasTargetAndSelectedIndex(count, idx int) error      { return godog.ErrPending }
-func theTUICommandContains(s string) error                        { return godog.ErrPending }
-func theTUICommandContainsConfigPath() error                      { return godog.ErrPending }
-func theUserIssuesTheCommand(cmd string) error                    { return godog.ErrPending }
-func serviceModeIsInTheConfig(mode string) error                  { return godog.ErrPending }
+func theModelHasTargetAndSelectedIndex(count, idx int) error { return godog.ErrPending }
+func theTUICommandContains(s string) error                   { return godog.ErrPending }
+func theTUICommandContainsConfigPath() error                 { return godog.ErrPending }
+func theUserIssuesTheCommand(cmd string) error               { return godog.ErrPending }
+func serviceModeIsInTheConfig(mode string) error             { return godog.ErrPending }
