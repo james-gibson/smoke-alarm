@@ -30,11 +30,50 @@ type RungThreshold struct {
 }
 
 // DefaultRungThresholds are the canonical rung boundaries from capability-lattice.
-// The core 42i model uses 2 rungs: rung 0 (perfect trust, distance=0) and rung 1 (within tolerance, distance ≤ 20).
-// Distance > 20 triggers demotion to rung 0 (fallback/boundary-crossed state).
+// Each rung defines the maximum tolerated 42i_distance for an agent certified at that level.
+// Rungs 0–6 are the full lattice; RungForDistance uses first-fit low-to-high to classify distance.
 var DefaultRungThresholds = []RungThreshold{
 	{Rung: 0, Name: "Absolute Zero", MaxDistance: 0, Description: "Load without crashing"},
 	{Rung: 1, Name: "Read-Only", MaxDistance: 20, Description: "Entropy & isotope variation pass"},
+	{Rung: 2, Name: "Harness Tools", MaxDistance: 60, Description: "Known tool scope, input correlation"},
+	{Rung: 3, Name: "Mock Secrets", MaxDistance: 100, Description: "Safe isotope handling, declared behavior"},
+	{Rung: 4, Name: "Higher Authority", MaxDistance: 140, Description: "Independent decisions, timing uncorrelated"},
+	{Rung: 5, Name: "Delegation", MaxDistance: 180, Description: "Can delegate to peers"},
+	{Rung: 6, Name: "Certification", MaxDistance: 220, Description: "Can certify others"},
+}
+
+// RungForDistance returns the rung for the given distance using first-fit low-to-high over
+// the provided thresholds. Returns rung 0 as a fallback if distance exceeds all thresholds.
+// This is a pure function: it does not read or write agent state.
+func RungForDistance(distance int, thresholds []RungThreshold) int {
+	for _, rt := range thresholds {
+		if distance <= rt.MaxDistance {
+			return rt.Rung
+		}
+	}
+	return 0 // distance exceeds all thresholds — fallback to ground state
+}
+
+// BoundaryStatus returns the alert status string for a given distance and rung threshold.
+// It is a pure function: it does not read or write agent state.
+//
+// Rules:
+//   - distance > threshold           → "demoted"  (exceeded this rung's tolerance)
+//   - distance within 20 of threshold, and distance > 0 → "critical"
+//   - distance within 40 of threshold, and distance > 0 → "warning"
+//   - otherwise                      → "ok"
+func BoundaryStatus(distance, threshold int) string {
+	dtt := threshold - distance
+	switch {
+	case dtt < 0:
+		return "demoted"
+	case dtt < 20 && distance > 0:
+		return "critical"
+	case dtt < 40 && distance > 0:
+		return "warning"
+	default:
+		return "ok"
+	}
 }
 
 // Position represents an agent's position in 42i space.
@@ -99,14 +138,16 @@ func (as *AgentState) RecordTestFailure(isotopeFamily string) (rungChanged bool,
 	oldDistance := as.TotalDistance
 	as.TotalDistance += weight
 
-	// Recalculate position
-	as.recalculatePosition()
-
 	// Check if rung crossed a threshold
 	oldRung := as.determineRung(oldDistance)
 	newRung = as.determineRung(as.TotalDistance)
 
-	if newRung < oldRung {
+	// Update the position (imaginary, magnitude, direction) without touching Rung
+	as.recalculatePosition()
+	// Now set the rung explicitly
+	as.Position.Rung = newRung
+
+	if newRung != oldRung {
 		rungChanged = true
 		as.PreviousRung = oldRung
 		as.DemotionReason = fmt.Sprintf(
@@ -142,12 +183,13 @@ func (as *AgentState) RecordTestPass(isotopeFamily string) (rungChanged bool, ne
 		as.TotalDistance = 0
 	}
 
-	as.recalculatePosition()
-
 	oldRung := as.determineRung(oldDistance)
 	newRung = as.determineRung(as.TotalDistance)
 
-	if newRung > oldRung {
+	as.recalculatePosition()
+	as.Position.Rung = newRung
+
+	if newRung != oldRung {
 		rungChanged = true
 		as.DemotionReason = fmt.Sprintf(
 			"test fixed: %s (recovered -%d, distance now %d)",
@@ -159,19 +201,21 @@ func (as *AgentState) RecordTestPass(isotopeFamily string) (rungChanged bool, ne
 	return rungChanged, newRung
 }
 
-// recalculatePosition updates the agent's position based on current 42i_distance.
+// recalculatePosition updates the agent's position in 42i space WITHOUT changing
+// the rung. Rung transitions are exclusively handled by RecordTestFailure and
+// RecordTestPass which compare old/new rungs via determineRung.
+//
+// This separation means CheckRungBoundary always sees the rung the agent was
+// last *assigned* to, and can detect when distance has exceeded that rung's
+// ceiling ("demoted"), is approaching it ("critical"/"warning"), or is safely
+// within it ("ok").
 func (as *AgentState) recalculatePosition() {
 	imaginary := float64(as.TotalDistance)
 	magnitude := math.Sqrt(42*42 + imaginary*imaginary)
-
-	// Determine direction based on failed test patterns
 	direction := as.inferDirection()
 
-	// Get current rung
-	currentRung := as.determineRung(as.TotalDistance)
-
-	// Check if at risk (approaching threshold)
-	threshold := DefaultRungThresholds[currentRung].MaxDistance
+	rung := as.Position.Rung
+	threshold := DefaultRungThresholds[rung].MaxDistance
 	distanceToThreshold := threshold - as.TotalDistance
 	atRisk := distanceToThreshold < 20 && as.TotalDistance > 0
 
@@ -180,23 +224,15 @@ func (as *AgentState) recalculatePosition() {
 		Imaginary: imaginary,
 		Magnitude: magnitude,
 		Direction: direction,
-		Rung:      currentRung,
+		Rung:      rung,
 		AtRisk:    atRisk,
 	}
 }
 
 // determineRung returns the agent's current rung based on 42i_distance.
-// Agents start at rung 0 and the rung increases as distance stays within bounds.
-// Returns the first (lowest) rung where distance <= max_distance.
+// Delegates to RungForDistance using DefaultRungThresholds.
 func (as *AgentState) determineRung(distance int) int {
-	// Iterate low-to-high: return the first rung where distance <= max_distance
-	for i := 0; i < len(DefaultRungThresholds); i++ {
-		if distance <= DefaultRungThresholds[i].MaxDistance {
-			return DefaultRungThresholds[i].Rung
-		}
-	}
-	// If distance exceeds all thresholds, return the lowest rung (demotion)
-	return 0
+	return RungForDistance(distance, DefaultRungThresholds)
 }
 
 // inferDirection determines the qualitative direction based on failed test pattern.
@@ -259,6 +295,7 @@ type ConsensusGap struct {
 func (as *AgentState) RecordConsensusFailure(gap ConsensusGap) {
 	as.TotalDistance += gap.GapWeight
 	as.recalculatePosition()
+	as.Position.Rung = as.determineRung(as.TotalDistance)
 }
 
 // GetConsensusGap returns the 42i weight for Byzantine failure (alarms disagree).
@@ -303,13 +340,13 @@ func (as *AgentState) RecordMCPFailure(event MCPFailureEvent) (rungChanged bool,
 	oldDistance := as.TotalDistance
 	as.TotalDistance += event.DistanceWeight
 
-	// Update direction based on MCP failure pattern
-	as.recalculatePosition()
-
 	oldRung := as.determineRung(oldDistance)
 	newRung = as.determineRung(as.TotalDistance)
 
-	if newRung < oldRung {
+	as.recalculatePosition()
+	as.Position.Rung = newRung
+
+	if newRung != oldRung {
 		rungChanged = true
 		as.PreviousRung = oldRung
 		as.DemotionReason = fmt.Sprintf(
@@ -348,44 +385,45 @@ type RungBoundaryAlert struct {
 }
 
 // CheckRungBoundary returns alert if agent is near or crossed a rung threshold.
+//
+// Rung detection and boundary detection are separate concerns:
+//   - RungForDistance classifies distance into a rung band (first-fit low-to-high)
+//   - BoundaryStatus checks distance against the current rung's ceiling
+//
+// The threshold used is the CURRENT rung's MaxDistance — the ceiling the agent is
+// approaching. When distance exceeds that ceiling, BoundaryStatus returns "demoted".
+// Special case: rung 0 at distance 0 is "ok" (the TotalDistance > 0 guard in
+// BoundaryStatus handles this, since threshold=0 and distance=0 → DTT=0 → "ok").
 func (as *AgentState) CheckRungBoundary() RungBoundaryAlert {
 	currentRung := as.Position.Rung
 	threshold := DefaultRungThresholds[currentRung].MaxDistance
 	distanceToThreshold := threshold - as.TotalDistance
+	status := BoundaryStatus(as.TotalDistance, threshold)
 
-	var status, message string
-	var nextRung int
-
-	switch {
-	case distanceToThreshold < 0:
-		// Crossed threshold
-		status = "demoted"
-		nextRung = currentRung - 1
-		if nextRung < 0 {
-			nextRung = 0
+	nextRung := currentRung
+	var message string
+	switch status {
+	case "demoted":
+		nextRung = currentRung + 1
+		if nextRung >= len(DefaultRungThresholds) {
+			nextRung = len(DefaultRungThresholds) - 1
 		}
 		message = fmt.Sprintf(
-			"DEMOTED: 42i_distance=%d exceeds rung %d threshold of %d (moved to rung %d)",
+			"DEMOTED: 42i_distance=%d exceeds rung %d ceiling of %d (drifting toward rung %d)",
 			as.TotalDistance, currentRung, threshold, nextRung,
 		)
-	case distanceToThreshold < 20 && as.TotalDistance > 0:
-		status = "critical"
-		nextRung = currentRung
+	case "critical":
 		message = fmt.Sprintf(
-			"CRITICAL: 42i_distance=%d approaching rung %d threshold of %d (only %d units remaining)",
+			"CRITICAL: 42i_distance=%d approaching rung %d ceiling of %d (only %d units remaining)",
 			as.TotalDistance, currentRung, threshold, distanceToThreshold,
 		)
-	case distanceToThreshold < 40 && as.TotalDistance > 0:
-		status = "warning"
-		nextRung = currentRung
+	case "warning":
 		message = fmt.Sprintf(
-			"WARNING: 42i_distance=%d trending toward rung boundary (%d units until threshold)",
+			"WARNING: 42i_distance=%d trending toward rung boundary (%d units until ceiling)",
 			as.TotalDistance, distanceToThreshold,
 		)
 	default:
-		status = "ok"
-		nextRung = currentRung
-		message = fmt.Sprintf("Agent healthy at rung %d (42i_distance=%d)", currentRung, as.TotalDistance)
+		message = fmt.Sprintf("Agent stable at rung %d (42i_distance=%d)", currentRung, as.TotalDistance)
 	}
 
 	return RungBoundaryAlert{
