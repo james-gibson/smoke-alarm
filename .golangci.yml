@@ -55,7 +55,6 @@ linters:
     - nilerr
     - noctx
     - staticcheck
-    - typecheck
     - unused
 
     # code quality
