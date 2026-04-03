@@ -183,7 +183,7 @@ func aListenerIsBoundOn(addr string) error {
 	if err != nil {
 		return fmt.Errorf("no listener found on %s: %w", addr, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("status endpoint on %s returned %d", addr, resp.StatusCode)
 	}
@@ -204,7 +204,7 @@ func thePathIsServed(path string) error {
 	if err != nil {
 		return fmt.Errorf("path %s not served on %s: %w", path, addr, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	// Any response (200 or 401) means the path is served.
 	return nil
 }
@@ -242,7 +242,7 @@ func noListenerIsBoundOnMockRedirect() error {
 		// Connection refused or similar — port is not listening as expected.
 		return nil
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	return fmt.Errorf("expected no listener on %s but got HTTP %d", addr, resp.StatusCode)
 }
 

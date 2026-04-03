@@ -449,7 +449,7 @@ func (d *Discoverer) fetchLLMSTxt(ctx context.Context, uri string) (string, erro
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return "", fmt.Errorf("unexpected status %d", resp.StatusCode)
@@ -862,7 +862,7 @@ func (d *Discoverer) httpReachable(ctx context.Context, endpoint string) (bool, 
 	if err != nil {
 		return false, 0, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Any HTTP response indicates a reachable service; keep classification later.
 	return true, resp.StatusCode, nil

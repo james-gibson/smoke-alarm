@@ -197,7 +197,7 @@ func sendJSONRPC(url, method string) error {
 	if err != nil {
 		return fmt.Errorf("POST %q: %w", url, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var buf bytes.Buffer
 	_, _ = buf.ReadFrom(resp.Body)
 
@@ -292,7 +292,7 @@ func theHealthEndpointReturnsStatusCode(addr string, code int) error {
 		// No server running — this scenario requires a running service; mark pending.
 		return godog.ErrPending
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != code {
 		return fmt.Errorf("expected status %d, got %d from %q", code, resp.StatusCode, target)
 	}

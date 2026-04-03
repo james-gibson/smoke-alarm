@@ -594,7 +594,7 @@ func (p *HTTPProber) probeSSE(ctx context.Context, target targets.Target, header
 	if err != nil {
 		return targets.CheckResult{}, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	ok := statusMatches(resp.StatusCode, target.Expected.HealthyStatusCodes)
 	state := targets.StateHealthy
@@ -650,7 +650,7 @@ func (p *HTTPProber) probeSimpleHTTP(ctx context.Context, target targets.Target,
 	if err != nil {
 		return targets.CheckResult{}, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	ok := statusMatches(resp.StatusCode, target.Expected.HealthyStatusCodes)
 	state := targets.StateHealthy

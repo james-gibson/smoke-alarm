@@ -96,7 +96,7 @@ var ksState struct {
 
 func resetKSState() {
 	if ksState.storeBaseDir != "" {
-		os.RemoveAll(ksState.storeBaseDir)
+		_ = os.RemoveAll(ksState.storeBaseDir)
 	}
 	ksState.store = nil
 	ksState.storeBaseDir = ""
