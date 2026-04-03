@@ -1,0 +1,316 @@
+version: "1"
+
+service:
+  name: "ocd-smoke-alarm"
+  environment: "sse-remote-mixed"
+  mode: "foreground"
+  log_level: "info"
+  poll_interval: "10s"
+  timeout: "5s"
+  max_workers: 8
+
+health:
+  enabled: true
+  listen_addr: "127.0.0.1:18088"
+  endpoints:
+    healthz: "/healthz"
+    readyz: "/readyz"
+    status: "/status"
+
+runtime:
+  lock_file: "/tmp/ocd-smoke-alarm.sse-remote-mixed.lock"
+  state_dir: "./state/sse-remote-mixed"
+  baseline_file: "./state/sse-remote-mixed/known-good.json"
+  event_history_size: 800
+  graceful_shutdown_timeout: "10s"
+
+discovery:
+  enabled: true
+  interval: "60s"
+  include_local_paths:
+    - "~/.config/mcp"
+    - "~/.config/acp"
+  include_env_vars:
+    - "MCP_SERVER_URL"
+    - "ACP_AGENT_URL"
+  local_proxy_scan:
+    enabled: false
+    hosts: []
+    ports: []
+  cloud_catalog:
+    enabled: false
+    urls: []
+  llms_txt:
+    enabled: true
+    remote_uris:
+      - "https://modelcontextprotocol.io/llms.txt"
+      - "https://agentclientprotocol.com/llms.txt"
+    fetch_timeout: "5s"
+    require_https: true
+    auto_register_as_targets: true
+    auto_register_oauth: true
+
+alerts:
+  aggressive: true
+  notify_on_regression_immediately: true
+  retry_before_escalation: 1
+  dedupe_window: "2m"
+  cooldown: "1m"
+  severity:
+    healthy: "info"
+    degraded: "warn"
+    regression: "critical"
+    outage: "critical"
+  sinks:
+    log:
+      enabled: true
+    os_notification:
+      enabled: false
+      title_prefix: "[Smoke Alarm]"
+
+auth:
+  keystore:
+    enabled: true
+    provider: "auto"
+  redaction:
+    enabled: true
+    mask: "****"
+  oauth:
+    enabled: true
+    token_grace_period: "30s"
+    unattended:
+      enabled: true
+      allow_device_code: true
+      allow_client_credentials: true
+      allow_refresh_token: true
+    mock_redirect:
+      enabled: true
+      listen_addr: "127.0.0.1:8877"
+      path: "/oauth/callback"
+      mode: "allow"
+
+targets:
+  - id: "mcp-remote-sse-primary"
+    enabled: true
+    protocol: "mcp"
+    name: "Remote MCP SSE Primary"
+    endpoint: "https://mcp.example.com/stream?transport=sse"
+    transport: "sse"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "tools/list"
+        - "resources/list"
+      known_agent_count_min: 1
+      expected_version: ""
+    auth:
+      type: "bearer"
+      header: "Authorization"
+      secret_ref: "keychain://ocd-smoke-alarm/mcp-remote-sse-primary/token"
+      key_name: ""
+      client_id: ""
+      token_url: ""
+      redirect_url: ""
+      callback_id: ""
+      scopes: []
+    stdio:
+      command: ""
+      args: []
+      env: {}
+      cwd: ""
+    check:
+      interval: "10s"
+      timeout: "5s"
+      retries: 1
+      handshake_profile: "none"
+      required_methods: []
+      hurl_tests:
+        - name: "mcp-sse-preflight"
+          endpoint: "https://mcp.example.com/healthz"
+          method: "GET"
+
+  - id: "acp-remote-sse-primary"
+    enabled: true
+    protocol: "acp"
+    name: "Remote ACP SSE Primary"
+    endpoint: "https://agent.example.com/events?transport=sse"
+    transport: "sse"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "session/setup"
+        - "prompt/turn"
+      known_agent_count_min: 1
+      expected_version: ">=0.1.0"
+    auth:
+      type: "oauth"
+      header: ""
+      secret_ref: "keychain://ocd-smoke-alarm/acp-remote-sse-primary/client-secret"
+      key_name: ""
+      client_id: "ocd-smoke-alarm"
+      token_url: "https://auth.example.com/oauth/token"
+      redirect_url: "http://127.0.0.1:8877/oauth/callback"
+      callback_id: "acp-remote-sse-primary-callback"
+      scopes:
+        - "acp.read"
+        - "acp.execute"
+    stdio:
+      command: ""
+      args: []
+      env: {}
+      cwd: ""
+    check:
+      interval: "10s"
+      timeout: "5s"
+      retries: 1
+      handshake_profile: "none"
+      required_methods: []
+      hurl_tests:
+        - name: "acp-sse-preflight"
+          endpoint: "https://agent.example.com/readyz"
+          method: "GET"
+
+  - id: "mcp-remote-https-strict"
+    enabled: true
+    protocol: "mcp"
+    name: "Remote MCP HTTPS Strict"
+    endpoint: "https://mcp.example.com/rpc"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "tools/list"
+        - "resources/list"
+      known_agent_count_min: 1
+      expected_version: ""
+    auth:
+      type: "bearer"
+      header: "Authorization"
+      secret_ref: "keychain://ocd-smoke-alarm/mcp-remote-https-strict/token"
+      key_name: ""
+      client_id: ""
+      token_url: ""
+      redirect_url: ""
+      callback_id: ""
+      scopes: []
+    stdio:
+      command: ""
+      args: []
+      env: {}
+      cwd: ""
+    check:
+      interval: "15s"
+      timeout: "6s"
+      retries: 1
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+        - "resources/list"
+      hurl_tests:
+        - name: "mcp-rpc-preflight"
+          endpoint: "https://mcp.example.com/healthz"
+          method: "GET"
+
+  - id: "acp-remote-https-strict-oauth"
+    enabled: true
+    protocol: "acp"
+    name: "Remote ACP HTTPS Strict OAuth"
+    endpoint: "https://agent.example.com/acp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "session/setup"
+        - "prompt/turn"
+      known_agent_count_min: 1
+      expected_version: ">=0.1.0"
+    auth:
+      type: "oauth"
+      header: ""
+      secret_ref: "keychain://ocd-smoke-alarm/acp-remote-https-strict-oauth/client-secret"
+      key_name: ""
+      client_id: "ocd-smoke-alarm"
+      token_url: "https://auth.example.com/oauth/token"
+      redirect_url: "http://127.0.0.1:8877/oauth/callback"
+      callback_id: "acp-remote-https-strict-oauth-callback"
+      scopes:
+        - "acp.read"
+        - "acp.execute"
+    stdio:
+      command: ""
+      args: []
+      env: {}
+      cwd: ""
+    check:
+      interval: "15s"
+      timeout: "6s"
+      retries: 1
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "session/setup"
+        - "prompt/turn"
+      hurl_tests:
+        - name: "acp-rpc-preflight"
+          endpoint: "https://agent.example.com/healthz"
+          method: "GET"
+
+known_state:
+  enabled: true
+  persist: true
+  sustain_success_before_mark_healthy: 2
+  classify_new_failures_after_healthy_as: "regression"
+  outage_threshold_consecutive_failures: 2
+
+meta_config:
+  enabled: true
+  output_dir: "./state/sse-remote-mixed/meta-config"
+  formats:
+    - "yaml"
+    - "json"
+  include_confidence: true
+  include_provenance: true
+  placeholders:
+    token: "${TOKEN}"
+    client_secret: "${CLIENT_SECRET}"
+    endpoint: "${ENDPOINT}"
+
+remote_agent:
+  managed_updates: true
+  control_endpoint: "http://127.0.0.1:8099"
+  update:
+    strategy: "rolling-single"
+    stop_command: "ocd-smoke-alarm ops stop"
+    start_command: "ocd-smoke-alarm serve --mode=background --config=./configs/samples/sse-remote-mixed.yaml --health-addr=127.0.0.1:18088"
+    verify_command: "ocd-smoke-alarm check --config=./configs/samples/sse-remote-mixed.yaml"
+    rollback_on_failure: true
+    max_wait_for_healthy: "90s"
+  safety:
+    require_lock: true
+    lock_ttl: "5m"
+
+hosted:
+  enabled: false
+  listen_addr: "127.0.0.1:18091"
+  transports:
+    - "http"
+    - "sse"
+  protocols:
+    - "mcp"
+    - "acp"
+    - "a2a"
+  endpoints:
+    mcp: "/mcp"
+    acp: "/acp"
+    a2a: "/a2a"
+
+dynamic_config:
+  enabled: true
+  directory: "./state/sse-remote-mixed/dynamic-config"
+  formats:
+    - "json"
+    - "markdown"
+  serve_base_url: "/dynamic-config"
+  allow_overwrite: true
+  require_unique_ids: true

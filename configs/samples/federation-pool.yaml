@@ -1,0 +1,193 @@
+version: "1"
+
+# federation-pool.yaml
+#
+# Identical worker pool: multiple agents doing the same job.
+# Smoke alarm verifies pool health as a whole, not individual workers.
+#
+# Use case: Warroom scenario where you have:
+#   - 3 identical code review agents (load distributed)
+#   - 2 identical search agents (hot standby)
+#   - 4 identical embedding generators (parallel workers)
+#
+# Alert when ANY worker fails, or when pool drops below quorum.
+
+service:
+  name: "ocd-smoke-alarm"
+  environment: "federation-pool"
+  mode: "foreground"
+  log_level: "info"
+  poll_interval: "5s"
+  timeout: "3s"
+  max_workers: 12
+
+health:
+  enabled: true
+  listen_addr: "127.0.0.1:18088"
+  endpoints:
+    healthz: "/healthz"
+    readyz: "/readyz"
+    status: "/status"
+
+runtime:
+  lock_file: "/tmp/ocd-smoke-alarm.federation-pool.lock"
+  state_dir: "./state/federation-pool"
+  baseline_file: "./state/federation-pool/known-good.json"
+  event_history_size: 600
+  graceful_shutdown_timeout: "10s"
+
+discovery:
+  enabled: false
+
+alerts:
+  aggressive: true
+  notify_on_regression_immediately: true
+  retry_before_escalation: 2
+  dedupe_window: "30s"
+  cooldown: "15s"
+  severity:
+    healthy: "info"
+    degraded: "warn"
+    regression: "critical"
+    outage: "critical"
+  sinks:
+    log:
+      enabled: true
+    os_notification:
+      enabled: true
+      title_prefix: "[Pool]"
+
+auth:
+  keystore:
+    enabled: false
+  redaction:
+    enabled: true
+    mask: "****"
+  oauth:
+    enabled: false
+
+targets:
+  # Pool A: Code review workers (3 nodes, quorum 2)
+  - id: "pool-review-1"
+    enabled: true
+    protocol: "mcp"
+    name: "Pool: Code Review Worker 1"
+    endpoint: "http://127.0.0.1:18601/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "tools/list"
+    check:
+      interval: "5s"
+      timeout: "3s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+
+  - id: "pool-review-2"
+    enabled: true
+    protocol: "mcp"
+    name: "Pool: Code Review Worker 2"
+    endpoint: "http://127.0.0.1:18602/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "tools/list"
+    check:
+      interval: "5s"
+      timeout: "3s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+
+  - id: "pool-review-3"
+    enabled: true
+    protocol: "mcp"
+    name: "Pool: Code Review Worker 3"
+    endpoint: "http://127.0.0.1:18603/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "tools/list"
+    check:
+      interval: "5s"
+      timeout: "3s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+
+  # Pool B: Search workers (2 nodes, need both)
+  - id: "pool-search-1"
+    enabled: true
+    protocol: "mcp"
+    name: "Pool: Search Worker 1"
+    endpoint: "http://127.0.0.1:18611/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "tools/list"
+    check:
+      interval: "5s"
+      timeout: "3s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+
+  - id: "pool-search-2"
+    enabled: true
+    protocol: "mcp"
+    name: "Pool: Search Worker 2"
+    endpoint: "http://127.0.0.1:18612/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "tools/list"
+    check:
+      interval: "5s"
+      timeout: "3s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+
+known_state:
+  enabled: true
+  persist: true
+  sustain_success_before_mark_healthy: 2
+  classify_new_failures_after_healthy_as: "regression"
+  outage_threshold_consecutive_failures: 2
+
+meta_config:
+  enabled: true
+  output_dir: "./state/federation-pool/meta-config"
+  formats:
+    - "json"
+
+hosted:
+  enabled: false
+
+federation:
+  enabled: true
+  base_port: 5400
+  max_port: 5405
+  poll_interval: "5s"
+  announce_interval: "10s"
+  heartbeat_interval: "15s"
+  heartbeat_timeout: "45s"
+  upstream: ""
+  downstream: []
+  rank: 0

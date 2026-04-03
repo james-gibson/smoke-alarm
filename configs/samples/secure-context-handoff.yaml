@@ -1,0 +1,200 @@
+version: "1"
+
+# secure-context-handoff.yaml
+#
+# Secure context injection into agent sessions.
+# When someone joins a warroom, they bring CONTEXT (not just identity).
+#
+# Use case: Secure handoff patterns:
+#   - Engineer brings stack trace from their terminal
+#   - PM brings customer impact data
+#   - Security brings threat intelligence
+#   - All context encrypted in transit, access-controlled at rest
+#
+# Key differences from normal target monitoring:
+#   - Context is ENCRYPTED (we verify encryption works)
+#   - Access is SCOPED (engineer sees stack trace, PM doesn't)
+#   - Context has TTL (sensitive data doesn't persist forever)
+
+service:
+  name: "ocd-smoke-alarm"
+  environment: "secure-context-handoff"
+  mode: "foreground"
+  log_level: "info"
+  poll_interval: "10s"
+  timeout: "5s"
+  max_workers: 6
+
+health:
+  enabled: true
+  listen_addr: "127.0.0.1:18088"
+  endpoints:
+    healthz: "/healthz"
+    readyz: "/readyz"
+    status: "/status"
+
+runtime:
+  lock_file: "/tmp/ocd-smoke-alarm.secure-handoff.lock"
+  state_dir: "./state/secure-context"
+  baseline_file: "./state/secure-context/known-good.json"
+  event_history_size: 400
+  graceful_shutdown_timeout: "10s"
+
+discovery:
+  enabled: false
+
+alerts:
+  aggressive: true
+  notify_on_regression_immediately: true
+  retry_before_escalation: 1
+  dedupe_window: "30s"
+  cooldown: "15s"
+  severity:
+    healthy: "info"
+    degraded: "warn"
+    regression: "critical"
+    outage: "critical"
+  sinks:
+    log:
+      enabled: true
+    os_notification:
+      enabled: true
+      title_prefix: "[Secure]"
+
+auth:
+  keystore:
+    enabled: true
+    provider: "auto"
+  redaction:
+    enabled: true
+    mask: "****"
+  oauth:
+    enabled: true
+    token_grace_period: "30s"
+    unattended:
+      enabled: true
+      allow_device_code: true
+      allow_client_credentials: true
+      allow_refresh_token: true
+
+targets:
+  # Secure context broker - manages encrypted context
+  - id: "secure-context-broker"
+    enabled: true
+    protocol: "mcp"
+    name: "Secure Context: Broker"
+    endpoint: "http://127.0.0.1:19801/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "tools/list"
+    auth:
+      type: "oauth"
+      client_id: "context-broker"
+      token_url: "http://127.0.0.1:19850/oauth/token"
+      scopes:
+        - "context.broker"
+    check:
+      interval: "10s"
+      timeout: "5s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+
+  # Context provider: Engineering (brings technical data)
+  - id: "secure-provider-engineering"
+    enabled: true
+    protocol: "mcp"
+    name: "Secure Context: Engineering Provider"
+    endpoint: "http://127.0.0.1:19802/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "tools/list"
+    auth:
+      type: "oauth"
+      client_id: "provider-engineering"
+      token_url: "http://127.0.0.1:19850/oauth/token"
+      scopes:
+        - "context.write"
+        - "context.tech"
+    check:
+      interval: "12s"
+      timeout: "5s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+
+  # Context provider: Business (brings customer impact)
+  - id: "secure-provider-business"
+    enabled: true
+    protocol: "mcp"
+    name: "Secure Context: Business Provider"
+    endpoint: "http://127.0.0.1:19803/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "tools/list"
+    auth:
+      type: "oauth"
+      client_id: "provider-business"
+      token_url: "http://127.0.0.1:19850/oauth/token"
+      scopes:
+        - "context.write"
+        - "context.business"
+    check:
+      interval: "12s"
+      timeout: "5s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+
+  # Encrypted context store (verify encryption at rest)
+  - id: "secure-context-encrypted-store"
+    enabled: true
+    protocol: "mcp"
+    name: "Secure Context: Encrypted Store"
+    endpoint: "http://127.0.0.1:19810/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    auth:
+      type: "oauth"
+      client_id: "encrypted-store"
+      token_url: "http://127.0.0.1:19850/oauth/token"
+      scopes:
+        - "context.storage"
+    check:
+      interval: "15s"
+      timeout: "5s"
+      retries: 1
+      handshake_profile: "strict"
+
+known_state:
+  enabled: true
+  persist: true
+  sustain_success_before_mark_healthy: 2
+  classify_new_failures_after_healthy_as: "regression"
+  outage_threshold_consecutive_failures: 2
+
+meta_config:
+  enabled: true
+  output_dir: "./state/secure-context/meta-config"
+  formats:
+    - "json"
+  include_confidence: true
+
+hosted:
+  enabled: false
+
+federation:
+  enabled: false

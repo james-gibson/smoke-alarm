@@ -1,0 +1,207 @@
+version: "1"
+
+service:
+  name: "ocd-smoke-alarm"
+  environment: "llmstxt-discovery"
+  mode: "foreground" # foreground | background
+  log_level: "info"
+  poll_interval: "10s"
+  timeout: "4s"
+  max_workers: 6
+
+health:
+  enabled: true
+  listen_addr: "127.0.0.1:18088"
+  endpoints:
+    healthz: "/healthz"
+    readyz: "/readyz"
+    status: "/status"
+
+runtime:
+  lock_file: "/tmp/ocd-smoke-alarm.llmstxt.lock"
+  state_dir: "./state/llmstxt-discovery"
+  baseline_file: "./state/llmstxt-discovery/known-good.json"
+  event_history_size: 600
+  graceful_shutdown_timeout: "10s"
+
+discovery:
+  enabled: true
+  interval: "30s"
+  include_local_paths:
+    - "~/.config/mcp"
+    - "~/.config/acp"
+  include_env_vars:
+    - "MCP_SERVER_URL"
+    - "ACP_AGENT_URL"
+  local_proxy_scan:
+    enabled: false
+    hosts:
+      - "127.0.0.1"
+      - "localhost"
+    ports: [3000, 4317, 4318, 8080, 9000]
+  cloud_catalog:
+    enabled: false
+    urls: []
+  llms_txt:
+    enabled: true
+    remote_uris:
+      - "https://modelcontextprotocol.io/llms.txt"
+      - "https://agentclientprotocol.com/llms.txt"
+      - "https://llmstxt.org/llms.txt"
+    fetch_timeout: "6s"
+    require_https: true
+    auto_register_as_targets: true
+    auto_register_oauth: true
+
+alerts:
+  aggressive: true
+  notify_on_regression_immediately: true
+  retry_before_escalation: 1
+  dedupe_window: "2m"
+  cooldown: "1m"
+  severity:
+    healthy: "info"
+    degraded: "warn"
+    regression: "critical"
+    outage: "critical"
+  sinks:
+    log:
+      enabled: true
+    os_notification:
+      enabled: false
+      title_prefix: "[Smoke Alarm]"
+
+auth:
+  keystore:
+    enabled: true
+    provider: "auto"
+  redaction:
+    enabled: true
+    mask: "****"
+  oauth:
+    enabled: true
+    token_grace_period: "30s"
+    unattended:
+      enabled: true
+      allow_device_code: true
+      allow_client_credentials: true
+      allow_refresh_token: true
+    mock_redirect:
+      enabled: true
+      listen_addr: "127.0.0.1:8877"
+      path: "/oauth/callback"
+      mode: "allow" # allow | fail
+
+targets:
+  # Control target to confirm monitor process is healthy.
+  - id: "self-health"
+    enabled: true
+    protocol: "http"
+    name: "Self Health Endpoint"
+    endpoint: "http://127.0.0.1:18088/healthz"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    auth:
+      type: "none"
+    check:
+      interval: "5s"
+      timeout: "2s"
+      retries: 0
+      handshake_profile: "none"
+      hurl_tests:
+        - name: "self-health-stop-gap"
+          endpoint: "http://127.0.0.1:18088/healthz"
+          method: "GET"
+
+  # Optional manually curated ACP target that uses full OAuth fields.
+  - id: "acp-oauth-reference"
+    enabled: false
+    protocol: "acp"
+    name: "ACP OAuth Reference Target"
+    endpoint: "https://agent.example.com/acp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "session/setup"
+        - "prompt/turn"
+      expected_version: ">=0.1.0"
+    auth:
+      type: "oauth"
+      client_id: "ocd-smoke-alarm"
+      token_url: "https://auth.example.com/oauth/token"
+      redirect_url: "http://127.0.0.1:8877/oauth/callback"
+      callback_id: "acp-oauth-reference-callback"
+      secret_ref: "keychain://ocd-smoke-alarm/acp-oauth-reference/client-secret"
+      scopes:
+        - "acp.read"
+        - "acp.execute"
+    check:
+      interval: "12s"
+      timeout: "5s"
+      retries: 1
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "session/setup"
+        - "prompt/turn"
+
+known_state:
+  enabled: true
+  persist: true
+  sustain_success_before_mark_healthy: 2
+  classify_new_failures_after_healthy_as: "regression"
+  outage_threshold_consecutive_failures: 2
+
+meta_config:
+  enabled: true
+  output_dir: "./state/llmstxt-discovery/meta-config"
+  formats:
+    - "yaml"
+    - "json"
+  include_confidence: true
+  include_provenance: true
+  placeholders:
+    token: "${TOKEN}"
+    client_secret: "${CLIENT_SECRET}"
+    endpoint: "${ENDPOINT}"
+
+dynamic_config:
+  enabled: true
+  directory: "./state/llmstxt-discovery/dynamic-config"
+  formats:
+    - "json"
+    - "markdown"
+  serve_base_url: "/dynamic-config"
+  allow_overwrite: true
+  require_unique_ids: true
+
+remote_agent:
+  managed_updates: false
+  control_endpoint: ""
+  update:
+    strategy: "rolling-single"
+    stop_command: ""
+    start_command: ""
+    verify_command: ""
+    rollback_on_failure: true
+    max_wait_for_healthy: "60s"
+  safety:
+    require_lock: true
+    lock_ttl: "5m"
+
+hosted:
+  enabled: true
+  listen_addr: "127.0.0.1:18091"
+  transports:
+    - "http"
+    - "sse"
+  protocols:
+    - "mcp"
+    - "acp"
+    - "a2a"
+  endpoints:
+    mcp: "/mcp"
+    acp: "/acp"
+    a2a: "/a2a"

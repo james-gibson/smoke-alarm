@@ -1,0 +1,104 @@
+run:
+  timeout: 5m
+  tests: true
+  issues-exit-code: 1
+
+output:
+  sort-results: true
+
+linters-settings:
+  govet:
+    enable:
+      - shadow
+
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+
+  goimports:
+    local-prefixes: ocd-smoke-alarm
+
+  revive:
+    confidence: 0.8
+    rules:
+      - name: var-naming
+      - name: package-comments
+      - name: exported
+      - name: receiver-naming
+      - name: increment-decrement
+      - name: indent-error-flow
+      - name: unexported-return
+      - name: unnecessary-stmt
+
+  misspell:
+    locale: US
+
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+    disabled-checks:
+      - hugeParam
+      - unnamedResult
+
+linters:
+  disable-all: true
+  enable:
+    # correctness
+    - bodyclose
+    - errcheck
+    - govet
+    - ineffassign
+    - nilerr
+    - noctx
+    - staticcheck
+    - typecheck
+    - unused
+
+    # code quality
+    - asciicheck
+    - durationcheck
+    - errorlint
+    - gocritic
+    - gosec
+    - makezero
+    - misspell
+    - nakedret
+    - prealloc
+    - revive
+    - rowserrcheck
+    - sqlclosecheck
+    - unconvert
+    - unparam
+
+    # style/format
+    - gofmt
+    - gofumpt
+    - goimports
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude-use-default: false
+
+  exclude-rules:
+    # Test files can be intentionally lighter on strict checks.
+    - path: _test\.go
+      linters:
+        - errcheck
+        - gosec
+        - noctx
+        - prealloc
+        - unparam
+
+    # Allow package comments to be omitted for cmd entrypoints.
+    - path: ^cmd/
+      linters:
+        - revive
+      text: "should have a package comment"
+
+    # Generated artifacts should not be lint-blocking.
+    - path: ".*\\.gen\\.go"
+      linters:
+        - all

@@ -30,3 +30,37 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Compiled binaries (root-level build outputs)
+/ocd-smoke-alarm
+/main
+/bin/
+
+# macOS
+.DS_Store
+
+# Tool config directories (editor/agent configs)
+.cursor/
+.zed/
+.aider.conf.yml
+.cursorrules
+.claude/
+.claude.md
+.opencode/
+.opencode.md
+
+# Working documents (operator notes, not source)
+AGENT_HANDOFF.md
+PLAN.md
+TASKS.md
+.rules
+
+# Scratch files
+Integrating Bubble Tea with MCP ACP
+
+# Runtime state
+state/
+
+# Empty scaffold directories
+integration/
+scripts/

@@ -1,0 +1,86 @@
+{
+  "$schema": "./schema/self-description.schema.json",
+  "version": "1",
+  "service": {
+    "name": "ocd-smoke-alarm",
+    "version": "0.1.0",
+    "mode": "background",
+    "environment": "dev"
+  },
+  "health": {
+    "listen_addr": "127.0.0.1:8088",
+    "endpoints": {
+      "healthz": "/healthz",
+      "readyz": "/readyz",
+      "status": "/status",
+      "self_description": "/.well-known/smoke-alarm.json"
+    }
+  },
+  "capabilities": {
+    "monitoring": {
+      "protocols": ["mcp", "acp", "http"],
+      "transports": ["http", "https", "sse", "websocket", "stdio"],
+      "handshake_profiles": ["none", "base", "strict"],
+      "regression_detection": true,
+      "safety_checks": true
+    },
+    "discovery": {
+      "enabled": true,
+      "sources": ["static", "environment", "local_proxy", "llms_txt"],
+      "llms_txt_uris": [
+        "https://modelcontextprotocol.io/llms.txt",
+        "https://agentclientprotocol.com/llms.txt"
+      ]
+    },
+    "hosted": {
+      "enabled": false,
+      "listen_addr": "",
+      "endpoints": {},
+      "transports": [],
+      "protocols": []
+    },
+    "dynamic_config": {
+      "enabled": true,
+      "formats": ["json", "markdown"],
+      "serve_base_url": ""
+    },
+    "meta_config": {
+      "enabled": true,
+      "formats": ["yaml", "json"]
+    },
+    "federation": {
+      "enabled": false,
+      "role": "standalone"
+    }
+  },
+  "permissions": {
+    "filesystem": {
+      "read": [
+        "./configs/",
+        "./state/known-good.json",
+        "~/.config/mcp",
+        "~/.config/acp"
+      ],
+      "write": [
+        "./state/",
+        "./state/dynamic-config/",
+        "/tmp/ocd-smoke-alarm.lock"
+      ]
+    },
+    "network": {
+      "probe": "configured_targets_only",
+      "listen": ["127.0.0.1:8088"],
+      "outbound_domains": [
+        "modelcontextprotocol.io",
+        "agentclientprotocol.com"
+      ]
+    },
+    "secrets": {
+      "keystore": true,
+      "env_refs": ["env://OAUTH_CLIENT_SECRET"],
+      "redaction": true
+    }
+  },
+  "mcp": {},
+  "targets": []
+}

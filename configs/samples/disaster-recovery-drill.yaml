@@ -1,0 +1,184 @@
+version: "1"
+
+# disaster-recovery-drill.yaml
+#
+# Disaster recovery testing / chaos engineering.
+# Simulate region failures, network partitions, agent deaths.
+#
+# Use case: Warroom scenario for DR exercises:
+#   - Kill an agent mid-operation
+#   - Verify dependents detect failure
+#   - Verify failover triggers (or should have)
+#   - Verify recovery when agent returns
+#
+# This config is designed to run DURING a drill:
+#   - Short timeouts (detect failures fast)
+#   - Aggressive alerting (don't miss anything)
+#   - All agents monitored (full visibility)
+
+service:
+  name: "ocd-smoke-alarm"
+  environment: "disaster-recovery-drill"
+  mode: "foreground"
+  log_level: "debug"
+  poll_interval: "2s"
+  timeout: "1s"
+  max_workers: 20
+
+health:
+  enabled: true
+  listen_addr: "127.0.0.1:18088"
+  endpoints:
+    healthz: "/healthz"
+    readyz: "/readyz"
+    status: "/status"
+
+runtime:
+  lock_file: "/tmp/ocd-smoke-alarm.dr-drill.lock"
+  state_dir: "./state/dr-drill"
+  baseline_file: "./state/dr-drill/known-good.json"
+  event_history_size: 2000
+  graceful_shutdown_timeout: "5s"
+
+discovery:
+  enabled: false
+
+alerts:
+  aggressive: true
+  notify_on_regression_immediately: true
+  retry_before_escalation: 0
+  dedupe_window: "5s"
+  cooldown: "2s"
+  severity:
+    healthy: "info"
+    degraded: "warn"
+    regression: "critical"
+    outage: "critical"
+  sinks:
+    log:
+      enabled: true
+    os_notification:
+      enabled: true
+      title_prefix: "[DR-DRILL]"
+
+auth:
+  keystore:
+    enabled: false
+  redaction:
+    enabled: true
+    mask: "****"
+  oauth:
+    enabled: false
+
+targets:
+  # Region A - Primary
+  - id: "dr-region-a-primary"
+    enabled: true
+    protocol: "mcp"
+    name: "DR: Region A Primary"
+    endpoint: "http://127.0.0.1:19501/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    check:
+      interval: "2s"
+      timeout: "1s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+
+  # Region A - Secondary
+  - id: "dr-region-a-secondary"
+    enabled: true
+    protocol: "mcp"
+    name: "DR: Region A Secondary"
+    endpoint: "http://127.0.0.1:19502/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    check:
+      interval: "2s"
+      timeout: "1s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+
+  # Region B - Failover target
+  - id: "dr-region-b-failover"
+    enabled: true
+    protocol: "mcp"
+    name: "DR: Region B Failover"
+    endpoint: "http://127.0.0.1:19511/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    check:
+      interval: "2s"
+      timeout: "1s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+
+  # Global config (shared state)
+  - id: "dr-global-config"
+    enabled: true
+    protocol: "http"
+    name: "DR: Global Config Store"
+    endpoint: "http://127.0.0.1:19520/healthz"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    check:
+      interval: "3s"
+      timeout: "1s"
+      retries: 0
+      handshake_profile: "none"
+
+  # DNS / Load balancer
+  - id: "dr-load-balancer"
+    enabled: true
+    protocol: "http"
+    name: "DR: Global Load Balancer"
+    endpoint: "http://127.0.0.1:19530/healthz"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    check:
+      interval: "2s"
+      timeout: "1s"
+      retries: 0
+      handshake_profile: "none"
+
+known_state:
+  enabled: true
+  persist: false
+  sustain_success_before_mark_healthy: 1
+  classify_new_failures_after_healthy_as: "regression"
+  outage_threshold_consecutive_failures: 2
+
+meta_config:
+  enabled: true
+  output_dir: "./state/dr-drill/meta-config"
+  formats:
+    - "json"
+
+hosted:
+  enabled: false
+
+federation:
+  enabled: true
+  base_port: 5800
+  max_port: 5810
+  poll_interval: "2s"
+  announce_interval: "3s"
+  heartbeat_interval: "3s"
+  heartbeat_timeout: "10s"
+  upstream: ""
+  downstream: []
+  rank: 0

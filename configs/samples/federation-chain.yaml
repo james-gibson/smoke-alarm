@@ -1,0 +1,178 @@
+version: "1"
+
+# federation-chain.yaml
+#
+# Multi-hop chain: Agent A → Agent B → Agent C
+# Each agent depends on the next in the chain.
+# If B fails, C may still work but the chain is broken.
+#
+# Use case: Warroom scenario showing cascading failures:
+#   - Frontend agent (receives user requests)
+#   - Router agent (dispatches to backend)
+#   - Backend agent (does actual work)
+#   - Database agent (persists results)
+#
+# Smoke alarm monitors ALL nodes - shows which link broke.
+
+service:
+  name: "ocd-smoke-alarm"
+  environment: "federation-chain"
+  mode: "foreground"
+  log_level: "info"
+  poll_interval: "5s"
+  timeout: "3s"
+  max_workers: 8
+
+health:
+  enabled: true
+  listen_addr: "127.0.0.1:18088"
+  endpoints:
+    healthz: "/healthz"
+    readyz: "/readyz"
+    status: "/status"
+
+runtime:
+  lock_file: "/tmp/ocd-smoke-alarm.federation-chain.lock"
+  state_dir: "./state/federation-chain"
+  baseline_file: "./state/federation-chain/known-good.json"
+  event_history_size: 800
+  graceful_shutdown_timeout: "10s"
+
+discovery:
+  enabled: false
+
+alerts:
+  aggressive: true
+  notify_on_regression_immediately: true
+  retry_before_escalation: 1
+  dedupe_window: "20s"
+  cooldown: "10s"
+  severity:
+    healthy: "info"
+    degraded: "warn"
+    regression: "critical"
+    outage: "critical"
+  sinks:
+    log:
+      enabled: true
+    os_notification:
+      enabled: true
+      title_prefix: "[Chain]"
+
+auth:
+  keystore:
+    enabled: false
+  redaction:
+    enabled: true
+    mask: "****"
+  oauth:
+    enabled: false
+
+targets:
+  # Chain link 1: Frontend (entry point)
+  - id: "chain-frontend"
+    enabled: true
+    protocol: "mcp"
+    name: "Chain: Frontend Agent"
+    endpoint: "http://127.0.0.1:18501/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "tools/list"
+    check:
+      interval: "4s"
+      timeout: "2s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+
+  # Chain link 2: Router (middle)
+  - id: "chain-router"
+    enabled: true
+    protocol: "mcp"
+    name: "Chain: Router Agent"
+    endpoint: "http://127.0.0.1:18502/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "tools/list"
+    check:
+      interval: "4s"
+      timeout: "2s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+
+  # Chain link 3: Backend (worker)
+  - id: "chain-backend"
+    enabled: true
+    protocol: "mcp"
+    name: "Chain: Backend Agent"
+    endpoint: "http://127.0.0.1:18503/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "tools/list"
+    check:
+      interval: "4s"
+      timeout: "2s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+
+  # Chain link 4: Persistence (deepest)
+  - id: "chain-persistence"
+    enabled: true
+    protocol: "mcp"
+    name: "Chain: Persistence Agent"
+    endpoint: "http://127.0.0.1:18504/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "tools/list"
+    check:
+      interval: "4s"
+      timeout: "2s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+
+known_state:
+  enabled: true
+  persist: true
+  sustain_success_before_mark_healthy: 1
+  classify_new_failures_after_healthy_as: "regression"
+  outage_threshold_consecutive_failures: 2
+
+meta_config:
+  enabled: true
+  output_dir: "./state/federation-chain/meta-config"
+  formats:
+    - "json"
+
+hosted:
+  enabled: false
+
+federation:
+  enabled: true
+  base_port: 5300
+  max_port: 5304
+  poll_interval: "5s"
+  announce_interval: "10s"
+  heartbeat_interval: "15s"
+  heartbeat_timeout: "45s"
+  upstream: ""
+  downstream: []
+  rank: 0

@@ -1,0 +1,192 @@
+version: "1"
+
+# a2a-handoff.yaml
+#
+# Agent-to-Agent (A2A) protocol patterns.
+# Different from MCP/ACP request-response - A2A is async message passing.
+#
+# Use case: Warroom scenario where agents hand off context:
+#   - Planner agent decides WHAT to do
+#   - Executor agent DOES it  
+#   - Reporter agent summarizes results
+# Each handoff includes conversation context, not just tools.
+#
+# A2A messages include:
+#   - task_id: unique task identifier
+#   - agent_name: target agent
+#   - context: accumulated context from previous steps
+#   - artifacts: files, data produced
+
+service:
+  name: "ocd-smoke-alarm"
+  environment: "a2a-handoff"
+  mode: "foreground"
+  log_level: "info"
+  poll_interval: "5s"
+  timeout: "3s"
+  max_workers: 8
+
+health:
+  enabled: true
+  listen_addr: "127.0.0.1:18088"
+  endpoints:
+    healthz: "/healthz"
+    readyz: "/readyz"
+    status: "/status"
+
+runtime:
+  lock_file: "/tmp/ocd-smoke-alarm.a2a-handoff.lock"
+  state_dir: "./state/a2a-handoff"
+  baseline_file: "./state/a2a-handoff/known-good.json"
+  event_history_size: 600
+  graceful_shutdown_timeout: "10s"
+
+discovery:
+  enabled: false
+
+alerts:
+  aggressive: true
+  notify_on_regression_immediately: true
+  retry_before_escalation: 1
+  dedupe_window: "30s"
+  cooldown: "15s"
+  severity:
+    healthy: "info"
+    degraded: "warn"
+    regression: "critical"
+    outage: "critical"
+  sinks:
+    log:
+      enabled: true
+    os_notification:
+      enabled: true
+      title_prefix: "[A2A]"
+
+auth:
+  keystore:
+    enabled: false
+  redaction:
+    enabled: true
+    mask: "****"
+  oauth:
+    enabled: false
+
+targets:
+  # A2A Agent 1: Task Planner (sends tasks)
+  - id: "a2a-planner"
+    enabled: true
+    protocol: "acp"
+    name: "A2A: Task Planner"
+    endpoint: "http://127.0.0.1:18801/a2a"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "session/setup"
+        - "message/send"
+    auth:
+      type: "none"
+    check:
+      interval: "5s"
+      timeout: "3s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "session/setup"
+
+  # A2A Agent 2: Executor (does work)
+  - id: "a2a-executor"
+    enabled: true
+    protocol: "acp"
+    name: "A2A: Executor Agent"
+    endpoint: "http://127.0.0.1:18802/a2a"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "session/setup"
+        - "message/send"
+    auth:
+      type: "none"
+    check:
+      interval: "5s"
+      timeout: "3s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "session/setup"
+
+  # A2A Agent 3: Reporter (summarizes)
+  - id: "a2a-reporter"
+    enabled: true
+    protocol: "acp"
+    name: "A2A: Reporter Agent"
+    endpoint: "http://127.0.0.1:18803/a2a"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "session/setup"
+        - "message/send"
+    auth:
+      type: "none"
+    check:
+      interval: "5s"
+      timeout: "3s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "session/setup"
+
+  # A2A Agent 4: Monitor (oversees handoffs)
+  - id: "a2a-monitor"
+    enabled: true
+    protocol: "acp"
+    name: "A2A: Handoff Monitor"
+    endpoint: "http://127.0.0.1:18804/a2a"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "session/setup"
+    auth:
+      type: "none"
+    check:
+      interval: "6s"
+      timeout: "3s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "session/setup"
+
+known_state:
+  enabled: true
+  persist: true
+  sustain_success_before_mark_healthy: 1
+  classify_new_failures_after_healthy_as: "regression"
+  outage_threshold_consecutive_failures: 2
+
+meta_config:
+  enabled: true
+  output_dir: "./state/a2a-handoff/meta-config"
+  formats:
+    - "json"
+
+hosted:
+  enabled: false
+
+federation:
+  enabled: true
+  base_port: 5600
+  max_port: 5604
+  poll_interval: "5s"
+  announce_interval: "10s"
+  heartbeat_interval: "15s"
+  heartbeat_timeout: "45s"
+  upstream: ""
+  downstream: []
+  rank: 0

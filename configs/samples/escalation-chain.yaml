@@ -1,0 +1,222 @@
+version: "1"
+
+# escalation-chain.yaml
+#
+# On-call escalation patterns.
+# When something breaks, WHO gets notified, in what ORDER?
+#
+# Use case: Warroom escalation matrix:
+#   - Level 1: On-call engineer (auto-paged)
+#   - Level 2: Team lead (if L1 doesn't acknowledge)
+#   - Level 3: Manager (if severity is critical)
+#   - Level 4: Executive (if customer impact > $10k)
+#
+# Smoke alarm verifies the ESCALATION CHAIN works:
+#   - Each level is reachable
+#   - Escalation triggers correctly
+#   - Acknowledgment flows upward
+
+service:
+  name: "ocd-smoke-alarm"
+  environment: "escalation-chain"
+  mode: "foreground"
+  log_level: "info"
+  poll_interval: "10s"
+  timeout: "5s"
+  max_workers: 10
+
+health:
+  enabled: true
+  listen_addr: "127.0.0.1:18088"
+  endpoints:
+    healthz: "/healthz"
+    readyz: "/readyz"
+    status: "/status"
+
+runtime:
+  lock_file: "/tmp/ocd-smoke-alarm.escalation.lock"
+  state_dir: "./state/escalation-chain"
+  baseline_file: "./state/escalation-chain/known-good.json"
+  event_history_size: 500
+  graceful_shutdown_timeout: "10s"
+
+discovery:
+  enabled: false
+
+alerts:
+  aggressive: true
+  notify_on_regression_immediately: true
+  retry_before_escalation: 0
+  dedupe_window: "10s"
+  cooldown: "5s"
+  severity:
+    healthy: "info"
+    degraded: "warn"
+    regression: "critical"
+    outage: "critical"
+  sinks:
+    log:
+      enabled: true
+    os_notification:
+      enabled: true
+      title_prefix: "[ESCALATE]"
+
+auth:
+  keystore:
+    enabled: false
+  redaction:
+    enabled: true
+    mask: "****"
+  oauth:
+    enabled: false
+
+targets:
+  # Level 1: Primary on-call
+  - id: "escalate-l1-oncall"
+    enabled: true
+    protocol: "mcp"
+    name: "Escalation: L1 On-Call (Primary)"
+    endpoint: "http://127.0.0.1:19901/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "tools/list"
+    check:
+      interval: "8s"
+      timeout: "4s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+
+  # Level 1 backup
+  - id: "escalate-l1-backup"
+    enabled: true
+    protocol: "mcp"
+    name: "Escalation: L1 On-Call (Backup)"
+    endpoint: "http://127.0.0.1:19902/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    check:
+      interval: "10s"
+      timeout: "5s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+
+  # Level 2: Team lead
+  - id: "escalate-l2-lead"
+    enabled: true
+    protocol: "mcp"
+    name: "Escalation: L2 Team Lead"
+    endpoint: "http://127.0.0.1:19910/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    check:
+      interval: "15s"
+      timeout: "5s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+
+  # Level 3: Manager
+  - id: "escalate-l3-manager"
+    enabled: true
+    protocol: "mcp"
+    name: "Escalation: L3 Manager"
+    endpoint: "http://127.0.0.1:19920/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    check:
+      interval: "20s"
+      timeout: "8s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+
+  # Level 4: Executive (only for SEV1)
+  - id: "escalate-l4-executive"
+    enabled: true
+    protocol: "mcp"
+    name: "Escalation: L4 Executive"
+    endpoint: "http://127.0.0.1:19930/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    check:
+      interval: "30s"
+      timeout: "10s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+
+  # Pager/Notification system (triggers escalation)
+  - id: "escalate-pager"
+    enabled: true
+    protocol: "http"
+    name: "Escalation: Pager System"
+    endpoint: "http://127.0.0.1:19940/healthz"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    check:
+      interval: "10s"
+      timeout: "3s"
+      retries: 0
+      handshake_profile: "none"
+
+  # Incident management system
+  - id: "escalate-incident-mgr"
+    enabled: true
+    protocol: "mcp"
+    name: "Escalation: Incident Manager"
+    endpoint: "http://127.0.0.1:19950/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    check:
+      interval: "12s"
+      timeout: "5s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+
+known_state:
+  enabled: true
+  persist: true
+  sustain_success_before_mark_healthy: 2
+  classify_new_failures_after_healthy_as: "regression"
+  outage_threshold_consecutive_failures: 2
+
+meta_config:
+  enabled: true
+  output_dir: "./state/escalation-chain/meta-config"
+  formats:
+    - "json"
+
+hosted:
+  enabled: false
+
+federation:
+  enabled: true
+  base_port: 6000
+  max_port: 6010
+  poll_interval: "10s"
+  announce_interval: "15s"
+  heartbeat_interval: "20s"
+  heartbeat_timeout: "60s"
+  upstream: ""
+  downstream: []
+  rank: 0

@@ -1,0 +1,225 @@
+version: "1"
+
+service:
+  name: "ocd-smoke-alarm"
+  environment: "oauth-mock-allow"
+  mode: "foreground" # foreground | background
+  log_level: "info"
+  poll_interval: "5s"
+  timeout: "3s"
+  max_workers: 4
+
+health:
+  enabled: true
+  listen_addr: "127.0.0.1:28088"
+  endpoints:
+    healthz: "/healthz"
+    readyz: "/readyz"
+    status: "/status"
+
+runtime:
+  lock_file: "/tmp/ocd-smoke-alarm.oauth-mock-allow.lock"
+  state_dir: "./state/oauth-mock-allow"
+  baseline_file: "./state/oauth-mock-allow/known-good.json"
+  event_history_size: 300
+  graceful_shutdown_timeout: "8s"
+
+discovery:
+  enabled: false
+  interval: "60s"
+  include_local_paths:
+    - "~/.config/mcp"
+    - "~/.config/acp"
+  include_env_vars: []
+  local_proxy_scan:
+    enabled: false
+    hosts: ["127.0.0.1"]
+    ports: [18091]
+  cloud_catalog:
+    enabled: false
+    urls: []
+  llms_txt:
+    enabled: false
+    remote_uris: []
+    fetch_timeout: "5s"
+    require_https: true
+    auto_register_as_targets: false
+    auto_register_oauth: false
+
+alerts:
+  aggressive: true
+  notify_on_regression_immediately: true
+  retry_before_escalation: 1
+  dedupe_window: "1m"
+  cooldown: "30s"
+  severity:
+    healthy: "info"
+    degraded: "warn"
+    regression: "critical"
+    outage: "critical"
+  sinks:
+    log:
+      enabled: true
+    os_notification:
+      enabled: false
+      title_prefix: "[Smoke Alarm]"
+
+auth:
+  keystore:
+    enabled: false
+    provider: "auto"
+  redaction:
+    enabled: true
+    mask: "****"
+  oauth:
+    enabled: true
+    token_grace_period: "30s"
+    unattended:
+      enabled: true
+      allow_device_code: true
+      allow_client_credentials: true
+      allow_refresh_token: true
+    mock_redirect:
+      enabled: true
+      listen_addr: "127.0.0.1:28877"
+      path: "/oauth/callback"
+      mode: "allow"
+
+targets:
+  - id: "oauth-mock-status"
+    enabled: true
+    protocol: "http"
+    name: "OAuth Mock Redirect Status"
+    endpoint: "http://127.0.0.1:28877/oauth/mock/status"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities: []
+      known_agent_count_min: 0
+      expected_version: ""
+    auth:
+      type: "none"
+      secret_ref: ""
+      header: ""
+      key_name: ""
+      client_id: ""
+      token_url: ""
+      redirect_url: ""
+      callback_id: ""
+      scopes: []
+    stdio:
+      command: ""
+      args: []
+      env: {}
+      cwd: ""
+    check:
+      interval: "5s"
+      timeout: "2s"
+      retries: 0
+      handshake_profile: "none"
+      required_methods: []
+      hurl_tests: []
+
+  - id: "hosted-acp-oauth-validated"
+    enabled: true
+    protocol: "acp"
+    name: "Hosted ACP (OAuth-Validated)"
+    endpoint: "http://127.0.0.1:28191/acp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "session/setup"
+        - "prompt/turn"
+      known_agent_count_min: 0
+      expected_version: ""
+    auth:
+      type: "oauth"
+      secret_ref: "env://OAUTH_CLIENT_SECRET"
+      header: ""
+      key_name: ""
+      client_id: "ocd-smoke-alarm"
+      token_url: "https://auth.example.com/oauth/token"
+      redirect_url: "http://127.0.0.1:28877/oauth/callback"
+      callback_id: "acp-oauth-callback-allow"
+      scopes:
+        - "acp.read"
+        - "acp.execute"
+    stdio:
+      command: ""
+      args: []
+      env: {}
+      cwd: ""
+    check:
+      interval: "5s"
+      timeout: "3s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "session/setup"
+        - "prompt/turn"
+      hurl_tests:
+        - name: "oauth-mock-ready"
+          endpoint: "http://127.0.0.1:28877/oauth/mock/status"
+          method: "GET"
+          headers: {}
+          body: ""
+
+known_state:
+  enabled: false
+  persist: false
+  sustain_success_before_mark_healthy: 1
+  classify_new_failures_after_healthy_as: "regression"
+  outage_threshold_consecutive_failures: 2
+
+meta_config:
+  enabled: true
+  output_dir: "./state/oauth-mock-allow/meta-config"
+  formats:
+    - "yaml"
+    - "json"
+  include_confidence: true
+  include_provenance: true
+  placeholders:
+    token: "${TOKEN}"
+    client_secret: "${CLIENT_SECRET}"
+    endpoint: "${ENDPOINT}"
+
+remote_agent:
+  managed_updates: false
+  control_endpoint: ""
+  update:
+    strategy: "rolling-single"
+    stop_command: ""
+    start_command: ""
+    verify_command: ""
+    rollback_on_failure: true
+    max_wait_for_healthy: "60s"
+  safety:
+    require_lock: true
+    lock_ttl: "5m"
+
+hosted:
+  enabled: true
+  listen_addr: "127.0.0.1:28191"
+  transports:
+    - "http"
+    - "sse"
+  protocols:
+    - "mcp"
+    - "acp"
+  endpoints:
+    mcp: "/mcp"
+    acp: "/acp"
+    a2a: "/a2a"
+
+dynamic_config:
+  enabled: true
+  directory: "./state/oauth-mock-allow/dynamic-config"
+  formats:
+    - "json"
+    - "markdown"
+  serve_base_url: "/dynamic-config"
+  allow_overwrite: true
+  require_unique_ids: true

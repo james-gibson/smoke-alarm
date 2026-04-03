@@ -1,0 +1,197 @@
+version: "1"
+
+# multitenancy-isolation.yaml
+#
+# Multi-tenant isolation verification.
+# Same infrastructure, different customers, MUST NOT leak data.
+#
+# Use case: Warroom scenario for isolation testing:
+#   - Tenant A's agent should NOT see Tenant B's data
+#   - Verify capability restrictions per tenant
+#   - Check token scopes enforce isolation
+#   - Confirm no cross-tenant tool access
+#
+# This is NOT about "is it up" but "are boundaries enforced":
+#   - Test with multiple auth contexts
+#   - Verify response differences per tenant
+
+service:
+  name: "ocd-smoke-alarm"
+  environment: "multitenancy-isolation"
+  mode: "foreground"
+  log_level: "info"
+  poll_interval: "10s"
+  timeout: "5s"
+  max_workers: 12
+
+health:
+  enabled: true
+  listen_addr: "127.0.0.1:18088"
+  endpoints:
+    healthz: "/healthz"
+    readyz: "/readyz"
+    status: "/status"
+
+runtime:
+  lock_file: "/tmp/ocd-smoke-alarm.multitenancy.lock"
+  state_dir: "./state/multitenancy"
+  baseline_file: "./state/multitenancy/known-good.json"
+  event_history_size: 600
+  graceful_shutdown_timeout: "10s"
+
+discovery:
+  enabled: false
+
+alerts:
+  aggressive: true
+  notify_on_regression_immediately: true
+  retry_before_escalation: 1
+  dedupe_window: "30s"
+  cooldown: "15s"
+  severity:
+    healthy: "info"
+    degraded: "warn"
+    regression: "critical"
+    outage: "critical"
+  sinks:
+    log:
+      enabled: true
+    os_notification:
+      enabled: true
+      title_prefix: "[Tenant]"
+
+auth:
+  keystore:
+    enabled: true
+    provider: "auto"
+  redaction:
+    enabled: true
+    mask: "****"
+  oauth:
+    enabled: true
+    token_grace_period: "30s"
+    unattended:
+      enabled: true
+      allow_device_code: false
+      allow_client_credentials: true
+      allow_refresh_token: false
+
+targets:
+  # Tenant A - Corporate customer
+  - id: "tenant-a-mcp"
+    enabled: true
+    protocol: "mcp"
+    name: "Tenant A: Corporate MCP"
+    endpoint: "http://127.0.0.1:19601/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "tools/list"
+        - "resources/list"
+    auth:
+      type: "oauth"
+      client_id: "tenant-corporate"
+      token_url: "http://127.0.0.1:19650/oauth/token"
+      scopes:
+        - "tenant.corporate"
+        - "mcp.full"
+    check:
+      interval: "10s"
+      timeout: "5s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+        - "resources/list"
+
+  # Tenant B - Startup customer
+  - id: "tenant-b-mcp"
+    enabled: true
+    protocol: "mcp"
+    name: "Tenant B: Startup MCP"
+    endpoint: "http://127.0.0.1:19602/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "tools/list"
+    auth:
+      type: "oauth"
+      client_id: "tenant-startup"
+      token_url: "http://127.0.0.1:19650/oauth/token"
+      scopes:
+        - "tenant.startup"
+        - "mcp.limited"
+    check:
+      interval: "10s"
+      timeout: "5s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+
+  # Tenant C - Enterprise (most restricted)
+  - id: "tenant-c-mcp"
+    enabled: true
+    protocol: "mcp"
+    name: "Tenant C: Enterprise MCP"
+    endpoint: "http://127.0.0.1:19603/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "tools/list"
+    auth:
+      type: "oauth"
+      client_id: "tenant-enterprise"
+      token_url: "http://127.0.0.1:19650/oauth/token"
+      scopes:
+        - "tenant.enterprise"
+        - "mcp.readonly"
+    check:
+      interval: "10s"
+      timeout: "5s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+
+  # Shared infrastructure - verify no tenant data leaks
+  - id: "tenant-shared-log"
+    enabled: true
+    protocol: "http"
+    name: "Tenant: Shared Logging"
+    endpoint: "http://127.0.0.1:19610/healthz"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    check:
+      interval: "15s"
+      timeout: "3s"
+      retries: 0
+      handshake_profile: "none"
+
+known_state:
+  enabled: true
+  persist: true
+  sustain_success_before_mark_healthy: 2
+  classify_new_failures_after_healthy_as: "regression"
+  outage_threshold_consecutive_failures: 2
+
+meta_config:
+  enabled: true
+  output_dir: "./state/multitenancy/meta-config"
+  formats:
+    - "json"
+  include_confidence: true
+  include_provenance: true
+
+hosted:
+  enabled: false
+
+federation:
+  enabled: false

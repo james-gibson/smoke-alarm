@@ -1,0 +1,166 @@
+version: "1"
+
+# deployment-ha.yaml
+#
+# High Availability: Two primaries, each monitoring the other.
+# Active-passive or active-active failover pattern.
+#
+# Use case: Warroom scenario for HA testing:
+#   - Primary A and Primary B both claim to be primary
+#   - Each health-checks the other
+#   - If one fails, other takes over (or alert fires)
+#
+# This is different from mesh: HA has explicit primary/secondary roles.
+
+service:
+  name: "ocd-smoke-alarm"
+  environment: "deployment-ha"
+  mode: "foreground"
+  log_level: "info"
+  poll_interval: "3s"
+  timeout: "2s"
+  max_workers: 6
+
+health:
+  enabled: true
+  listen_addr: "127.0.0.1:18088"
+  endpoints:
+    healthz: "/healthz"
+    readyz: "/readyz"
+    status: "/status"
+
+runtime:
+  lock_file: "/tmp/ocd-smoke-alarm.deployment-ha.lock"
+  state_dir: "./state/deployment-ha"
+  baseline_file: "./state/deployment-ha/known-good.json"
+  event_history_size: 600
+  graceful_shutdown_timeout: "10s"
+
+discovery:
+  enabled: false
+
+alerts:
+  aggressive: true
+  notify_on_regression_immediately: true
+  retry_before_escalation: 0
+  dedupe_window: "10s"
+  cooldown: "5s"
+  severity:
+    healthy: "info"
+    degraded: "warn"
+    regression: "critical"
+    outage: "critical"
+  sinks:
+    log:
+      enabled: true
+    os_notification:
+      enabled: true
+      title_prefix: "[HA]"
+
+auth:
+  keystore:
+    enabled: false
+  redaction:
+    enabled: true
+    mask: "****"
+  oauth:
+    enabled: false
+
+targets:
+  # Primary A - the "preferred" node
+  - id: "ha-primary-a"
+    enabled: true
+    protocol: "mcp"
+    name: "HA: Primary A (Preferred)"
+    endpoint: "http://127.0.0.1:19101/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "tools/list"
+    check:
+      interval: "3s"
+      timeout: "2s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+
+  # Primary B - the "standby" node  
+  - id: "ha-primary-b"
+    enabled: true
+    protocol: "mcp"
+    name: "HA: Primary B (Standby)"
+    endpoint: "http://127.0.0.1:19102/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "tools/list"
+    check:
+      interval: "3s"
+      timeout: "2s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+
+  # Shared state store (both primaries depend on this)
+  - id: "ha-shared-store"
+    enabled: true
+    protocol: "mcp"
+    name: "HA: Shared State Store"
+    endpoint: "http://127.0.0.1:19110/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    check:
+      interval: "5s"
+      timeout: "2s"
+      retries: 0
+      handshake_profile: "none"
+
+  # Load balancer front-end (where traffic enters)
+  - id: "ha-load-balancer"
+    enabled: true
+    protocol: "http"
+    name: "HA: Load Balancer"
+    endpoint: "http://127.0.0.1:19120/healthz"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200, 204]
+    check:
+      interval: "3s"
+      timeout: "1s"
+      retries: 0
+      handshake_profile: "none"
+
+known_state:
+  enabled: true
+  persist: true
+  sustain_success_before_mark_healthy: 1
+  classify_new_failures_after_healthy_as: "regression"
+  outage_threshold_consecutive_failures: 2
+
+meta_config:
+  enabled: true
+  output_dir: "./state/deployment-ha/meta-config"
+  formats:
+    - "json"
+
+hosted:
+  enabled: false
+
+federation:
+  enabled: true
+  base_port: 5700
+  max_port: 5702
+  poll_interval: "3s"
+  announce_interval: "5s"
+  heartbeat_interval: "5s"
+  heartbeat_timeout: "15s"
+  upstream: ""
+  downstream: []
+  rank: 0

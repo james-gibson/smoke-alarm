@@ -1,0 +1,232 @@
+version: "1"
+
+# observer-mode.yaml
+#
+# Read-only participants in an active warroom.
+# Sometimes you need eyes on the bridge without a voice.
+#
+# Use case: Observer patterns:
+#   - New team member learning the incident process
+#   - Security auditor watching without interfering
+#   - Customer success watching progress
+#   - Manager observing team performance
+#
+# Observers can:
+#   - See status updates
+#   - View context (if scoped)
+#   - NOT modify incident state
+#   - NOT acknowledge alerts
+
+service:
+  name: "ocd-smoke-alarm"
+  environment: "observer-mode"
+  mode: "foreground"
+  log_level: "info"
+  poll_interval: "10s"
+  timeout: "5s"
+  max_workers: 12
+
+health:
+  enabled: true
+  listen_addr: "127.0.0.1:18088"
+  endpoints:
+    healthz: "/healthz"
+    readyz: "/readyz"
+    status: "/status"
+
+runtime:
+  lock_file: "/tmp/ocd-smoke-alarm.observer.lock"
+  state_dir: "./state/observer-mode"
+  baseline_file: "./state/observer-mode/known-good.json"
+  event_history_size: 400
+  graceful_shutdown_timeout: "10s"
+
+discovery:
+  enabled: false
+
+alerts:
+  aggressive: false
+  notify_on_regression_immediately: false
+  retry_before_escalation: 2
+  dedupe_window: "1m"
+  cooldown: "30s"
+  severity:
+    healthy: "info"
+    degraded: "warn"
+    regression: "critical"
+    outage: "critical"
+  sinks:
+    log:
+      enabled: true
+    os_notification:
+      enabled: false
+
+auth:
+  keystore:
+    enabled: true
+    provider: "auto"
+  redaction:
+    enabled: true
+    mask: "****"
+  oauth:
+    enabled: true
+    token_grace_period: "30s"
+    unattended:
+      enabled: true
+      allow_device_code: true
+      allow_client_credentials: false
+      allow_refresh_token: false
+
+targets:
+  # Main incident coordinator (what observers watch)
+  - id: "observer-target-coordinator"
+    enabled: true
+    protocol: "mcp"
+    name: "Observer Target: Incident Coordinator"
+    endpoint: "http://127.0.0.1:20001/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "tools/list"
+    check:
+      interval: "10s"
+      timeout: "5s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+
+  # Observer 1: New team member (read-only, full visibility)
+  - id: "observer-onboarding"
+    enabled: true
+    protocol: "mcp"
+    name: "Observer: Team Member (Learning)"
+    endpoint: "http://127.0.0.1:20002/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "tools/list"
+    auth:
+      type: "oauth"
+      client_id: "observer-onboarding"
+      token_url: "http://127.0.0.1:20050/oauth/token"
+      scopes:
+        - "incident.read"
+    check:
+      interval: "15s"
+      timeout: "5s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+
+  # Observer 2: Security auditor (read-only, security events)
+  - id: "observer-security"
+    enabled: true
+    protocol: "mcp"
+    name: "Observer: Security Auditor"
+    endpoint: "http://127.0.0.1:20003/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    auth:
+      type: "oauth"
+      client_id: "observer-security"
+      token_url: "http://127.0.0.1:20050/oauth/token"
+      scopes:
+        - "incident.read"
+        - "security.events"
+    check:
+      interval: "15s"
+      timeout: "5s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+
+  # Observer 3: Customer success (read-only, status only)
+  - id: "observer-customer-success"
+    enabled: true
+    protocol: "mcp"
+    name: "Observer: Customer Success"
+    endpoint: "http://127.0.0.1:20004/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    auth:
+      type: "oauth"
+      client_id: "observer-cs"
+      token_url: "http://127.0.0.1:20050/oauth/token"
+      scopes:
+        - "incident.read"
+        - "status.public"
+    check:
+      interval: "20s"
+      timeout: "8s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+
+  # Observer 4: Manager (read-only, team metrics)
+  - id: "observer-manager"
+    enabled: true
+    protocol: "mcp"
+    name: "Observer: Manager"
+    endpoint: "http://127.0.0.1:20005/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    auth:
+      type: "oauth"
+      client_id: "observer-manager"
+      token_url: "http://127.0.0.1:20050/oauth/token"
+      scopes:
+        - "incident.read"
+        - "metrics.team"
+    check:
+      interval: "20s"
+      timeout: "8s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+
+  # Audit log (track what observers did/didn't see)
+  - id: "observer-audit-log"
+    enabled: true
+    protocol: "http"
+    name: "Observer: Audit Trail"
+    endpoint: "http://127.0.0.1:20010/healthz"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    check:
+      interval: "30s"
+      timeout: "10s"
+      retries: 0
+      handshake_profile: "none"
+
+known_state:
+  enabled: true
+  persist: true
+  sustain_success_before_mark_healthy: 3
+  classify_new_failures_after_healthy_as: "regression"
+  outage_threshold_consecutive_failures: 3
+
+meta_config:
+  enabled: true
+  output_dir: "./state/observer-mode/meta-config"
+  formats:
+    - "json"
+  include_confidence: true
+  include_provenance: true
+
+hosted:
+  enabled: false
+
+federation:
+  enabled: false

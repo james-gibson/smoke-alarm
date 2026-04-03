@@ -1,0 +1,345 @@
+version: "1"
+
+service:
+  name: "ocd-smoke-alarm"
+  environment: "dev-local"
+  mode: "foreground" # foreground | background
+  log_level: "info"
+  poll_interval: "2s"
+  timeout: "1s"
+  max_workers: 2
+
+health:
+  enabled: true
+  listen_addr: "127.0.0.1:18088"
+  endpoints:
+    healthz: "/healthz"
+    readyz: "/readyz"
+    status: "/status"
+
+runtime:
+  lock_file: "/tmp/ocd-smoke-alarm.dev-local.lock"
+  state_dir: "./state/dev-local"
+  baseline_file: "./state/dev-local/known-good.json"
+  event_history_size: 200
+  graceful_shutdown_timeout: "5s"
+
+discovery:
+  enabled: false
+  interval: "60s"
+  include_local_paths:
+    - "~/.config/mcp"
+    - "~/.config/acp"
+  include_env_vars:
+    - "MCP_SERVER_URL"
+    - "ACP_AGENT_URL"
+  local_proxy_scan:
+    enabled: false
+    hosts:
+      - "127.0.0.1"
+    ports: [3000, 8080]
+  cloud_catalog:
+    enabled: false
+    urls: []
+
+alerts:
+  aggressive: true
+  notify_on_regression_immediately: true
+  retry_before_escalation: 1
+  dedupe_window: "30s"
+  cooldown: "15s"
+  severity:
+    healthy: "info"
+    degraded: "warn"
+    regression: "critical"
+    outage: "critical"
+  sinks:
+    log:
+      enabled: true
+    os_notification:
+      enabled: false
+      title_prefix: "[Smoke Alarm]"
+
+auth:
+  keystore:
+    enabled: false
+    provider: "auto"
+  redaction:
+    enabled: true
+    mask: "****"
+  oauth:
+    enabled: false
+    token_grace_period: "30s"
+    unattended:
+      enabled: false
+      allow_device_code: false
+      allow_client_credentials: false
+      allow_refresh_token: false
+
+targets:
+  # Local self-check target: validates the monitor itself without cloud dependencies.
+  - id: "self-health"
+    enabled: true
+    protocol: "http"
+    name: "Self Health Endpoint"
+    endpoint: "http://127.0.0.1:18088/healthz"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities: []
+      known_agent_count_min: 0
+      expected_version: ""
+    auth:
+      type: "none"
+      secret_ref: ""
+      header: ""
+      key_name: ""
+      client_id: ""
+      token_url: ""
+      scopes: []
+    check:
+      interval: "2s"
+      timeout: "1s"
+      retries: 0
+      handshake_profile: "none"
+
+  # Embedded hosted MCP HTTP endpoint.
+  - id: "hosted-mcp-http"
+    enabled: true
+    protocol: "mcp"
+    name: "Hosted MCP HTTP"
+    endpoint: "http://127.0.0.1:18091/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "tools/list"
+        - "resources/list"
+      known_agent_count_min: 0
+      expected_version: ""
+    auth:
+      type: "none"
+      secret_ref: ""
+      header: ""
+      key_name: ""
+      client_id: ""
+      token_url: ""
+      scopes: []
+    check:
+      interval: "3s"
+      timeout: "2s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+        - "resources/list"
+
+  # Embedded hosted ACP HTTP endpoint.
+  - id: "hosted-acp-http"
+    enabled: true
+    protocol: "acp"
+    name: "Hosted ACP HTTP"
+    endpoint: "http://127.0.0.1:18091/acp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "session/setup"
+        - "prompt/turn"
+      known_agent_count_min: 0
+      expected_version: ""
+    auth:
+      type: "none"
+      secret_ref: ""
+      header: ""
+      key_name: ""
+      client_id: ""
+      token_url: ""
+      scopes: []
+    check:
+      interval: "3s"
+      timeout: "2s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "session/setup"
+        - "prompt/turn"
+
+  # Embedded hosted MCP SSE stream endpoint.
+  - id: "hosted-mcp-sse"
+    enabled: true
+    protocol: "mcp"
+    name: "Hosted MCP SSE"
+    endpoint: "http://127.0.0.1:18091/mcp?transport=sse"
+    transport: "sse"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities: []
+      known_agent_count_min: 0
+      expected_version: ""
+    auth:
+      type: "none"
+      secret_ref: ""
+      header: ""
+      key_name: ""
+      client_id: ""
+      token_url: ""
+      scopes: []
+    check:
+      interval: "4s"
+      timeout: "2s"
+      retries: 0
+      handshake_profile: "none"
+
+  # Embedded hosted ACP SSE stream endpoint.
+  - id: "hosted-acp-sse"
+    enabled: true
+    protocol: "acp"
+    name: "Hosted ACP SSE"
+    endpoint: "http://127.0.0.1:18091/acp?transport=sse"
+    transport: "sse"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities: []
+      known_agent_count_min: 0
+      expected_version: ""
+    auth:
+      type: "none"
+      secret_ref: ""
+      header: ""
+      key_name: ""
+      client_id: ""
+      token_url: ""
+      scopes: []
+    check:
+      interval: "4s"
+      timeout: "2s"
+      retries: 0
+      handshake_profile: "none"
+
+  # Optional local MCP stdio stub (disabled by default).
+  - id: "mcp-local-stdio"
+    enabled: false
+    protocol: "mcp"
+    name: "Local MCP Stdio Stub"
+    endpoint: "stdio://local"
+    transport: "stdio"
+    stdio:
+      command: "npx"
+      args:
+        - "-y"
+        - "@modelcontextprotocol/server-filesystem"
+        - "."
+      env:
+        MCP_LOG_LEVEL: "warn"
+      cwd: "."
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "tools/list"
+        - "resources/list"
+      known_agent_count_min: 0
+      expected_version: ""
+    auth:
+      type: "none"
+      secret_ref: ""
+      header: ""
+      key_name: ""
+      client_id: ""
+      token_url: ""
+      scopes: []
+    check:
+      interval: "5s"
+      timeout: "4s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+        - "resources/list"
+
+  # Optional local ACP stub (disabled by default).
+  - id: "acp-local-stub"
+    enabled: false
+    protocol: "acp"
+    name: "Local ACP Stub"
+    endpoint: "ws://127.0.0.1:19002/acp"
+    transport: "websocket"
+    expected:
+      healthy_status_codes: [101]
+      min_capabilities:
+        - "session/setup"
+      known_agent_count_min: 0
+      expected_version: ""
+    auth:
+      type: "none"
+      secret_ref: ""
+      header: ""
+      key_name: ""
+      client_id: ""
+      token_url: ""
+      scopes: []
+    check:
+      interval: "5s"
+      timeout: "2s"
+      retries: 1
+
+known_state:
+  enabled: true
+  persist: true
+  sustain_success_before_mark_healthy: 1
+  classify_new_failures_after_healthy_as: "regression"
+  outage_threshold_consecutive_failures: 2
+
+meta_config:
+  enabled: true
+  output_dir: "./state/dev-local/meta-config"
+  formats:
+    - "yaml"
+    - "json"
+  include_confidence: true
+  include_provenance: true
+  placeholders:
+    token: "${TOKEN}"
+    client_secret: "${CLIENT_SECRET}"
+    endpoint: "${ENDPOINT}"
+
+hosted:
+  enabled: true
+  listen_addr: "127.0.0.1:18091"
+  transports:
+    - "http"
+    - "sse"
+  protocols:
+    - "mcp"
+    - "acp"
+  endpoints:
+    mcp: "/mcp"
+    acp: "/acp"
+    a2a: "/a2a"
+
+dynamic_config:
+  enabled: true
+  directory: "./state/dev-local/dynamic-config"
+  formats:
+    - "json"
+    - "markdown"
+  serve_base_url: "/dynamic-config"
+  allow_overwrite: true
+  require_unique_ids: true
+
+remote_agent:
+  managed_updates: false
+  control_endpoint: ""
+  update:
+    strategy: "rolling-single"
+    stop_command: ""
+    start_command: ""
+    verify_command: ""
+    rollback_on_failure: true
+    max_wait_for_healthy: "30s"
+  safety:
+    require_lock: true
+    lock_ttl: "2m"

@@ -1,0 +1,235 @@
+version: "1"
+
+# incident-session-ephemeral.yaml
+#
+# Ephemeral incident warroom session.
+# Unlike persistent federation, this models a TEMPORARY bridge that:
+#   - Starts when something breaks
+#   - Accepts contributions from multiple parties
+#   - Has its own ephemeral state
+#   - Dissolves when resolved
+#
+# Use case: Active incident bridge where:
+#   - Anyone can join with identity
+#   - Session has TTL (auto-expires)
+#   - All participants see same context
+#   - Audit trail of who contributed what
+
+service:
+  name: "ocd-smoke-alarm"
+  environment: "incident-session"
+  mode: "foreground"
+  log_level: "info"
+  poll_interval: "5s"
+  timeout: "3s"
+  max_workers: 8
+
+health:
+  enabled: true
+  listen_addr: "127.0.0.1:18088"
+  endpoints:
+    healthz: "/healthz"
+    readyz: "/readyz"
+    status: "/status"
+
+runtime:
+  lock_file: "/tmp/ocd-smoke-alarm.incident-session.lock"
+  state_dir: "./state/incident-session"
+  baseline_file: "./state/incident-session/known-good.json"
+  event_history_size: 1000
+  graceful_shutdown_timeout: "10s"
+  # Session expires after 4 hours - warroom doesn't run forever
+  session_ttl: "4h"
+
+discovery:
+  enabled: false
+
+alerts:
+  aggressive: true
+  notify_on_regression_immediately: true
+  retry_before_escalation: 1
+  dedupe_window: "15s"
+  cooldown: "5s"
+  severity:
+    healthy: "info"
+    degraded: "warn"
+    regression: "critical"
+    outage: "critical"
+  sinks:
+    log:
+      enabled: true
+    os_notification:
+      enabled: true
+      title_prefix: "[INCIDENT]"
+
+auth:
+  keystore:
+    enabled: true
+    provider: "auto"
+  redaction:
+    enabled: true
+    mask: "****"
+  oauth:
+    enabled: true
+    token_grace_period: "30s"
+    unattended:
+      enabled: true
+      allow_device_code: true
+      allow_client_credentials: false
+      allow_refresh_token: true
+
+targets:
+  # The INCIDENT SESSION COORDINATOR - tracks what's broken
+  - id: "incident-coordinator"
+    enabled: true
+    protocol: "mcp"
+    name: "Incident: Session Coordinator"
+    endpoint: "http://127.0.0.1:19701/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "tools/list"
+        - "resources/list"
+    auth:
+      type: "oauth"
+      client_id: "incident-coordinator"
+      token_url: "http://127.0.0.1:19750/oauth/token"
+      scopes:
+        - "incident.write"
+    check:
+      interval: "5s"
+      timeout: "3s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+
+  # Participant 1: On-call engineer
+  - id: "incident-participant-engineer"
+    enabled: true
+    protocol: "mcp"
+    name: "Incident: On-Call Engineer"
+    endpoint: "http://127.0.0.1:19702/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "tools/list"
+    auth:
+      type: "oauth"
+      client_id: "incident-engineer"
+      token_url: "http://127.0.0.1:19750/oauth/token"
+      scopes:
+        - "incident.read"
+        - "incident.write"
+    check:
+      interval: "6s"
+      timeout: "3s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+
+  # Participant 2: Security team (may join mid-incident)
+  - id: "incident-participant-security"
+    enabled: true
+    protocol: "mcp"
+    name: "Incident: Security Team"
+    endpoint: "http://127.0.0.1:19703/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "tools/list"
+    auth:
+      type: "oauth"
+      client_id: "incident-security"
+      token_url: "http://127.0.0.1:19750/oauth/token"
+      scopes:
+        - "incident.read"
+        - "security.logs"
+    check:
+      interval: "8s"
+      timeout: "4s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+
+  # Participant 3: Operations/DevOps (provides infrastructure context)
+  - id: "incident-participant-ops"
+    enabled: true
+    protocol: "mcp"
+    name: "Incident: Operations"
+    endpoint: "http://127.0.0.1:19704/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "tools/list"
+    auth:
+      type: "oauth"
+      client_id: "incident-ops"
+      token_url: "http://127.0.0.1:19750/oauth/token"
+      scopes:
+        - "incident.read"
+        - "infra.status"
+    check:
+      interval: "6s"
+      timeout: "3s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+
+  # Shared context store - all participants write here
+  - id: "incident-context-store"
+    enabled: true
+    protocol: "mcp"
+    name: "Incident: Shared Context Store"
+    endpoint: "http://127.0.0.1:19710/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    check:
+      interval: "5s"
+      timeout: "2s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+
+known_state:
+  enabled: true
+  persist: false  # Ephemeral - don't keep baseline across sessions
+  sustain_success_before_mark_healthy: 1
+  classify_new_failures_after_healthy_as: "regression"
+  outage_threshold_consecutive_failures: 2
+
+meta_config:
+  enabled: true
+  output_dir: "./state/incident-session/meta-config"
+  formats:
+    - "json"
+  include_confidence: true
+  include_provenance: true
+
+hosted:
+  enabled: false
+
+federation:
+  enabled: true
+  base_port: 5900
+  max_port: 5910
+  poll_interval: "5s"
+  announce_interval: "10s"
+  heartbeat_interval: "10s"
+  heartbeat_timeout: "30s"
+  upstream: ""
+  downstream: []
+  rank: 0

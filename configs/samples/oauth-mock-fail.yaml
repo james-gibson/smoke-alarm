@@ -1,0 +1,187 @@
+version: "1"
+
+service:
+  name: "ocd-smoke-alarm"
+  environment: "sample-oauth-fail"
+  mode: "foreground" # foreground | background
+  log_level: "info"
+  poll_interval: "5s"
+  timeout: "3s"
+  max_workers: 4
+
+health:
+  enabled: true
+  listen_addr: "127.0.0.1:29088"
+  endpoints:
+    healthz: "/healthz"
+    readyz: "/readyz"
+    status: "/status"
+
+runtime:
+  lock_file: "/tmp/ocd-smoke-alarm.oauth-fail.lock"
+  state_dir: "./state/oauth-fail"
+  baseline_file: "./state/oauth-fail/known-good.json"
+  event_history_size: 300
+  graceful_shutdown_timeout: "8s"
+
+discovery:
+  enabled: true
+  interval: "30s"
+  include_local_paths:
+    - "~/.config/mcp"
+    - "~/.config/acp"
+  include_env_vars:
+    - "MCP_SERVER_URL"
+    - "ACP_AGENT_URL"
+  local_proxy_scan:
+    enabled: false
+    hosts: ["127.0.0.1"]
+    ports: [3000]
+  cloud_catalog:
+    enabled: false
+    urls: []
+  llms_txt:
+    enabled: false
+    remote_uris: []
+    fetch_timeout: "5s"
+    require_https: true
+    auto_register_as_targets: false
+    auto_register_oauth: false
+
+alerts:
+  aggressive: true
+  notify_on_regression_immediately: true
+  retry_before_escalation: 1
+  dedupe_window: "30s"
+  cooldown: "15s"
+  severity:
+    healthy: "info"
+    degraded: "warn"
+    regression: "critical"
+    outage: "critical"
+  sinks:
+    log:
+      enabled: true
+    os_notification:
+      enabled: false
+      title_prefix: "[Smoke Alarm]"
+
+auth:
+  keystore:
+    enabled: false
+    provider: "auto"
+  redaction:
+    enabled: true
+    mask: "****"
+  oauth:
+    enabled: true
+    token_grace_period: "30s"
+    unattended:
+      enabled: true
+      allow_device_code: true
+      allow_client_credentials: true
+      allow_refresh_token: true
+    mock_redirect:
+      enabled: true
+      listen_addr: "127.0.0.1:28877"
+      path: "/oauth/callback"
+      mode: "fail" # allow | fail
+
+targets:
+  # This target intentionally routes OAuth redirect callback through the mock redirect
+  # endpoint in fail mode to validate smoke alarm failure classification and visibility.
+  - id: "acp-oauth-fail-sample"
+    enabled: true
+    protocol: "acp"
+    name: "ACP OAuth Mock Fail"
+    endpoint: "http://127.0.0.1:28191/acp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "initialize"
+        - "session/setup"
+        - "prompt/turn"
+      known_agent_count_min: 0
+      expected_version: ">=0.1.0"
+    auth:
+      type: "oauth"
+      client_id: "ocd-smoke-alarm"
+      token_url: "https://auth.example.local/oauth/token"
+      redirect_url: "http://127.0.0.1:18877/oauth/callback"
+      callback_id: "oauth-fail-callback"
+      scopes:
+        - "acp.read"
+        - "acp.execute"
+      secret_ref: "env://OAUTH_CLIENT_SECRET"
+    check:
+      interval: "5s"
+      timeout: "3s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "session/setup"
+        - "prompt/turn"
+      hurl_tests:
+        - name: "oauth-mock-redirect-callback-fail"
+          endpoint: "http://127.0.0.1:28877/oauth/callback?state=s2&callback_id=cb-fail-1"
+          method: "GET"
+
+known_state:
+  enabled: false
+  persist: false
+  sustain_success_before_mark_healthy: 1
+  classify_new_failures_after_healthy_as: "regression"
+  outage_threshold_consecutive_failures: 2
+
+meta_config:
+  enabled: true
+  output_dir: "./state/oauth-fail/meta-config"
+  formats:
+    - "yaml"
+    - "json"
+  include_confidence: true
+  include_provenance: true
+  placeholders:
+    token: "${TOKEN}"
+    client_secret: "${CLIENT_SECRET}"
+    endpoint: "${ENDPOINT}"
+
+dynamic_config:
+  enabled: true
+  directory: "./state/oauth-fail/dynamic-config"
+  formats:
+    - "json"
+    - "markdown"
+  serve_base_url: "/dynamic-config"
+  allow_overwrite: true
+  require_unique_ids: true
+
+hosted:
+  enabled: true
+  listen_addr: "127.0.0.1:28191"
+  transports:
+    - "http"
+    - "sse"
+  protocols:
+    - "mcp"
+    - "acp"
+  endpoints:
+    mcp: "/mcp"
+    acp: "/acp"
+    a2a: "/a2a"
+
+remote_agent:
+  managed_updates: false
+  control_endpoint: ""
+  update:
+    strategy: "rolling-single"
+    stop_command: ""
+    start_command: ""
+    verify_command: ""
+    rollback_on_failure: true
+    max_wait_for_healthy: "30s"
+  safety:
+    require_lock: true
+    lock_ttl: "2m"

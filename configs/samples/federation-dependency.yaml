@@ -1,0 +1,229 @@
+version: "1"
+
+# federation-dependency.yaml
+#
+# Complex dependency graph: non-linear dependencies between agents.
+# This represents a real microservice topology with shared dependencies.
+#
+# Use case: Warroom scenario showing dependency awareness:
+#
+#     [api-gateway]──────┬──────>[auth-service]
+#           │            │
+#           ├──────> [user-service] ────> [db-primary]
+#           │                     │
+#           │                     └──> [cache-redis]
+#           │
+#           └──────> [payment-service] ──> [db-replica]
+#                          │
+#                          └──> [stripe-api]
+#
+# Smoke alarm shows which failures cascade to dependents.
+
+service:
+  name: "ocd-smoke-alarm"
+  environment: "federation-dependency"
+  mode: "foreground"
+  log_level: "info"
+  poll_interval: "5s"
+  timeout: "3s"
+  max_workers: 16
+
+health:
+  enabled: true
+  listen_addr: "127.0.0.1:18088"
+  endpoints:
+    healthz: "/healthz"
+    readyz: "/readyz"
+    status: "/status"
+
+runtime:
+  lock_file: "/tmp/ocd-smoke-alarm.federation-dependency.lock"
+  state_dir: "./state/federation-dependency"
+  baseline_file: "./state/federation-dependency/known-good.json"
+  event_history_size: 1000
+  graceful_shutdown_timeout: "15s"
+
+discovery:
+  enabled: false
+
+alerts:
+  aggressive: true
+  notify_on_regression_immediately: true
+  retry_before_escalation: 1
+  dedupe_window: "20s"
+  cooldown: "10s"
+  severity:
+    healthy: "info"
+    degraded: "warn"
+    regression: "critical"
+    outage: "critical"
+  sinks:
+    log:
+      enabled: true
+    os_notification:
+      enabled: true
+      title_prefix: "[Deps]"
+
+auth:
+  keystore:
+    enabled: false
+  redaction:
+    enabled: true
+    mask: "****"
+  oauth:
+    enabled: false
+
+targets:
+  # Shared infrastructure
+  - id: "dep-db-primary"
+    enabled: true
+    protocol: "mcp"
+    name: "Dependency: Database Primary"
+    endpoint: "http://127.0.0.1:18701/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    check:
+      interval: "5s"
+      timeout: "2s"
+      retries: 0
+      handshake_profile: "none"
+
+  - id: "dep-cache-redis"
+    enabled: true
+    protocol: "mcp"
+    name: "Dependency: Redis Cache"
+    endpoint: "http://127.0.0.1:18702/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    check:
+      interval: "5s"
+      timeout: "2s"
+      retries: 0
+      handshake_profile: "none"
+
+  # Auth (no deps - leaf)
+  - id: "dep-auth-service"
+    enabled: true
+    protocol: "mcp"
+    name: "Dependency: Auth Service"
+    endpoint: "http://127.0.0.1:18710/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    check:
+      interval: "5s"
+      timeout: "2s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+
+  # User service depends on db + cache
+  - id: "dep-user-service"
+    enabled: true
+    protocol: "mcp"
+    name: "Dependency: User Service"
+    endpoint: "http://127.0.0.1:18711/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    check:
+      interval: "5s"
+      timeout: "2s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+
+  # Payment depends on db-replica + external
+  - id: "dep-db-replica"
+    enabled: true
+    protocol: "mcp"
+    name: "Dependency: Database Replica"
+    endpoint: "http://127.0.0.1:18703/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    check:
+      interval: "5s"
+      timeout: "2s"
+      retries: 0
+      handshake_profile: "none"
+
+  - id: "dep-stripe-api"
+    enabled: true
+    protocol: "mcp"
+    name: "Dependency: Stripe API (external)"
+    endpoint: "http://127.0.0.1:18704/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    check:
+      interval: "10s"
+      timeout: "5s"
+      retries: 1
+      handshake_profile: "none"
+
+  - id: "dep-payment-service"
+    enabled: true
+    protocol: "mcp"
+    name: "Dependency: Payment Service"
+    endpoint: "http://127.0.0.1:18712/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    check:
+      interval: "5s"
+      timeout: "2s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+
+  # API Gateway (depends on everything)
+  - id: "dep-api-gateway"
+    enabled: true
+    protocol: "mcp"
+    name: "Dependency: API Gateway"
+    endpoint: "http://127.0.0.1:18720/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    check:
+      interval: "4s"
+      timeout: "2s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+
+known_state:
+  enabled: true
+  persist: true
+  sustain_success_before_mark_healthy: 2
+  classify_new_failures_after_healthy_as: "regression"
+  outage_threshold_consecutive_failures: 2
+
+meta_config:
+  enabled: true
+  output_dir: "./state/federation-dependency/meta-config"
+  formats:
+    - "json"
+
+hosted:
+  enabled: false
+
+federation:
+  enabled: true
+  base_port: 5500
+  max_port: 5520
+  poll_interval: "5s"
+  announce_interval: "10s"
+  heartbeat_interval: "15s"
+  heartbeat_timeout: "45s"
+  upstream: ""
+  downstream: []
+  rank: 0

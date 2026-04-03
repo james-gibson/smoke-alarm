@@ -1,0 +1,350 @@
+version: "1"
+
+service:
+  name: "ocd-smoke-alarm"
+  environment: "dev"
+  mode: "foreground" # foreground | background
+  log_level: "info" # debug | info | warn | error
+  efficiency_profile: "auto" # auto | low | medium | high
+  poll_interval: "15s"
+  timeout: "5s"
+  max_workers: 8
+
+health:
+  enabled: true
+  listen_addr: "127.0.0.1:8088"
+  self_check: true
+  endpoints:
+    healthz: "/healthz"
+    readyz: "/readyz"
+    status: "/status"
+
+runtime:
+  lock_file: "/tmp/ocd-smoke-alarm.lock"
+  state_dir: "./state"
+  baseline_file: "./state/known-good.json"
+  event_history_size: 500
+  graceful_shutdown_timeout: "10s"
+
+discovery:
+  enabled: true
+  interval: "60s"
+  include_local_paths:
+    - "~/.config/mcp"
+    - "~/.config/acp"
+    - "./configs/discovery"
+  include_env_vars:
+    - "MCP_SERVER_URL"
+    - "ACP_AGENT_URL"
+  local_proxy_scan:
+    enabled: true
+    hosts:
+      - "127.0.0.1"
+      - "localhost"
+    ports: [3000, 4317, 4318, 8080, 9000]
+  cloud_catalog:
+    enabled: true
+    urls:
+      - "https://example-cloud-mcp-registry.internal/catalog.json"
+      - "https://example-cloud-acp-registry.internal/agents.json"
+  llms_txt:
+    enabled: true
+    remote_uris:
+      - "https://modelcontextprotocol.io/llms.txt"
+      - "https://agentclientprotocol.com/llms.txt"
+    fetch_timeout: "5s"
+    require_https: true
+    auto_register_as_targets: true
+    auto_register_oauth: true
+
+alerts:
+  aggressive: true
+  notify_on_regression_immediately: true
+  retry_before_escalation: 1
+  dedupe_window: "2m"
+  cooldown: "1m"
+  severity:
+    healthy: "info"
+    degraded: "warn"
+    regression: "critical"
+    outage: "critical"
+  sinks:
+    log:
+      enabled: true
+    os_notification:
+      enabled: true
+      title_prefix: "[Smoke Alarm]"
+
+auth:
+  keystore:
+    enabled: true
+    provider: "auto" # auto | keychain | secretservice | file
+  redaction:
+    enabled: true
+    mask: "****"
+  oauth:
+    enabled: true
+    token_grace_period: "30s"
+    unattended:
+      enabled: true
+      allow_device_code: true
+      allow_client_credentials: true
+      allow_refresh_token: true
+
+targets:
+  # MCP target (cloud-hosted)
+  - id: "mcp-cloud-primary"
+    enabled: false
+    protocol: "mcp" # mcp | acp
+    name: "Cloud MCP Primary"
+    endpoint: "https://mcp.example.com/v1"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "tools/list"
+        - "resources/list"
+      known_agent_count_min: 1
+    auth:
+      type: "bearer" # none | bearer | apikey | oauth
+      secret_ref: "keychain://ocd-smoke-alarm/mcp-cloud-primary/token"
+      header: "Authorization"
+    check:
+      interval: "20s"
+      timeout: "5s"
+      retries: 1
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+        - "resources/list"
+
+  # ACP target (remote agent endpoint)
+  - id: "acp-remote-agent"
+    enabled: false
+    protocol: "acp"
+    name: "Remote ACP Agent"
+    endpoint: "wss://agent.example.com/acp"
+    transport: "websocket"
+    expected:
+      healthy_status_codes: [101]
+      min_capabilities:
+        - "session/setup"
+        - "prompt/turn"
+        - "tool/calls"
+      expected_version: ">=0.1.0"
+    auth:
+      type: "oauth"
+      client_id: "ocd-smoke-alarm"
+      token_url: "https://auth.example.com/oauth/token"
+      redirect_url: "http://127.0.0.1:8877/oauth/callback"
+      callback_id: "acp-remote-agent-callback"
+      scopes:
+        - "acp.read"
+        - "acp.execute"
+      secret_ref: "keychain://ocd-smoke-alarm/acp-remote-agent/client-secret"
+    check:
+      interval: "15s"
+      timeout: "5s"
+      retries: 1
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "session/setup"
+        - "prompt/turn"
+
+  # Local MCP proxy target
+  - id: "mcp-local-proxy"
+    enabled: true
+    protocol: "mcp"
+    name: "Local MCP Proxy"
+    endpoint: "http://127.0.0.1:3000/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "tools/list"
+      known_agent_count_min: 0
+    auth:
+      type: "apikey"
+      key_name: "x-api-key"
+      secret_ref: "keychain://ocd-smoke-alarm/mcp-local-proxy/api-key"
+    check:
+      interval: "10s"
+      timeout: "3s"
+      retries: 2
+      handshake_profile: "base"
+      required_methods:
+        - "initialize"
+      hurl_tests:
+        - name: "mcp-local-proxy-healthz"
+          endpoint: "http://127.0.0.1:3000/healthz"
+          method: "GET"
+        - name: "mcp-local-proxy-readyz"
+          endpoint: "http://127.0.0.1:3000/readyz"
+          method: "GET"
+
+  # Local stdio MCP server smoke target (example)
+  - id: "mcp-stdio-local"
+    enabled: false
+    protocol: "mcp"
+    name: "Local MCP Stdio Server"
+    endpoint: "stdio://local"
+    transport: "stdio"
+    stdio:
+      command: "npx"
+      args:
+        - "-y"
+        - "@modelcontextprotocol/server-filesystem"
+        - "."
+      env:
+        MCP_LOG_LEVEL: "warn"
+      cwd: "."
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "tools/list"
+        - "resources/list"
+      known_agent_count_min: 0
+    auth:
+      type: "none"
+    check:
+      interval: "10s"
+      timeout: "5s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+        - "resources/list"
+      hurl_tests:
+        - name: "preflight-local-health"
+          endpoint: "http://127.0.0.1:3000/healthz"
+          method: "GET"
+
+  # Local stdio ACP server smoke target (example)
+  - id: "acp-stdio-local"
+    enabled: false
+    protocol: "acp"
+    name: "Local ACP Stdio Server"
+    endpoint: "stdio://local"
+    transport: "stdio"
+    stdio:
+      command: "uvx"
+      args:
+        - "your_acp_server_module"
+      env:
+        ACP_LOG_LEVEL: "warn"
+      cwd: "."
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "session/setup"
+        - "prompt/turn"
+      known_agent_count_min: 0
+      expected_version: ">=0.1.0"
+    auth:
+      type: "none"
+    check:
+      interval: "10s"
+      timeout: "5s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "session/setup"
+        - "prompt/turn"
+      hurl_tests:
+        - name: "preflight-acp-health"
+          endpoint: "http://127.0.0.1:3001/healthz"
+          method: "GET"
+
+  # OpenTelemetry collector liveness target (optional)
+  - id: "otel-collector"
+    enabled: true
+    protocol: "http"
+    name: "OTel Collector Health"
+    endpoint: "http://127.0.0.1:13133/healthz"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    auth:
+      type: "none"
+    check:
+      interval: "30s"
+      timeout: "3s"
+      retries: 1
+      hurl_tests:
+        - name: "otel-healthz-stop-gap"
+          endpoint: "http://127.0.0.1:13133/healthz"
+          method: "GET"
+
+known_state:
+  enabled: true
+  persist: true
+  sustain_success_before_mark_healthy: 2
+  classify_new_failures_after_healthy_as: "regression"
+  outage_threshold_consecutive_failures: 2
+
+meta_config:
+  enabled: true
+  output_dir: "./state/meta-config"
+  formats:
+    - "yaml"
+    - "json"
+  include_confidence: true
+  include_provenance: true
+  placeholders:
+    token: "${TOKEN}"
+    client_secret: "${CLIENT_SECRET}"
+    endpoint: "${ENDPOINT}"
+
+remote_agent:
+  managed_updates: true
+  control_endpoint: "http://127.0.0.1:8099"
+  update:
+    strategy: "rolling-single"
+    stop_command: "ocd-smoke-alarm ops stop"
+    start_command: "ocd-smoke-alarm serve --mode=background --config=./configs/sample.yaml"
+    verify_command: "ocd-smoke-alarm check --config=./configs/sample.yaml"
+    rollback_on_failure: true
+    max_wait_for_healthy: "60s"
+  safety:
+    require_lock: true
+    lock_ttl: "5m"
+
+hosted:
+  enabled: false
+  listen_addr: "127.0.0.1:8091"
+  transports:
+    - "http"
+    - "sse"
+  protocols:
+    - "mcp"
+    - "acp"
+    - "a2a"
+  endpoints:
+    mcp: "/mcp"
+    acp: "/acp"
+    a2a: "/a2a"
+
+dynamic_config:
+  enabled: true
+  directory: "./state/dynamic-config"
+  formats:
+    - "json"
+    - "markdown"
+  serve_base_url: "/dynamic-config"
+  allow_overwrite: true
+  require_unique_ids: true
+
+tuner:
+  enabled: true
+  advertise: true
+  service_type: "_smoke-alarm._tcp"
+  audience:
+    enabled: true
+    endpoint: "/tuner/audience"
+  caller_hook:
+    enabled: false
+    mcp_response: false

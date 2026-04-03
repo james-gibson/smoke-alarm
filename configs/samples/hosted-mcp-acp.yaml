@@ -1,0 +1,248 @@
+version: "1"
+
+service:
+  name: "ocd-smoke-alarm"
+  environment: "sample-hosted"
+  mode: "foreground" # foreground | background
+  log_level: "info"
+  poll_interval: "3s"
+  timeout: "2s"
+  max_workers: 4
+
+health:
+  enabled: true
+  listen_addr: "127.0.0.1:18088"
+  endpoints:
+    healthz: "/healthz"
+    readyz: "/readyz"
+    status: "/status"
+
+runtime:
+  lock_file: "/tmp/ocd-smoke-alarm.hosted.lock"
+  state_dir: "./state/hosted-sample"
+  baseline_file: "./state/hosted-sample/known-good.json"
+  event_history_size: 500
+  graceful_shutdown_timeout: "10s"
+
+discovery:
+  enabled: true
+  interval: "60s"
+  include_local_paths:
+    - "~/.config/mcp"
+    - "~/.config/acp"
+  include_env_vars:
+    - "MCP_SERVER_URL"
+    - "ACP_AGENT_URL"
+  local_proxy_scan:
+    enabled: false
+    hosts: ["127.0.0.1"]
+    ports: [3000, 8080]
+  cloud_catalog:
+    enabled: false
+    urls: []
+  llms_txt:
+    enabled: false
+    remote_uris: []
+    fetch_timeout: "5s"
+    require_https: true
+    auto_register_as_targets: false
+    auto_register_oauth: false
+
+alerts:
+  aggressive: true
+  notify_on_regression_immediately: true
+  retry_before_escalation: 1
+  dedupe_window: "1m"
+  cooldown: "30s"
+  severity:
+    healthy: "info"
+    degraded: "warn"
+    regression: "critical"
+    outage: "critical"
+  sinks:
+    log:
+      enabled: true
+    os_notification:
+      enabled: false
+      title_prefix: "[Smoke Alarm]"
+
+auth:
+  keystore:
+    enabled: false
+    provider: "auto"
+  redaction:
+    enabled: true
+    mask: "****"
+  oauth:
+    enabled: true
+    token_grace_period: "30s"
+    unattended:
+      enabled: true
+      allow_device_code: true
+      allow_client_credentials: true
+      allow_refresh_token: true
+    # Optional local callback mock endpoint used for allow/fail testing.
+    mock_redirect:
+      enabled: true
+      listen_addr: "127.0.0.1:8877"
+      path: "/oauth/callback"
+      mode: "allow" # allow | fail
+
+targets:
+  # Embedded hosted MCP over HTTP JSON-RPC
+  - id: "hosted-mcp-http"
+    enabled: true
+    protocol: "mcp"
+    name: "Hosted MCP HTTP"
+    endpoint: "http://127.0.0.1:18091/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "tools/list"
+        - "resources/list"
+      known_agent_count_min: 0
+      expected_version: ""
+    auth:
+      type: "none"
+    check:
+      interval: "3s"
+      timeout: "2s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+        - "resources/list"
+      hurl_tests:
+        - name: "hosted-mcp-health-gate"
+          endpoint: "http://127.0.0.1:18088/healthz"
+          method: "GET"
+
+  # Embedded hosted ACP over HTTP JSON-RPC
+  - id: "hosted-acp-http"
+    enabled: true
+    protocol: "acp"
+    name: "Hosted ACP HTTP"
+    endpoint: "http://127.0.0.1:18091/acp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "session/setup"
+        - "prompt/turn"
+      known_agent_count_min: 0
+      expected_version: ""
+    auth:
+      type: "none"
+    check:
+      interval: "3s"
+      timeout: "2s"
+      retries: 0
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "session/setup"
+        - "prompt/turn"
+
+  # Embedded hosted MCP SSE stream
+  - id: "hosted-mcp-sse"
+    enabled: true
+    protocol: "mcp"
+    name: "Hosted MCP SSE"
+    endpoint: "http://127.0.0.1:18091/mcp?transport=sse"
+    transport: "sse"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities: []
+      known_agent_count_min: 0
+      expected_version: ""
+    auth:
+      type: "none"
+    check:
+      interval: "4s"
+      timeout: "2s"
+      retries: 0
+      handshake_profile: "none"
+
+  # Embedded hosted ACP SSE stream
+  - id: "hosted-acp-sse"
+    enabled: true
+    protocol: "acp"
+    name: "Hosted ACP SSE"
+    endpoint: "http://127.0.0.1:18091/acp?transport=sse"
+    transport: "sse"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities: []
+      known_agent_count_min: 0
+      expected_version: ""
+    auth:
+      type: "none"
+    check:
+      interval: "4s"
+      timeout: "2s"
+      retries: 0
+      handshake_profile: "none"
+
+known_state:
+  enabled: true
+  persist: true
+  sustain_success_before_mark_healthy: 1
+  classify_new_failures_after_healthy_as: "regression"
+  outage_threshold_consecutive_failures: 2
+
+meta_config:
+  enabled: true
+  output_dir: "./state/hosted-sample/meta-config"
+  formats:
+    - "yaml"
+    - "json"
+  include_confidence: true
+  include_provenance: true
+  placeholders:
+    token: "${TOKEN}"
+    client_secret: "${CLIENT_SECRET}"
+    endpoint: "${ENDPOINT}"
+
+remote_agent:
+  managed_updates: false
+  control_endpoint: ""
+  update:
+    strategy: "rolling-single"
+    stop_command: ""
+    start_command: ""
+    verify_command: ""
+    rollback_on_failure: true
+    max_wait_for_healthy: "30s"
+  safety:
+    require_lock: true
+    lock_ttl: "2m"
+
+# Embedded hosted MCP/ACP services exposed by this smoke alarm process.
+hosted:
+  enabled: true
+  listen_addr: "127.0.0.1:18091"
+  transports:
+    - "http"
+    - "sse"
+  protocols:
+    - "mcp"
+    - "acp"
+    - "a2a"
+  endpoints:
+    mcp: "/mcp"
+    acp: "/acp"
+    a2a: "/a2a"
+
+# Persist every discovered/generated dynamic config as uniquely identified artifacts.
+# This output is suitable for static hosting behind nginx later.
+dynamic_config:
+  enabled: true
+  directory: "./state/hosted-sample/dynamic-config"
+  formats:
+    - "json"
+    - "markdown"
+  serve_base_url: "/dynamic-config"
+  allow_overwrite: true
+  require_unique_ids: true

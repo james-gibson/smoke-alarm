@@ -1,0 +1,92 @@
+version: "1"
+
+# tuner-integration.yaml
+#
+# Demonstrates smoke-alarm integration with the Tuner passive observer.
+# Enables mDNS advertisement, audience metrics, and caller hook so that
+# Tuner instances can discover this smoke-alarm and display its channels.
+#
+# Use case:
+#   - Smoke-alarm advertises _smoke-alarm._tcp on local network
+#   - Tuner discovers it via mDNS and subscribes to channels
+#   - Audience metrics flow back from Tuner to smoke-alarm
+#   - Caller messages from Tuner viewers reach smoke-alarm via SSE
+
+service:
+  name: "ocd-smoke-alarm"
+  environment: "tuner-integration"
+  mode: "foreground"
+  log_level: "info"
+  poll_interval: "5s"
+  timeout: "3s"
+  max_workers: 4
+
+health:
+  enabled: true
+  listen_addr: "127.0.0.1:18088"
+  endpoints:
+    healthz: "/healthz"
+    readyz: "/readyz"
+    status: "/status"
+
+runtime:
+  lock_file: "state/tuner-integration.pid"
+  state_dir: "state"
+  baseline_file: "state/tuner-integration-baseline.json"
+  event_history_size: 100
+  graceful_shutdown_timeout: "5s"
+
+hosted:
+  enabled: true
+  listen_addr: "127.0.0.1:18089"
+  protocols: ["mcp"]
+  transports: ["http"]
+  endpoints:
+    mcp: "/mcp"
+
+tuner:
+  enabled: true
+  advertise: true
+  service_type: "_smoke-alarm._tcp"
+  audience:
+    enabled: true
+    endpoint: "/tuner/audience"
+  caller_hook:
+    enabled: true
+    mcp_response: true
+
+alerts:
+  aggressive: false
+  notify_on_regression_immediately: true
+  retry_before_escalation: 2
+  dedupe_window: "30s"
+  cooldown: "60s"
+  severity:
+    healthy: "info"
+    degraded: "warn"
+    regression: "error"
+    outage: "critical"
+  sinks:
+    log:
+      enabled: true
+
+targets:
+  - id: "local-health"
+    enabled: true
+    protocol: "http"
+    name: "Local Health"
+    endpoint: "http://127.0.0.1:18088/healthz"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    check:
+      interval: "10s"
+      timeout: "3s"
+      retries: 1
+
+known_state:
+  enabled: true
+  persist: true
+  sustain_success_before_mark_healthy: 3
+  classify_new_failures_after_healthy_as: "regression"
+  outage_threshold_consecutive_failures: 5

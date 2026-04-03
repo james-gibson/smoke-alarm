@@ -1,0 +1,168 @@
+version: "1"
+
+# compliance-audit.yaml
+#
+# Audit logging and compliance verification.
+# Not about "is it working" but "is it behaving correctly".
+#
+# Use case: Warroom scenario during audits:
+#   - Log ALL protocol interactions
+#   - Verify no sensitive data in logs
+#   - Confirm capability restrictions enforced
+#   - Track which agents accessed which resources
+#
+# This is a monitoring config that focuses on:
+#   - Redaction verification
+#   - Capability enforcement
+#   - Access pattern anomalies
+
+service:
+  name: "ocd-smoke-alarm"
+  environment: "compliance-audit"
+  mode: "foreground"
+  log_level: "debug"
+  poll_interval: "30s"
+  timeout: "10s"
+  max_workers: 2
+
+health:
+  enabled: true
+  listen_addr: "127.0.0.1:18088"
+  endpoints:
+    healthz: "/healthz"
+    readyz: "/readyz"
+    status: "/status"
+
+runtime:
+  lock_file: "/tmp/ocd-smoke-alarm.compliance-audit.lock"
+  state_dir: "./state/compliance-audit"
+  baseline_file: "./state/compliance-audit/known-good.json"
+  event_history_size: 1000
+  graceful_shutdown_timeout: "15s"
+
+discovery:
+  enabled: false
+
+alerts:
+  aggressive: false
+  notify_on_regression_immediately: false
+  retry_before_escalation: 2
+  dedupe_window: "5m"
+  cooldown: "2m"
+  severity:
+    healthy: "info"
+    degraded: "warn"
+    regression: "critical"
+    outage: "critical"
+  sinks:
+    log:
+      enabled: true
+    os_notification:
+      enabled: false
+
+auth:
+  keystore:
+    enabled: true
+    provider: "auto"
+  redaction:
+    enabled: true
+    mask: "****"
+  oauth:
+    enabled: true
+    token_grace_period: "30s"
+    unattended:
+      enabled: true
+      allow_device_code: false
+      allow_client_credentials: true
+      allow_refresh_token: false
+
+targets:
+  # Production MCP with strict audit requirements
+  - id: "audit-mcp-strict"
+    enabled: true
+    protocol: "mcp"
+    name: "Audit: Production MCP (Strict)"
+    endpoint: "http://127.0.0.1:19301/mcp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "tools/list"
+        - "resources/list"
+      known_agent_count_min: 1
+      expected_version: ">=1.0.0"
+    auth:
+      type: "oauth"
+      client_id: "audit-mcp-client"
+      token_url: "http://127.0.0.1:19350/oauth/token"
+      redirect_url: "http://127.0.0.1:8877/oauth/callback"
+      callback_id: "audit-mcp-callback"
+      scopes:
+        - "mcp.read"
+        - "mcp.tools"
+        - "audit.log"
+    check:
+      interval: "30s"
+      timeout: "10s"
+      retries: 1
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+        - "resources/list"
+
+  # ACP with session tracking
+  - id: "audit-acp-session"
+    enabled: true
+    protocol: "acp"
+    name: "Audit: ACP with Session Tracking"
+    endpoint: "http://127.0.0.1:19302/acp"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+      min_capabilities:
+        - "session/setup"
+        - "prompt/turn"
+    auth:
+      type: "oauth"
+      client_id: "audit-acp-client"
+      token_url: "http://127.0.0.1:19350/oauth/token"
+      scopes:
+        - "acp.session"
+        - "audit.log"
+    check:
+      interval: "30s"
+      timeout: "10s"
+      retries: 1
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "session/setup"
+
+known_state:
+  enabled: true
+  persist: true
+  sustain_success_before_mark_healthy: 3
+  classify_new_failures_after_healthy_as: "regression"
+  outage_threshold_consecutive_failures: 3
+
+meta_config:
+  enabled: true
+  output_dir: "./state/compliance-audit/meta-config"
+  formats:
+    - "json"
+    - "markdown"
+  include_confidence: true
+  include_provenance: true
+
+telemetry:
+  enabled: true
+  endpoint: "http://127.0.0.1:19401/otel"
+  service_name: "ocd-smoke-alarm-compliance"
+  export_interval: "30s"
+
+hosted:
+  enabled: false
+
+federation:
+  enabled: false
