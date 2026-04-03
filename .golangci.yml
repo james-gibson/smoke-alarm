@@ -5,47 +5,8 @@ run:
   tests: true
   issues-exit-code: 1
 
-output:
-  sort-results: true
-
 linters:
-  settings:
-    govet:
-      enable:
-        - shadow
-
-    errcheck:
-      check-type-assertions: true
-      check-blank: true
-
-    goimports:
-      local-prefixes: github.com/james-gibson/smoke-alarm
-
-    revive:
-      confidence: 0.8
-      rules:
-        - name: var-naming
-        - name: package-comments
-        - name: exported
-        - name: receiver-naming
-        - name: increment-decrement
-        - name: indent-error-flow
-        - name: unexported-return
-        - name: unnecessary-stmt
-
-    misspell:
-      locale: US
-
-    gocritic:
-      enabled-tags:
-        - diagnostic
-        - style
-        - performance
-      disabled-checks:
-        - hugeParam
-        - unnamedResult
-
-  disable-all: true
+  default: none
   enable:
     # correctness
     - bodyclose
@@ -74,28 +35,58 @@ linters:
     - gofumpt
     - goimports
 
+  settings:
+    govet:
+      enable:
+        - shadow
+
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+
+    revive:
+      confidence: 0.8
+      rules:
+        - name: var-naming
+        - name: package-comments
+        - name: exported
+        - name: receiver-naming
+        - name: increment-decrement
+        - name: indent-error-flow
+        - name: unexported-return
+        - name: unnecessary-stmt
+
+    misspell:
+      locale: US
+
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+      disabled-checks:
+        - hugeParam
+        - unnamedResult
+
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
-  exclude-use-default: false
+  exclusions:
+    use-default: false
+    rules:
+      - path: _test\.go
+        linters:
+          - errcheck
+          - gosec
+          - noctx
+          - prealloc
+          - unparam
 
-  exclude-rules:
-    # Test files can be intentionally lighter on strict checks.
-    - path: _test\.go
-      linters:
-        - errcheck
-        - gosec
-        - noctx
-        - prealloc
-        - unparam
+      - path: ^cmd/
+        linters:
+          - revive
+        text: "should have a package comment"
 
-    # Allow package comments to be omitted for cmd entrypoints.
-    - path: ^cmd/
-      linters:
-        - revive
-      text: "should have a package comment"
-
-    # Generated artifacts should not be lint-blocking.
-    - path: ".*\\.gen\\.go"
-      linters:
-        - all
+      - path: ".*\\.gen\\.go"
+        linters:
+          - all
