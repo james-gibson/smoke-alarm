@@ -1,3 +1,5 @@
+version: "2"
+
 run:
   timeout: 5m
   tests: true
@@ -6,43 +8,43 @@ run:
 output:
   sort-results: true
 
-linters-settings:
-  govet:
-    enable:
-      - shadow
-
-  errcheck:
-    check-type-assertions: true
-    check-blank: true
-
-  goimports:
-    local-prefixes: ocd-smoke-alarm
-
-  revive:
-    confidence: 0.8
-    rules:
-      - name: var-naming
-      - name: package-comments
-      - name: exported
-      - name: receiver-naming
-      - name: increment-decrement
-      - name: indent-error-flow
-      - name: unexported-return
-      - name: unnecessary-stmt
-
-  misspell:
-    locale: US
-
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - style
-      - performance
-    disabled-checks:
-      - hugeParam
-      - unnamedResult
-
 linters:
+  settings:
+    govet:
+      enable:
+        - shadow
+
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+
+    goimports:
+      local-prefixes: github.com/james-gibson/smoke-alarm
+
+    revive:
+      confidence: 0.8
+      rules:
+        - name: var-naming
+        - name: package-comments
+        - name: exported
+        - name: receiver-naming
+        - name: increment-decrement
+        - name: indent-error-flow
+        - name: unexported-return
+        - name: unnecessary-stmt
+
+    misspell:
+      locale: US
+
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+      disabled-checks:
+        - hugeParam
+        - unnamedResult
+
   disable-all: true
   enable:
     # correctness
@@ -58,17 +60,13 @@ linters:
 
     # code quality
     - asciicheck
-    - durationcheck
     - errorlint
     - gocritic
     - gosec
-    - makezero
     - misspell
     - nakedret
     - prealloc
     - revive
-    - rowserrcheck
-    - sqlclosecheck
     - unconvert
     - unparam
 
