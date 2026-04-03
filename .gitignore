@@ -61,6 +61,6 @@ Integrating Bubble Tea with MCP ACP
 # Runtime state
 state/
 
-# Empty scaffold directories
-integration/
-scripts/
+# Empty scaffold directories (root-level only, not tests/integration/)
+/integration/
+/scripts/
