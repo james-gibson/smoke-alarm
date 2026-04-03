@@ -210,7 +210,7 @@ func cmdServe(args []string) error {
 	if err := writePIDFile(pidFile); err != nil {
 		return fmt.Errorf("write pid file: %w", err)
 	}
-	defer os.Remove(pidFile)
+	defer func() { _ = os.Remove(pidFile) }()
 
 	var engineOpts []engine.Option
 
@@ -434,7 +434,7 @@ func cmdServe(args []string) error {
 		if err != nil {
 			return fmt.Errorf("claim federation slot: %w", err)
 		}
-		defer slot.Close()
+		defer func() { _ = slot.Close() }()
 
 		announceInterval := mustDuration(cfg.Federation.AnnounceInterval, 10*time.Second)
 		heartbeatInterval := mustDuration(cfg.Federation.HeartbeatInterval, 15*time.Second)

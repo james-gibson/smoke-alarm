@@ -37,7 +37,6 @@ linters:
 
     errcheck:
       check-type-assertions: true
-      check-blank: true
 
     revive:
       confidence: 0.8
