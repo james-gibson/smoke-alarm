@@ -203,6 +203,125 @@ Feature: Known-State Regression Detection
     When I call Snapshot and mutate the returned map
     Then the store's internal target "t1" is unchanged
 
+  # ── isotope transit and feature mapping ──────────────────────────────────
+  # Probe results carry isotopes. Recording a result records the isotope transit —
+  # never the response payload. Each isotope maps to the Gherkin scenario it
+  # represents; the transit is live evidence of scenario coverage.
+
+  Scenario: recording a probe result emits an isotope transit event, not payload data
+    Given a probe result for target "t1" carrying isotope "isotope-probe-healthy-001"
+    When the result is recorded
+    Then a transit event is emitted: isotope "isotope-probe-healthy-001" at point "known-state"
+    And no response body or payload data from the probe appears in the transit event
+
+  Scenario: an isotope-tagged probe result contributes to feature coverage
+    Given isotope "isotope-probe-healthy-001" is declared as corresponding to the scenario "sustain threshold met"
+    When a healthy probe result tagged with that isotope is recorded
+    Then the scenario "sustain threshold met" is marked as covered in the live coverage report
+
+  Scenario: probe results without isotopes do not contribute to feature coverage
+    Given a probe result for target "t1" with no isotope attached
+    When the result is recorded
+    Then the result updates the known-state store normally
+    And no feature coverage entry is created
+
+  # ── isotope transit as 42i boundary authorization ─────────────────────────
+  # A transit declaration (feature_id → component) is a boundary authorization.
+  # Violations raise the agent's 42i distance via smoke-alarm test dimensions.
+
+  Scenario: an isotope transiting its declared boundary clears scope-compliance for that dimension
+    Given isotope "isotope-probe-healthy-001" is declared for feature "known-state/sustain-threshold-met"
+    When the isotope transits the known-state component
+    Then the scope-compliance test passes for this dimension
+    And no 42i distance is added
+
+  Scenario: an isotope arriving at an undeclared boundary is a scope-compliance failure
+    Given isotope "isotope-probe-healthy-001" is declared for feature "known-state/sustain-threshold-met"
+    When the isotope is observed at the routing component instead
+    Then a scope-compliance failure is recorded
+    And the agent's 42i distance increases by 20 units
+
+  Scenario: a replayed isotope ID in the known-state layer is an isotope-variation failure
+    Given isotope "isotope-probe-healthy-001" has already been recorded in this window
+    When the same isotope ID is submitted a second time
+    Then an isotope-variation failure is recorded
+    And the agent's 42i distance increases by 8 units
+
+  Scenario: probe payload data appearing in the transit event is a secret-flow-violation
+    Given a transit event is emitted for isotope "isotope-probe-healthy-001"
+    When the event contains any field from the probe response body
+    Then a secret-flow-violation is recorded
+    And the agent's 42i distance increases by 24 units
+
+  # ── isotope ID construction properties ────────────────────────────────────
+  # isotope_id = base64url( SHA256( feature_id || ":" || SHA256(payload) || ":" || nonce ) )
+
+  Scenario: two isotope IDs for the same feature and payload are not equal
+    Given feature "known-state/sustain-threshold-met" and a fixed probe payload
+    When two isotope IDs are constructed for the same feature and payload
+    Then the two IDs are different
+    And each is 43 base64url characters
+
+  Scenario: a holder of feature_id, payload, and nonce can verify the isotope ID
+    Given isotope "isotope-probe-healthy-001" was constructed from feature "known-state/sustain-threshold-met", a payload, and a nonce
+    When verification is performed with those three inputs
+    Then verification succeeds
+
+  Scenario: an isotope ID cannot be verified against a different feature
+    Given isotope "isotope-probe-healthy-001" was constructed for feature "known-state/sustain-threshold-met"
+    When verification is attempted with feature "known-state/regression-detected"
+    Then verification fails
+
+  Scenario: no payload information is recoverable from the isotope ID alone
+    Given isotope "isotope-probe-healthy-001"
+    When an attempt is made to extract the probe payload from the ID
+    Then no payload information is recoverable
+
+  # ── chaos isotope guard ───────────────────────────────────────────────────
+  #
+  # A chaos-isotope-tagged probe result is an expected test event.
+  # It must not alter the known-good baseline: ever_healthy, last_healthy_at,
+  # consecutive_failures, and the regression flag must all be preserved.
+  # The proof that it is safe to discard: a real failure cannot produce a
+  # pre-registered chaos isotope.
+
+  Scenario: a chaos-isotope-tagged failure does not increment consecutive_failures
+    Given the store has target "t1" with ever_healthy true and consecutive_failures 0
+    And isotope "isotope-chaos-001" is registered as a chaos isotope with an active window
+    When a degraded probe result tagged with isotope "isotope-chaos-001" is recorded for "t1"
+    Then the target "t1" consecutive_failures is 0
+
+  Scenario: a chaos-isotope-tagged failure does not set is_regression
+    Given the store has target "t1" with ever_healthy true
+    And isotope "isotope-chaos-001" is registered as a chaos isotope with an active window
+    When a degraded probe result tagged with isotope "isotope-chaos-001" is recorded for "t1"
+    Then the update result is_regression is false
+
+  Scenario: a chaos-isotope-tagged failure does not update last_healthy_at
+    Given the store has target "t1" with ever_healthy true and a known last_healthy_at
+    And isotope "isotope-chaos-001" is registered as a chaos isotope with an active window
+    When a degraded probe result tagged with isotope "isotope-chaos-001" is recorded for "t1"
+    Then the target "t1" last_healthy_at is unchanged
+
+  Scenario: a chaos-isotope-tagged failure does not reset the sustain-success streak
+    Given the store has target "t1" with success_streak 2
+    And isotope "isotope-chaos-001" is registered as a chaos isotope with an active window
+    When a degraded probe result tagged with isotope "isotope-chaos-001" is recorded for "t1"
+    Then the target "t1" success_streak is 2
+
+  Scenario: an unregistered isotope on a failure is treated as a real failure regardless
+    Given the store has target "t1" with ever_healthy true
+    When a degraded probe result tagged with an unregistered isotope is recorded for "t1"
+    Then the target "t1" consecutive_failures is 1
+    And the update result is_regression is true
+
+  Scenario: a chaos isotope arriving after its window has closed is treated as a real failure
+    Given the store has target "t1" with ever_healthy true
+    And "isotope-chaos-002" was registered with a window that has now expired
+    When a degraded probe result tagged with isotope "isotope-chaos-002" is recorded for "t1"
+    Then the target "t1" consecutive_failures is 1
+    And the update result is_regression is true
+
   # ── reset ─────────────────────────────────────────────────────────────────
 
   Scenario: Reset with delete_file false clears memory and writes empty snapshot
