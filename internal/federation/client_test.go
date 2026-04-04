@@ -107,7 +107,11 @@ func TestClientIntroducesAndHeartbeats(t *testing.T) {
 	clientCtx, clientCancel := context.WithCancel(context.Background())
 	defer clientCancel()
 
-	go client.Start(clientCtx)
+	clientStopped := make(chan struct{})
+	go func() {
+		client.Start(clientCtx)
+		close(clientStopped)
+	}()
 
 	waitForCondition(t, 4*time.Second, func() bool {
 		snap := introducerRegistry.Snapshot()
@@ -133,6 +137,11 @@ func TestClientIntroducesAndHeartbeats(t *testing.T) {
 	})
 
 	clientCancel()
+	select {
+	case <-clientStopped:
+	case <-time.After(5 * time.Second):
+		t.Fatal("client.Start did not return after context cancellation")
+	}
 
 	waitForCondition(t, 7*time.Second, func() bool {
 		snap := introducerRegistry.Snapshot()
