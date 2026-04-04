@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime/debug"
 	"sort"
 	"strconv"
 	"strings"
@@ -36,10 +37,24 @@ import (
 	"github.com/james-gibson/smoke-alarm/internal/ui"
 )
 
-const (
-	appName = "ocd-smoke-alarm"
-	version = "0.1.0"
-)
+const appName = "ocd-smoke-alarm"
+
+func version() string {
+	bi, ok := debug.ReadBuildInfo()
+	if !ok {
+		return appName + " dev"
+	}
+	v := bi.Main.Version
+	if v == "" || v == "(devel)" {
+		for _, s := range bi.Settings {
+			if s.Key == "vcs.revision" && len(s.Value) >= 8 {
+				return appName + " " + s.Value[:8]
+			}
+		}
+		return appName + " dev"
+	}
+	return appName + " " + v
+}
 
 var (
 	demoMode            bool
@@ -99,7 +114,7 @@ func main() {
 			fatal(err)
 		}
 	case "version", "--version", "-v":
-		fmt.Println(version)
+		fmt.Println(version())
 	default:
 		printRootUsage()
 		os.Exit(2)
@@ -122,7 +137,7 @@ Usage:
   %s tuner          <discover|status|audience> [flags]
   %s version
 
-`, appName, version, appName, appName, appName, appName, appName, appName, appName, appName, appName, appName, appName)
+`, appName, version(), appName, appName, appName, appName, appName, appName, appName, appName, appName, appName, appName)
 }
 
 func fatal(err error) {
@@ -266,7 +281,7 @@ func cmdServe(args []string) error {
 	if cfg.Hosted.Enabled {
 		hostedSrv = hosted.NewServer(hosted.Options{
 			ServiceName: cfg.Service.Name,
-			Version:     version,
+			Version:     version(),
 			ListenAddr:  cfg.Hosted.ListenAddr,
 
 			EnableHTTP: hasStringFold(cfg.Hosted.Transports, "http"),
@@ -299,7 +314,7 @@ func cmdServe(args []string) error {
 		startedAt := time.Now().UTC()
 		hs = health.NewServer(health.Options{
 			ServiceName:     cfg.Service.Name,
-			Version:         version,
+			Version:         version(),
 			ListenAddr:      cfg.Health.ListenAddr,
 			HealthzPath:     cfg.Health.Endpoints.Healthz,
 			ReadyzPath:      cfg.Health.Endpoints.Readyz,
@@ -307,7 +322,7 @@ func cmdServe(args []string) error {
 			ShutdownTimeout: mustDuration(cfg.Runtime.GracefulShutdownTimeout, 10*time.Second),
 		})
 		// Wire self-description after server creation so the factory can read runtime state.
-		hs.SetSelfDescription(health.NewSelfDescriptionFactory(cfg, version, startedAt, hs))
+		hs.SetSelfDescription(health.NewSelfDescriptionFactory(cfg, version(), startedAt, hs))
 		hs.SetComponent("engine", false, "waiting for first checks")
 		hs.SetReady(false, "engine not ready")
 
