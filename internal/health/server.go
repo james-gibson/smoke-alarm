@@ -96,7 +96,7 @@ type Server struct {
 	readyError     string
 	components     map[string]ComponentStatus
 	targets        map[string]TargetStatus
-	isotopes       map[string]isotope.IsotopeRecord
+	isotopes       map[string]isotope.Record
 	shutdownSignal chan struct{}
 }
 
@@ -130,7 +130,7 @@ func NewServer(opts Options) *Server {
 		selfDescFactory: opts.SelfDescriptionFunc,
 		components:      make(map[string]ComponentStatus),
 		targets:         make(map[string]TargetStatus),
-		isotopes:        make(map[string]isotope.IsotopeRecord),
+		isotopes:        make(map[string]isotope.Record),
 		shutdownSignal:  make(chan struct{}),
 	}
 	s.live.Store(true)
@@ -433,7 +433,7 @@ func (s *Server) handleIsotopeRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var reg isotope.IsotopeRegistration
+	var reg isotope.Registration
 	if err := json.NewDecoder(r.Body).Decode(&reg); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid JSON"})
 		return
@@ -454,7 +454,7 @@ func (s *Server) handleIsotopeRegister(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	record := isotope.IsotopeRecord{
+	record := isotope.Record{
 		Name:         reg.Name,
 		Role:         reg.Role,
 		Endpoint:     reg.Endpoint,
@@ -478,7 +478,7 @@ func (s *Server) handleIsotopeList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.mu.RLock()
-	records := make([]isotope.IsotopeRecord, 0, len(s.isotopes))
+	records := make([]isotope.Record, 0, len(s.isotopes))
 	for _, rec := range s.isotopes {
 		records = append(records, rec)
 	}
