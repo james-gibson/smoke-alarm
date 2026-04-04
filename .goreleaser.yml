@@ -9,7 +9,7 @@ builds:
     main: ./cmd/ocd-smoke-alarm
     binary: ocd-smoke-alarm
     ldflags:
-      - -s -w -X main.version={{.Version}}
+      - -s -w -X main.buildVersion={{.Version}}
     env:
       - CGO_ENABLED=0
     goos:

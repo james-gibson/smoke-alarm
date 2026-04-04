@@ -39,7 +39,14 @@ import (
 
 const appName = "ocd-smoke-alarm"
 
+// buildVersion is set at build time by goreleaser via
+// -ldflags "-X main.buildVersion={{.Version}}".
+var buildVersion string
+
 func version() string {
+	if buildVersion != "" {
+		return appName + " " + buildVersion
+	}
 	bi, ok := debug.ReadBuildInfo()
 	if !ok {
 		return appName + " dev"
