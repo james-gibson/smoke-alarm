@@ -1,20 +1,44 @@
-# OCD Smoke Alarm
+# ocd-smoke-alarm — Continuous Health Monitor
 
-A minimal-footprint Go monitor for MCP/ACP environments.
+Continuous health monitoring for HTTP endpoints. Polls configured targets on an interval, tracks state transitions (healthy → degraded → unhealthy → outage), detects regressions, and emits structured alerts.
 
-`ocd-smoke-alarm` is designed to run either:
+`ocd-smoke-alarm` runs either:
 
 - **Foreground** with a Bubble Tea TUI for live triage
-- **Background** as a low-overhead monitoring service
+- **Background** as a low-overhead monitoring service (managed by `lezz.go`)
 
-It focuses on:
+## In the Lab
 
-- MCP/ACP config discovery and validation
-- Authentication health checks (including unattended OAuth-ready flows)
-- Regression detection (`previously healthy -> failing` is elevated)
-- Notification/escalation on outages
-- Agent-only lifecycle management (stop/update/restart/verify)
-- Generation of partial, intra-valid meta-config snippets for `mcp-add`
+ocd-smoke-alarm is part of a cluster of tools that share a common lab environment. See [lab-safety](https://github.com/james-gibson/lab-safety) for the full ecosystem map.
+
+Key integrations:
+- **lezz.go** — starts and manages ocd-smoke-alarm as a LaunchAgent; `lezz demo` runs two instances that monitor each other
+- **adhd** — polls ocd-smoke-alarm `/status` and SSE streams; registers with `/isotope/register` on startup
+- **isotope** — shared library used for `VerifyTrust`, wire types (`Registration`, `Record`), and the 42i capability lattice
+
+### Isotope Endpoints
+
+ocd-smoke-alarm is the isotope registry for the cluster:
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/isotope/register` | POST | Register an agent; returns a `Record` with a trust rung |
+| `/isotope/list` | GET | List all registered isotopes and their trust rungs |
+
+Trust rungs are assigned by `VerifyTrust`: rung 6 if both the lezz cluster registry (`:19100/cluster`) and mDNS (`_lezz-demo._tcp`) confirm the registrant, rung 4 if registry only, rung 2 if self-registered.
+
+### Other Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `/healthz` | Liveness probe |
+| `/readyz` | Readiness probe |
+| `/status` | Full component health and target states |
+| `/.well-known/smoke-alarm.json` | Machine-readable service descriptor |
+
+Multiple instances monitor each other, creating a Byzantine-tolerant consensus view of cluster health.
+
+---
 
 ---
 
@@ -619,3 +643,12 @@ This allows users to build new configs from discovery output, save them as porta
 5. Update task status and handoff notes
 
 Keep each change narrow and rollback-friendly.
+
+---
+
+## See Also
+
+- [lab-safety — full ecosystem overview](https://github.com/james-gibson/lab-safety)
+- [adhd dashboard](https://github.com/james-gibson/adhd)
+- [lezz.go daemon manager](https://github.com/james-gibson/lezz.go)
+- [isotope protocol library](https://github.com/james-gibson/isotope)
