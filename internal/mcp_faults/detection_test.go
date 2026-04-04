@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/james-gibson/smoke-alarm/internal/isotope"
+	"github.com/james-gibson/isotope"
 )
 
 // TestAgentDetectsByzantineMCPServer shows how an agent accumulates 42i distance

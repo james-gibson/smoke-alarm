@@ -14,31 +14,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/james-gibson/smoke-alarm/internal/isotope"
+	"github.com/james-gibson/isotope"
 )
 
 // SelfDescriptionFunc returns the live self-description document as a
 // JSON-serializable value. Called on each request to /.well-known/smoke-alarm.json.
 type SelfDescriptionFunc func() any
-
-// IsotopeRegistration is the request body for POST /isotope/register.
-type IsotopeRegistration struct {
-	Name     string `json:"name"`
-	Role     string `json:"role"`
-	Endpoint string `json:"endpoint"`
-	Protocol string `json:"protocol,omitempty"`
-}
-
-// IsotopeRecord describes a registered isotope instance with its assigned trust rung.
-type IsotopeRecord struct {
-	Name         string    `json:"name"`
-	Role         string    `json:"role"`
-	Endpoint     string    `json:"endpoint"`
-	Protocol     string    `json:"protocol"`
-	TrustRung    int       `json:"trust_rung"`
-	RungName     string    `json:"rung_name"`
-	RegisteredAt time.Time `json:"registered_at"`
-}
 
 // Options configures the HTTP health server.
 type Options struct {
@@ -115,7 +96,7 @@ type Server struct {
 	readyError     string
 	components     map[string]ComponentStatus
 	targets        map[string]TargetStatus
-	isotopes       map[string]IsotopeRecord
+	isotopes       map[string]isotope.IsotopeRecord
 	shutdownSignal chan struct{}
 }
 
@@ -149,7 +130,7 @@ func NewServer(opts Options) *Server {
 		selfDescFactory: opts.SelfDescriptionFunc,
 		components:      make(map[string]ComponentStatus),
 		targets:         make(map[string]TargetStatus),
-		isotopes:        make(map[string]IsotopeRecord),
+		isotopes:        make(map[string]isotope.IsotopeRecord),
 		shutdownSignal:  make(chan struct{}),
 	}
 	s.live.Store(true)
@@ -452,7 +433,7 @@ func (s *Server) handleIsotopeRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var reg IsotopeRegistration
+	var reg isotope.IsotopeRegistration
 	if err := json.NewDecoder(r.Body).Decode(&reg); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid JSON"})
 		return
@@ -473,7 +454,7 @@ func (s *Server) handleIsotopeRegister(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	record := IsotopeRecord{
+	record := isotope.IsotopeRecord{
 		Name:         reg.Name,
 		Role:         reg.Role,
 		Endpoint:     reg.Endpoint,
@@ -497,7 +478,7 @@ func (s *Server) handleIsotopeList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.mu.RLock()
-	records := make([]IsotopeRecord, 0, len(s.isotopes))
+	records := make([]isotope.IsotopeRecord, 0, len(s.isotopes))
 	for _, rec := range s.isotopes {
 		records = append(records, rec)
 	}

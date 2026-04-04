@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/james-gibson/smoke-alarm/internal/isotope"
+	"github.com/james-gibson/isotope"
 	"github.com/james-gibson/smoke-alarm/internal/mcp_faults"
 	"github.com/james-gibson/smoke-alarm/internal/targets"
 )
