@@ -13,11 +13,32 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/james-gibson/smoke-alarm/internal/isotope"
 )
 
 // SelfDescriptionFunc returns the live self-description document as a
 // JSON-serializable value. Called on each request to /.well-known/smoke-alarm.json.
 type SelfDescriptionFunc func() any
+
+// IsotopeRegistration is the request body for POST /isotope/register.
+type IsotopeRegistration struct {
+	Name     string `json:"name"`
+	Role     string `json:"role"`
+	Endpoint string `json:"endpoint"`
+	Protocol string `json:"protocol,omitempty"`
+}
+
+// IsotopeRecord describes a registered isotope instance with its assigned trust rung.
+type IsotopeRecord struct {
+	Name         string    `json:"name"`
+	Role         string    `json:"role"`
+	Endpoint     string    `json:"endpoint"`
+	Protocol     string    `json:"protocol"`
+	TrustRung    int       `json:"trust_rung"`
+	RungName     string    `json:"rung_name"`
+	RegisteredAt time.Time `json:"registered_at"`
+}
 
 // Options configures the HTTP health server.
 type Options struct {
@@ -94,6 +115,7 @@ type Server struct {
 	readyError     string
 	components     map[string]ComponentStatus
 	targets        map[string]TargetStatus
+	isotopes       map[string]IsotopeRecord
 	shutdownSignal chan struct{}
 }
 
@@ -127,6 +149,7 @@ func NewServer(opts Options) *Server {
 		selfDescFactory: opts.SelfDescriptionFunc,
 		components:      make(map[string]ComponentStatus),
 		targets:         make(map[string]TargetStatus),
+		isotopes:        make(map[string]IsotopeRecord),
 		shutdownSignal:  make(chan struct{}),
 	}
 	s.live.Store(true)
@@ -138,6 +161,8 @@ func NewServer(opts Options) *Server {
 	mux.HandleFunc(opts.StatusPath, s.handleStatus)
 	mux.HandleFunc(opts.SelfDescriptionPath, s.handleSelfDescription)
 	mux.HandleFunc("/federation/report", s.handleFederationReport)
+	mux.HandleFunc("/isotope/register", s.handleIsotopeRegister)
+	mux.HandleFunc("/isotope/list", s.handleIsotopeList)
 
 	s.httpSrv = &http.Server{
 		Addr:              opts.ListenAddr,
@@ -419,6 +444,67 @@ func (s *Server) handleFederationReport(w http.ResponseWriter, r *http.Request) 
 
 	s.SetComponent("federation", true, fmt.Sprintf("received %d targets from upstream", len(incoming.Targets)))
 	writeJSON(w, http.StatusOK, map[string]any{"status": "accepted"})
+}
+
+func (s *Server) handleIsotopeRegister(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+
+	var reg IsotopeRegistration
+	if err := json.NewDecoder(r.Body).Decode(&reg); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid JSON"})
+		return
+	}
+	reg.Name = strings.TrimSpace(reg.Name)
+	reg.Endpoint = strings.TrimSpace(reg.Endpoint)
+	if reg.Name == "" || reg.Endpoint == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "name and endpoint are required"})
+		return
+	}
+
+	rung := isotope.VerifyTrust(r.Context(), reg.Endpoint)
+	rungName := ""
+	for _, rt := range isotope.DefaultRungThresholds {
+		if rt.Rung == rung {
+			rungName = rt.Name
+			break
+		}
+	}
+
+	record := IsotopeRecord{
+		Name:         reg.Name,
+		Role:         reg.Role,
+		Endpoint:     reg.Endpoint,
+		Protocol:     reg.Protocol,
+		TrustRung:    rung,
+		RungName:     rungName,
+		RegisteredAt: time.Now().UTC(),
+	}
+
+	s.mu.Lock()
+	s.isotopes[reg.Name] = record
+	s.mu.Unlock()
+
+	writeJSON(w, http.StatusOK, record)
+}
+
+func (s *Server) handleIsotopeList(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+
+	s.mu.RLock()
+	records := make([]IsotopeRecord, 0, len(s.isotopes))
+	for _, rec := range s.isotopes {
+		records = append(records, rec)
+	}
+	s.mu.RUnlock()
+
+	sort.Slice(records, func(i, j int) bool { return records[i].Name < records[j].Name })
+	writeJSON(w, http.StatusOK, records)
 }
 
 func summarizeTargets(targets []TargetStatus) StatusSummary {

@@ -126,6 +126,38 @@ func NewAgentState(agentID string) *AgentState {
 	}
 }
 
+// NewAgentStateAtRung creates an agent state pre-positioned at the given rung.
+// TotalDistance is seeded to the lower bound of the rung's distance range so
+// that RungForDistance immediately classifies the agent at the requested level.
+// Use this for agents whose initial trust was externally verified — e.g. an
+// mDNS-certified cluster isotope starts at rung 6 (Certification).
+func NewAgentStateAtRung(agentID string, rung int) *AgentState {
+	if rung < 0 || rung >= len(DefaultRungThresholds) {
+		rung = 0
+	}
+	distance := 0
+	if rung > 0 {
+		distance = DefaultRungThresholds[rung-1].MaxDistance + 1
+	}
+	imaginary := float64(distance)
+	magnitude := math.Sqrt(42*42 + imaginary*imaginary)
+	return &AgentState{
+		AgentID:       agentID,
+		FailedTests:   make(map[string]int),
+		TotalDistance: distance,
+		Position: Position{
+			Real:      42.0,
+			Imaginary: imaginary,
+			Magnitude: magnitude,
+			Direction: "externally-verified",
+			Rung:      rung,
+			AtRisk:    false,
+		},
+		PreviousRung: rung,
+		RungHistory:  []int{rung},
+	}
+}
+
 // RecordTestFailure adds a test failure to the agent's 42i_distance.
 func (as *AgentState) RecordTestFailure(isotopeFamily string) (rungChanged bool, newRung int) {
 	weight, ok := DefaultWeights[isotopeFamily]
