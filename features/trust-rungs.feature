@@ -63,8 +63,7 @@ Feature: 42i Trust Rungs — Certification Levels and Read Authorization
     Then inst-b is assigned rung 1 (dev-certified)
 
   Scenario: an instance with verified cryptographic isotopes is assigned rung 2
-    Given instance "inst-b" has carried at least one isotope whose ID verifies
-      against its declared feature binding (cryptographic algorithm)
+    Given instance "inst-b" has carried at least one isotope whose ID verifies against its declared feature binding (cryptographic algorithm)
     When the trust rung for "inst-b" is evaluated
     Then inst-b is assigned rung 2 (transit-certified)
 

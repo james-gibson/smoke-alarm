@@ -66,8 +66,7 @@ Feature: Isotope ID Transit Through Health Check Responses
   # construct isotopes — it receives them and records their transit.
 
   Scenario: smoke-alarm can verify a received isotope against its declared feature binding
-    Given isotope "iso-abc-001" was constructed from feature "adhd/light-transitions-dark-to-green",
-      a payload hash, and a nonce
+    Given isotope "iso-abc-001" was constructed from feature "adhd/light-transitions-dark-to-green", a payload hash, and a nonce
     When the smoke-alarm receives that isotope in a probe response for target "t1"
     Then the smoke-alarm records: isotope "iso-abc-001" observed at target "t1"
     And the recorded transit does not include the payload or nonce

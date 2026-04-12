@@ -84,14 +84,14 @@ type StatusSummary struct {
 // Feature represents a Gherkin feature that this smoke-alarm knows about and
 // can report its certification status for to ADHD dashboards.
 type Feature struct {
-	ID            string    `json:"id"`             // unique identifier, e.g. "ocd/federation-mesh"
-	Name          string    `json:"name"`           // human-readable feature name
-	FilePath      string    `json:"file_path,omitempty"`
-	Tags          []string  `json:"tags,omitempty"`
-	Scenarios     int       `json:"scenarios"`
-	Status        string    `json:"status"`         // "certified", "unclaimed", "failed"
-	CertifiedAt   time.Time `json:"certified_at,omitempty"`
-	FailedAt      time.Time `json:"failed_at,omitempty"`
+	ID          string    `json:"id"`   // unique identifier, e.g. "ocd/federation-mesh"
+	Name        string    `json:"name"` // human-readable feature name
+	FilePath    string    `json:"file_path,omitempty"`
+	Tags        []string  `json:"tags,omitempty"`
+	Scenarios   int       `json:"scenarios"`
+	Status      string    `json:"status"` // "certified", "unclaimed", "failed"
+	CertifiedAt time.Time `json:"certified_at,omitempty"`
+	FailedAt    time.Time `json:"failed_at,omitempty"`
 }
 
 // Server provides liveness, readiness, and status endpoints.
@@ -110,7 +110,7 @@ type Server struct {
 	components     map[string]ComponentStatus
 	targets        map[string]TargetStatus
 	isotopes       map[string]isotope.Record
-	features       map[string]Feature  // keyed by Feature.ID
+	features       map[string]Feature // keyed by Feature.ID
 	shutdownSignal chan struct{}
 }
 

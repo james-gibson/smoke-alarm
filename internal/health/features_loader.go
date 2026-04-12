@@ -18,7 +18,7 @@ func RegisterFeaturesFromDir(s *Server, dir string) {
 	}
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".feature") {
-			return nil
+			return err
 		}
 		f, parseErr := parseFeatureFile(path)
 		if parseErr != nil {

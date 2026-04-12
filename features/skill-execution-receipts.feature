@@ -35,8 +35,7 @@ Feature: Isotopes as Skill Execution Receipts
   Scenario: an isotope committed from skill execution encodes the skill's Gherkin scenario
     Given a skill whose Gherkin scenario is "adhd/open-the-pickle-jar"
     When the skill executes against a target and produces a result payload
-    Then the isotope is constructed as:
-      base64url( SHA256( "adhd/open-the-pickle-jar" || ":" || SHA256(payload) || ":" || nonce ) )
+    Then the isotope is constructed as: base64url( SHA256( "adhd/open-the-pickle-jar" || ":" || SHA256(payload) || ":" || nonce ) )
     And observing this isotope proves "adhd/open-the-pickle-jar" ran and produced that payload
 
   Scenario: the receipt commits to the result without exposing it
