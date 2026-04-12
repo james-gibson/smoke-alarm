@@ -1,0 +1,329 @@
+version: "1"
+# tuner-integration.yaml
+#
+# Demonstrates smoke-alarm integration with the Tuner passive observer.
+# Enables mDNS advertisement, audience metrics, and caller hook so that
+# Tuner instances can discover this smoke-alarm and display its channels.
+#
+# Use case:
+#   - Smoke-alarm advertises _smoke-alarm._tcp on local network
+#   - Tuner discovers it via mDNS and subscribes to channels
+#   - Audience metrics flow back from Tuner to smoke-alarm
+#   - Caller messages from Tuner viewers reach smoke-alarm via SSE
+service:
+  name: "smoke-alarm-uvx-mcp"
+  environment: "uvx-mcp-test"
+  mode: "foreground" # foreground | background
+  log_level: "info"
+  poll_interval: "10s"
+  timeout: "8s"
+  max_workers: 4
+health:
+  enabled: true
+  # Each instance will bind its own health address based on its slot port.
+  # Override per-instance with --health-addr if running manually.
+  listen_addr: "127.0.0.1:18190"
+  endpoints:
+    healthz: "/healthz"
+    readyz: "/readyz"
+    status: "/status"
+runtime:
+  lock_file: "/tmp/smoke-alarm.uvx-mcp.lock"
+  state_dir: "./state/uvx-mcp"
+  baseline_file: "./state/uvx-mcp/known-good.json"
+  event_history_size: 300
+  graceful_shutdown_timeout: "8s"
+  # Session expires after 4 hours - warroom doesn't run forever
+discovery:
+  enabled: true
+  interval: "60s"
+  include_local_paths:
+    - "~/.config/mcp"
+  include_env_vars:
+    - "MCP_SERVER_URL"
+  local_proxy_scan:
+    enabled: false
+    hosts:
+      - "127.0.0.1"
+    ports: [3000]
+  cloud_catalog:
+    enabled: false
+    urls: []
+  llms_txt:
+    enabled: false
+    remote_uris: []
+    fetch_timeout: "5s"
+    require_https: true
+    auto_register_as_targets: false
+    auto_register_oauth: false
+alerts:
+  aggressive: true
+  notify_on_regression_immediately: true
+  retry_before_escalation: 1
+  dedupe_window: "30s"
+  cooldown: "10s"
+  severity:
+    healthy: "info"
+    degraded: "warn"
+    regression: "critical"
+    outage: "critical"
+  sinks:
+    log:
+      enabled: true
+    os_notification:
+      enabled: false
+      title_prefix: "[Smoke Alarm]"
+auth:
+  keystore:
+    enabled: false
+    provider: "auto"
+  redaction:
+    enabled: true
+    mask: "****"
+  oauth:
+    enabled: false
+    token_grace_period: "30s"
+    unattended:
+      enabled: false
+      allow_device_code: false
+      allow_client_credentials: false
+      allow_refresh_token: false
+    # Optional local callback mock endpoint used for allow/fail testing.
+    mock_redirect:
+      enabled: false
+      listen_addr: "127.0.0.1:8877"
+      path: "/oauth/callback"
+      mode: "allow" # allow | fail
+# ── uvx MCP package targets ───────────────────────────────────────────────────
+# Add or remove entries in this list to test different packages.
+# Each entry runs: uvx <package> [args...]
+targets:
+  - id: "uvx-mcp-fetch"
+    enabled: true
+    protocol: "mcp"
+    name: "MCP Fetch Server (uvx)"
+    endpoint: "stdio://local"
+    transport: "stdio"
+    stdio:
+      command: "uvx"
+      args:
+        - "mcp-server-fetch"
+      env: {}
+      cwd: "."
+    expected:
+      min_capabilities:
+        - "tools/list"
+    auth:
+      type: "none"
+    check:
+      interval: "10s"
+      timeout: "8s"
+      retries: 1
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+      hurl_tests: []
+  - id: "uvx-mcp-git"
+    enabled: true
+    protocol: "mcp"
+    name: "MCP Git Server (uvx)"
+    endpoint: "stdio://local"
+    transport: "stdio"
+    stdio:
+      command: "uvx"
+      args:
+        - "mcp-server-git"
+        - "--repository"
+        - "."
+      env: {}
+      cwd: "."
+    expected:
+      min_capabilities:
+        - "tools/list"
+    auth:
+      type: "none"
+    check:
+      interval: "10s"
+      timeout: "8s"
+      retries: 1
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+      hurl_tests: []
+  - id: "uvx-mcp-sqlite"
+    enabled: true
+    protocol: "mcp"
+    name: "MCP SQLite Server (uvx)"
+    endpoint: "stdio://local"
+    transport: "stdio"
+    stdio:
+      command: "uvx"
+      args:
+        - "mcp-server-sqlite"
+        - "--db-path"
+        - "./state/uvx-mcp/test.db"
+      env: {}
+      cwd: "."
+    expected:
+      min_capabilities:
+        - "tools/list"
+        - "resources/list"
+    auth:
+      type: "none"
+    check:
+      interval: "10s"
+      timeout: "8s"
+      retries: 1
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+        - "resources/list"
+      hurl_tests: []
+  - id: "uvx-mcp-time"
+    enabled: true
+    protocol: "mcp"
+    name: "MCP Time Server (uvx)"
+    endpoint: "stdio://local"
+    transport: "stdio"
+    stdio:
+      command: "uvx"
+      args:
+        - "mcp-server-time"
+      env: {}
+      cwd: "."
+    expected:
+      min_capabilities:
+        - "tools/list"
+    auth:
+      type: "none"
+    check:
+      interval: "10s"
+      timeout: "8s"
+      retries: 1
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+      hurl_tests: []
+known_state:
+  enabled: true
+  persist: true # Ephemeral - don't keep baseline across sessions
+  sustain_success_before_mark_healthy: 1
+  classify_new_failures_after_healthy_as: "regression"
+  outage_threshold_consecutive_failures: 2
+meta_config:
+  enabled: true
+  output_dir: "./state/uvx-mcp/meta-config"
+  formats:
+    - "yaml"
+    - "json"
+  include_confidence: true
+  include_provenance: true
+  placeholders:
+    token: "${TOKEN}"
+    client_secret: "${CLIENT_SECRET}"
+    endpoint: "${ENDPOINT}"
+# Embedded hosted MCP/ACP services exposed by this smoke alarm process.
+hosted:
+  enabled: true
+  listen_addr: "127.0.0.1:18089"
+  transports: ["http"]
+  protocols: ["mcp"]
+  endpoints:
+    mcp: "/mcp"
+    acp: "/acp"
+    a2a: "/a2a"
+federation:
+  enabled: false
+  # Slot claiming: the first process to bind base_port becomes the introducer.
+  # Subsequent processes claim base_port+1, base_port+2, etc. as followers.
+  # The introducer serves /introductions, /heartbeats, /membership on base_port.
+  base_port: 5900
+  max_port: 5910 # supports up to 4 instances (5100-5103)
+  # How often followers poll downstream peers' /status endpoints.
+  poll_interval: "5s"
+  # How often each instance re-announces itself to the introducer.
+  announce_interval: "10s"
+  # Heartbeat cadence from follower to introducer.
+  heartbeat_interval: "10s"
+  # A peer missing this many consecutive heartbeat windows is aged out.
+  heartbeat_timeout: "30s"
+  # Upstream and downstream are left empty here — slot election is automatic.
+  # For explicit topology, set:
+  #   upstream: "127.0.0.1:5100"         # follower points at introducer
+  #   downstream: ["127.0.0.1:5101"]     # introducer polls followers for /status
+  upstream: ""
+  downstream: []
+  rank: 0 # 0 = auto-detect from claimed port
+telemetry:
+  enabled: false
+  endpoint: ""
+  service_name: "ocd-smoke-alarm-federation"
+  export_interval: "30s"
+# Persist every discovered/generated dynamic config as uniquely identified artifacts.
+# This output is suitable for static hosting behind nginx later.
+dynamic_config:
+  enabled: true
+  directory: "./state/stdio-mcp-strict/dynamic-config"
+  formats:
+    - "json"
+    - "markdown"
+  allow_overwrite: false
+  require_unique_ids: true
+  serve_base_url: "/dynamic-config"
+remote_agent:
+  managed_updates: false
+  control_endpoint: ""
+  update:
+    strategy: "rolling-single"
+    stop_command: ""
+    start_command: ""
+    verify_command: ""
+    rollback_on_failure: true
+    max_wait_for_healthy: "30s"
+  safety:
+    require_lock: true
+    lock_ttl: "2m"
+generated_at: 2026-04-08T04:54:54.84388Z
+source: discovery
+entries:
+  - id: npm-mcp-filesystem
+    name: MCP Filesystem Server (npm)
+    protocol: mcp
+    transport: stdio
+    endpoint: stdio://local
+    auth:
+      type: none
+    expected:
+      healthy_status_codes:
+        - 200
+      min_capabilities:
+        - tools/list
+        - resources/list
+    monitoring:
+      interval: 10s
+      timeout: 8s
+      retries: 1
+      enabled: true
+    labels:
+      generated_by: ocd-smoke-alarm
+      intent: mcp-add-partial
+    confidence: 1
+    provenance: static_config
+notes:
+  - Generated entries are partial but structurally valid.
+  - Replace placeholders with real values before production use.
+  - Validate each entry against target service expectations.
+tuner:
+  enabled: true
+  advertise: true
+  service_type: "_smoke-alarm._tcp"
+  audience:
+    enabled: true
+    endpoint: "/tuner/audience"
+  caller_hook:
+    enabled: true
+    mcp_response: true

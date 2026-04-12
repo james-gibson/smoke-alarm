@@ -25,8 +25,8 @@ runtime:
   graceful_shutdown_timeout: "5s"
 
 discovery:
-  enabled: false
-  interval: "60s"
+  enabled: true
+  interval: "6s"
   include_local_paths:
     - "~/.config/mcp"
     - "~/.config/acp"
@@ -39,7 +39,7 @@ discovery:
       - "127.0.0.1"
     ports: [3000, 8080]
   cloud_catalog:
-    enabled: false
+    enabled: true
     urls: []
 
 alerts:

@@ -333,6 +333,10 @@ func cmdServe(args []string) error {
 		hs.SetComponent("engine", false, "waiting for first checks")
 		hs.SetReady(false, "engine not ready")
 
+		// Register this instance's own Gherkin features so ADHD dashboards can
+		// discover and display their certification status at runtime.
+		health.RegisterFeaturesFromDir(hs, "features")
+
 		// Pre-bind with port scanning so we advertise the actual bound port via mDNS.
 		boundAddr, err := hs.BindWithRetry(10)
 		if err != nil {

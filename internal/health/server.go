@@ -81,6 +81,19 @@ type StatusSummary struct {
 	Unknown    int `json:"unknown"`
 }
 
+// Feature represents a Gherkin feature that this smoke-alarm knows about and
+// can report its certification status for to ADHD dashboards.
+type Feature struct {
+	ID            string    `json:"id"`             // unique identifier, e.g. "ocd/federation-mesh"
+	Name          string    `json:"name"`           // human-readable feature name
+	FilePath      string    `json:"file_path,omitempty"`
+	Tags          []string  `json:"tags,omitempty"`
+	Scenarios     int       `json:"scenarios"`
+	Status        string    `json:"status"`         // "certified", "unclaimed", "failed"
+	CertifiedAt   time.Time `json:"certified_at,omitempty"`
+	FailedAt      time.Time `json:"failed_at,omitempty"`
+}
+
 // Server provides liveness, readiness, and status endpoints.
 type Server struct {
 	opts            Options
@@ -97,6 +110,7 @@ type Server struct {
 	components     map[string]ComponentStatus
 	targets        map[string]TargetStatus
 	isotopes       map[string]isotope.Record
+	features       map[string]Feature  // keyed by Feature.ID
 	shutdownSignal chan struct{}
 }
 
@@ -131,6 +145,7 @@ func NewServer(opts Options) *Server {
 		components:      make(map[string]ComponentStatus),
 		targets:         make(map[string]TargetStatus),
 		isotopes:        make(map[string]isotope.Record),
+		features:        make(map[string]Feature),
 		shutdownSignal:  make(chan struct{}),
 	}
 	s.live.Store(true)
@@ -144,6 +159,8 @@ func NewServer(opts Options) *Server {
 	mux.HandleFunc("/federation/report", s.handleFederationReport)
 	mux.HandleFunc("/isotope/register", s.handleIsotopeRegister)
 	mux.HandleFunc("/isotope/list", s.handleIsotopeList)
+	mux.HandleFunc("/features", s.handleFeaturesList)
+	mux.HandleFunc("/features/certify", s.handleFeatureCertify)
 
 	s.httpSrv = &http.Server{
 		Addr:              opts.ListenAddr,
@@ -486,6 +503,85 @@ func (s *Server) handleIsotopeList(w http.ResponseWriter, r *http.Request) {
 
 	sort.Slice(records, func(i, j int) bool { return records[i].Name < records[j].Name })
 	writeJSON(w, http.StatusOK, records)
+}
+
+// RegisterFeature adds or replaces a feature in the registry with status "unclaimed".
+// Idempotent: re-registering an already-certified feature preserves its certified status.
+func (s *Server) RegisterFeature(f Feature) {
+	if f.Status == "" {
+		f.Status = "unclaimed"
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if existing, ok := s.features[f.ID]; ok && existing.Status == "certified" {
+		return // don't downgrade certified to unclaimed on re-registration
+	}
+	s.features[f.ID] = f
+}
+
+// CertifyFeature marks a feature as certified at the current time.
+func (s *Server) CertifyFeature(id string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	f, ok := s.features[id]
+	if !ok {
+		return
+	}
+	f.Status = "certified"
+	f.CertifiedAt = time.Now().UTC()
+	s.features[id] = f
+}
+
+// FailFeature marks a feature as failed.
+func (s *Server) FailFeature(id string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	f, ok := s.features[id]
+	if !ok {
+		return
+	}
+	f.Status = "failed"
+	f.FailedAt = time.Now().UTC()
+	s.features[id] = f
+}
+
+// handleFeaturesList returns all registered features as JSON.
+func (s *Server) handleFeaturesList(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	s.mu.RLock()
+	out := make([]Feature, 0, len(s.features))
+	for _, f := range s.features {
+		out = append(out, f)
+	}
+	s.mu.RUnlock()
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	writeJSON(w, http.StatusOK, out)
+}
+
+// handleFeatureCertify accepts a POST body {"id":"..."} and certifies that feature.
+// Called by the Godog step suite after a scenario passes.
+func (s *Server) handleFeatureCertify(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	var body struct {
+		ID     string `json:"id"`
+		Status string `json:"status"` // "certified" or "failed"; defaults to "certified"
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.ID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "id required"})
+		return
+	}
+	if body.Status == "failed" {
+		s.FailFeature(body.ID)
+	} else {
+		s.CertifyFeature(body.ID)
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"status": "ok", "id": body.ID})
 }
 
 func summarizeTargets(targets []TargetStatus) StatusSummary {

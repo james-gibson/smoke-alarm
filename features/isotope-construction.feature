@@ -5,14 +5,12 @@
 #
 # This algorithm must be agreed and pinned before any isotope work proceeds.
 # Changing it after deployment invalidates all existing isotope IDs.
-
 @isotope @core
 Feature: Canonical Isotope ID Construction
   As a system producing or verifying isotope IDs
   I want a canonical, deterministic construction algorithm
   So that any component can independently construct or verify an isotope ID
   without coordination
-
   # Algorithm:
   #   isotope_id = base64url( SHA256( feature_id || ":" || SHA256(payload) || ":" || nonce ) )
   #
@@ -23,7 +21,6 @@ Feature: Canonical Isotope ID Construction
   # - SHA256:     standard SHA-256, output as raw bytes before outer hash
   # - base64url:  RFC 4648 §5 unpadded URL-safe base64 encoding
   # - Result:     always 43 characters (256 bits → 32 bytes → 43 base64url chars)
-
   # ── construction properties ────────────────────────────────────────────────
 
   Scenario: isotope ID is always 43 base64url characters
@@ -54,12 +51,11 @@ Feature: Canonical Isotope ID Construction
     When one ID is constructed with payload A
     And another is constructed with payload B (A ≠ B)
     Then the two IDs are not equal
-
   # ── verification ───────────────────────────────────────────────────────────
 
   Scenario: an isotope can be verified against its declared feature binding
     Given isotope "iso-abc-001" was constructed from feature "adhd/light-transitions-dark-to-green",
-      payload P, and nonce N
+    And payload P, and nonce N
     When verification is attempted with feature "adhd/light-transitions-dark-to-green", P, and N
     Then verification succeeds
 
@@ -78,7 +74,6 @@ Feature: Canonical Isotope ID Construction
     When an attempt is made to extract the payload from the ID and feature_id
     Then no payload information is recoverable
     And the ID is a one-way commitment to the payload, not an encoding of it
-
   # ── encoding requirements ──────────────────────────────────────────────────
 
   Scenario: ID uses unpadded URL-safe base64 (no + / or = characters)
@@ -91,7 +86,6 @@ Feature: Canonical Isotope ID Construction
     Given a constructed isotope ID
     When the ID is embedded in a URL path such as "/isotope/<id>/verify"
     Then no percent-encoding is required
-
   # ── cross-component agreement ──────────────────────────────────────────────
   # Both ocd-smoke-alarm and adhd must produce identical results for the same
   # inputs. This scenario exists to catch any divergence between implementations.

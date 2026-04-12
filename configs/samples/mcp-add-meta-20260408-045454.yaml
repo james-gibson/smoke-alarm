@@ -1,0 +1,31 @@
+version: "1"
+generated_at: 2026-04-08T04:54:54.84388Z
+source: discovery
+entries:
+    - id: npm-mcp-filesystem
+      name: MCP Filesystem Server (npm)
+      protocol: mcp
+      transport: stdio
+      endpoint: stdio://local
+      auth:
+        type: none
+      expected:
+        healthy_status_codes:
+            - 200
+        min_capabilities:
+            - tools/list
+            - resources/list
+      monitoring:
+        interval: 10s
+        timeout: 8s
+        retries: 1
+        enabled: true
+      labels:
+        generated_by: ocd-smoke-alarm
+        intent: mcp-add-partial
+      confidence: 1
+      provenance: static_config
+notes:
+    - Generated entries are partial but structurally valid.
+    - Replace placeholders with real values before production use.
+    - Validate each entry against target service expectations.

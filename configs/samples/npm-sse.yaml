@@ -1,0 +1,202 @@
+version: "1"
+
+service:
+  name: "smoke-alarm-npm-mcp"
+  environment: "npm-mcp-test"
+  mode: "foreground"
+  log_level: "info"
+  poll_interval: "10s"
+  timeout: "8s"
+  max_workers: 4
+
+health:
+  enabled: true
+  listen_addr: "127.0.0.1:18189"
+  endpoints:
+    healthz: "/healthz"
+    readyz: "/readyz"
+    status: "/status"
+
+runtime:
+  lock_file: "/tmp/smoke-alarm.npm-mcp.lock"
+  state_dir: "./state/npm-mcp"
+  baseline_file: "./state/npm-mcp/known-good.json"
+  event_history_size: 300
+  graceful_shutdown_timeout: "8s"
+
+discovery:
+  enabled: false
+
+alerts:
+  aggressive: true
+  notify_on_regression_immediately: true
+  retry_before_escalation: 1
+  dedupe_window: "30s"
+  cooldown: "10s"
+  severity:
+    healthy: "info"
+    degraded: "warn"
+    regression: "critical"
+    outage: "critical"
+  sinks:
+    log:
+      enabled: true
+    os_notification:
+      enabled: false
+      title_prefix: "[Smoke Alarm]"
+
+auth:
+  keystore:
+    enabled: false
+  redaction:
+    enabled: true
+    mask: "****"
+  oauth:
+    enabled: false
+
+# ── npm/npx MCP package targets ───────────────────────────────────────────────
+# Add or remove entries in this list to test different packages.
+# Each entry runs: npx -y <package> [args...]
+targets:
+
+  - id: "npm-mcp-filesystem"
+    enabled: true
+    protocol: "mcp"
+    name: "MCP Filesystem Server (npm)"
+    endpoint: "stdio://local"
+    transport: "stdio"
+    stdio:
+      command: "npx"
+      args:
+        - "-y"
+        - "@modelcontextprotocol/server-filesystem"
+        - "."
+      env:
+        MCP_LOG_LEVEL: "warn"
+      cwd: "."
+    expected:
+      min_capabilities:
+        - "tools/list"
+        - "resources/list"
+    auth:
+      type: "none"
+    check:
+      interval: "10s"
+      timeout: "8s"
+      retries: 1
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+        - "resources/list"
+      hurl_tests: []
+
+  - id: "npm-mcp-github"
+    enabled: true
+    protocol: "mcp"
+    name: "MCP GitHub Server (npm)"
+    endpoint: "stdio://local"
+    transport: "stdio"
+    stdio:
+      command: "npx"
+      args:
+        - "-y"
+        - "@modelcontextprotocol/server-github"
+      env:
+        GITHUB_PERSONAL_ACCESS_TOKEN: "${GITHUB_PERSONAL_ACCESS_TOKEN}"
+        MCP_LOG_LEVEL: "warn"
+      cwd: "."
+    expected:
+      min_capabilities:
+        - "tools/list"
+    auth:
+      type: "none"
+    check:
+      interval: "10s"
+      timeout: "8s"
+      retries: 1
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+      hurl_tests: []
+
+  - id: "npm-mcp-memory"
+    enabled: true
+    protocol: "mcp"
+    name: "MCP Memory Server (npm)"
+    endpoint: "stdio://local"
+    transport: "stdio"
+    stdio:
+      command: "npx"
+      args:
+        - "-y"
+        - "@modelcontextprotocol/server-memory"
+      env:
+        MCP_LOG_LEVEL: "warn"
+      cwd: "."
+    expected:
+      min_capabilities:
+        - "tools/list"
+    auth:
+      type: "none"
+    check:
+      interval: "10s"
+      timeout: "8s"
+      retries: 1
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+      hurl_tests: []
+
+  - id: "npm-mcp-brave-search"
+    enabled: true
+    protocol: "mcp"
+    name: "MCP Brave Search Server (npm)"
+    endpoint: "stdio://local"
+    transport: "stdio"
+    stdio:
+      command: "npx"
+      args:
+        - "-y"
+        - "@modelcontextprotocol/server-brave-search"
+      env:
+        BRAVE_API_KEY: "${BRAVE_API_KEY}"
+        MCP_LOG_LEVEL: "warn"
+      cwd: "."
+    expected:
+      min_capabilities:
+        - "tools/list"
+    auth:
+      type: "none"
+    check:
+      interval: "10s"
+      timeout: "8s"
+      retries: 1
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+      hurl_tests: []
+
+known_state:
+  enabled: true
+  persist: true
+  sustain_success_before_mark_healthy: 1
+  classify_new_failures_after_healthy_as: "regression"
+  outage_threshold_consecutive_failures: 2
+
+meta_config:
+  enabled: true
+  output_dir: "./state/npm-mcp/meta-config"
+  formats:
+    - "yaml"
+    - "json"
+  include_confidence: true
+  include_provenance: true
+  placeholders:
+    token: "${TOKEN}"
+    client_secret: "${CLIENT_SECRET}"
+    endpoint: "${ENDPOINT}"
+
