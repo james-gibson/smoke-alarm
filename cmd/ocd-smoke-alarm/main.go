@@ -510,7 +510,7 @@ func cmdServe(args []string) error {
 				}
 			}()
 		default:
-			introducerURL := fmt.Sprintf("http://_smoke-alarm.tcp:%d", cfg.Federation.BasePort)
+			introducerURL := fmt.Sprintf("http://localhost:%d", cfg.Federation.BasePort)
 			if logger != nil {
 				logger.Info("federation follower using default introducer url",
 					"introducer_url", introducerURL,
