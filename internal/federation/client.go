@@ -91,7 +91,7 @@ func (c *Client) runAnnouncements(ctx context.Context) {
 		if err := c.sendIntroduction(ctx); err == nil {
 			c.introduced.Store(true)
 		} else {
-			c.logger.Warn("federation introduction failed", "error",ctx, err)
+			c.logger.Warn("federation introduction failed", "error", err)
 		}
 
 		select {
