@@ -130,9 +130,9 @@ func (c *Client) sendIntroduction(ctx context.Context) error {
 		Record: record,
 	}
 	resp, _ := c.postJSON(ctx, "/introductions", payload)
-	// if err != nil {
-	// 	return err
-	// }
+	if err != nil {
+		return err
+	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
