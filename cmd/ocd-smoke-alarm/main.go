@@ -154,7 +154,7 @@ func fatal(err error) {
 
 func cmdServe(args []string) error {
 	fs := flag.NewFlagSet("serve", flag.ContinueOnError)
-	configPath := fs.String("config", "configs/sample.yaml", "Path to config file")
+	configPath := fs.String("config", "configs/samples/hosted-mcp-acp.yaml", "Path to config file")
 	modeOverride := fs.String("mode", "", "Run mode override: foreground|background|headless")
 	healthAddrOverride := fs.String("health-addr", "", "Health listen addr override, e.g. 127.0.0.1:8088")
 	telemetryOverride := fs.String("telemetry", "", "OTEL collector endpoint (e.g., http://localhost:4318/v1/metrics)")
@@ -510,7 +510,7 @@ func cmdServe(args []string) error {
 				}
 			}()
 		default:
-			introducerURL := fmt.Sprintf("http://127.0.0.1:%d", cfg.Federation.BasePort)
+			introducerURL := fmt.Sprintf("http://localhost:19100", cfg.Federation.BasePort)
 			if logger != nil {
 				logger.Info("federation follower using default introducer url",
 					"introducer_url", introducerURL,

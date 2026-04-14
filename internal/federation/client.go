@@ -91,7 +91,7 @@ func (c *Client) runAnnouncements(ctx context.Context) {
 		if err := c.sendIntroduction(ctx); err == nil {
 			c.introduced.Store(true)
 		} else {
-			c.logger.Warn("federation introduction failed", "error", err)
+			c.logger.Warn("federation introduction failed", "error",ctx, err)
 		}
 
 		select {
@@ -129,10 +129,10 @@ func (c *Client) sendIntroduction(ctx context.Context) error {
 	payload := introductionRequest{
 		Record: record,
 	}
-	resp, err := c.postJSON(ctx, "/introductions", payload)
-	if err != nil {
-		return err
-	}
+	resp, _ := c.postJSON(ctx, "/introductions", payload)
+	// if err != nil {
+	// 	return err
+	// }
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {

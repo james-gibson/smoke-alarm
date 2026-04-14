@@ -534,7 +534,7 @@ func (c *Config) ApplyDefaults() {
 
 	// Health defaults.
 	if c.Health.ListenAddr == "" {
-		c.Health.ListenAddr = "127.0.0.1:8088"
+		c.Health.ListenAddr = "localhost:8088"
 	}
 	if c.Health.Endpoints.Healthz == "" {
 		c.Health.Endpoints.Healthz = "/healthz"
@@ -546,7 +546,7 @@ func (c *Config) ApplyDefaults() {
 		c.Health.Endpoints.Status = "/status"
 	}
 	// Default to enabled unless explicitly disabled.
-	if !c.Health.Enabled && c.Health.ListenAddr == "127.0.0.1:8088" {
+	if !c.Health.Enabled && c.Health.ListenAddr == "localhost:8088" {
 		c.Health.Enabled = true
 	}
 	if c.Health.SelfCheck && !c.Health.Enabled {
@@ -624,7 +624,7 @@ func (c *Config) ApplyDefaults() {
 		c.Auth.OAuth.TokenGracePeriod = "30s"
 	}
 	if c.Auth.OAuth.MockRedirect.ListenAddr == "" {
-		c.Auth.OAuth.MockRedirect.ListenAddr = "127.0.0.1:8877"
+		c.Auth.OAuth.MockRedirect.ListenAddr = "localhost:8877"
 	}
 	if c.Auth.OAuth.MockRedirect.Path == "" {
 		c.Auth.OAuth.MockRedirect.Path = "/oauth/callback"
@@ -671,7 +671,7 @@ func (c *Config) ApplyDefaults() {
 
 	// Hosted service defaults.
 	if c.Hosted.ListenAddr == "" {
-		c.Hosted.ListenAddr = "127.0.0.1:8091"
+		c.Hosted.ListenAddr = ":0"
 	}
 	if len(c.Hosted.Transports) == 0 {
 		c.Hosted.Transports = []string{TransportHTTP, TransportSSE}
@@ -704,7 +704,7 @@ func (c *Config) ApplyDefaults() {
 	}
 
 	if c.Federation.BasePort <= 0 || c.Federation.BasePort > 65535 {
-		c.Federation.BasePort = 5100
+		c.Federation.BasePort = 19100
 	}
 	if c.Federation.MaxPort <= 0 || c.Federation.MaxPort < c.Federation.BasePort || c.Federation.MaxPort > 65535 {
 		c.Federation.MaxPort = c.Federation.BasePort + 3

@@ -20,7 +20,7 @@ import (
 const (
 	// DefaultBasePort is the lowest local port considered for federation slots
 	// when no explicit value is supplied.
-	DefaultBasePort = 5100
+	DefaultBasePort = 19100
 	// DefaultSlotCount controls how many sequential ports are probed starting
 	// at DefaultBasePort if no explicit max port is provided.
 	DefaultSlotCount = 4

@@ -1,0 +1,210 @@
+version: "1" # string
+
+# Core service behavior
+service:
+  name: string # e.g., "ocd-smoke-alarm"
+  environment: string # Environment tag
+  mode: string # "foreground" | "background"
+  log_level: string # "debug" | "info" | "warn" | "error"
+  poll_interval: duration # e.g., "10s", "5m"
+  timeout: duration # Global timeout
+  max_workers: integer # Thread/worker count
+  version: string # Optional service version
+
+# Exposes self-health metrics
+health:
+  enabled: boolean
+  listen_addr: string # e.g., "127.0.0.1:18088"
+  endpoints:
+    healthz: string # path, default "/healthz"
+    readyz: string # path, default "/readyz"
+    status: string # path, default "/status"
+
+# File system states and concurrency
+runtime:
+  lock_file: string # path to prevent concurrent execution
+  state_dir: string # directory for persistent state
+  baseline_file: string # Known good state JSON
+  event_history_size: integer # Max events to retain
+  graceful_shutdown_timeout: duration
+  session_ttl: duration # Optional (for ephemeral sessions)
+
+# Dynamic target discovery capabilities
+discovery:
+  enabled: boolean
+  interval: duration
+  include_local_paths: list[string]
+  include_env_vars: list[string]
+  local_proxy_scan:
+    enabled: boolean
+    hosts: list[string]
+    ports: list[integer]
+  cloud_catalog:
+    enabled: boolean
+    urls: list[string]
+  llms_txt: # Auto-discovery via llms.txt protocol
+    enabled: boolean
+    remote_uris: list[string]
+    fetch_timeout: duration
+    require_https: boolean
+    auto_register_as_targets: boolean
+    auto_register_oauth: boolean
+
+# Reaction to target failures
+alerts:
+  aggressive: boolean
+  notify_on_regression_immediately: boolean
+  retry_before_escalation: integer
+  dedupe_window: duration
+  cooldown: duration
+  severity:
+    healthy: string # "info" | etc.
+    degraded: string # "warn" | etc.
+    regression: string # "critical" | "error"
+    outage: string # "critical" | "error"
+  sinks:
+    log: { enabled: boolean }
+    os_notification: { enabled: boolean, title_prefix: string }
+
+# Global authentication & OAuth mocks
+auth:
+  keystore: { enabled: boolean, provider: "auto" }
+  redaction: { enabled: boolean, mask: string }
+  oauth:
+    enabled: boolean
+    token_grace_period: duration
+    unattended:
+      enabled: boolean
+      allow_device_code: boolean
+      allow_client_credentials: boolean
+      allow_refresh_token: boolean
+    mock_redirect: # For testing OAuth loops
+      enabled: boolean
+      listen_addr: string
+      path: string
+      mode: string # "allow" | "fail"
+
+# The entities being monitored/controlled
+targets:
+  - id: string
+    enabled: boolean
+    protocol: string # "mcp" | "acp" | "http"
+    name: string
+    endpoint: string # URI or "stdio://local"
+    transport: string # "http" | "stdio" | "sse"
+    stdio: # Only required if transport == "stdio"
+      command: string # e.g., "npx", "uvx"
+      args: list[string]
+      env: map[string, string]
+      cwd: string
+    expected:
+      healthy_status_codes: list[integer]
+      min_capabilities: list[string] # e.g., ["tools/list", "session/setup"]
+      known_agent_count_min: integer
+      expected_version: string # Semantic version matching e.g., ">=1.0.0"
+    auth:
+      type: string # "none" | "oauth" | "bearer" | "mtls"
+      client_id: string
+      token_url: string
+      redirect_url: string
+      callback_id: string
+      secret_ref: string # e.g., "env://...", "keychain://..."
+      scopes: list[string]
+      header: string
+      key_name: string
+      cert_ref: string # For mTLS
+      key_ref: string # For mTLS
+    check:
+      interval: duration
+      timeout: duration
+      retries: integer
+      handshake_profile: string # "strict" | "none"
+      required_methods: list[string] # JSON-RPC methods required to pass
+      hurl_tests: # Custom HTTP pre-flight checks
+        - name: string
+          endpoint: string
+          method: string # "GET" | "POST" | etc.
+
+# Baselines for regression testing
+known_state:
+  enabled: boolean
+  persist: boolean
+  sustain_success_before_mark_healthy: integer
+  classify_new_failures_after_healthy_as: string # "regression" | string
+  outage_threshold_consecutive_failures: integer
+
+# Generates configuration payloads
+meta_config:
+  enabled: boolean
+  output_dir: string
+  formats: list[string] # ["yaml", "json", "markdown"]
+  include_confidence: boolean
+  include_provenance: boolean
+  placeholders: map[string, string]
+
+# Exposes tracked internal state configurations dynamically
+dynamic_config:
+  enabled: boolean
+  directory: string
+  formats: list[string]
+  serve_base_url: string
+  allow_overwrite: boolean
+  require_unique_ids: boolean
+
+# Agent update capabilities
+remote_agent:
+  managed_updates: boolean
+  control_endpoint: string
+  update:
+    strategy: string # "rolling-single" | string
+    stop_command: string
+    start_command: string
+    verify_command: string
+    rollback_on_failure: boolean
+    max_wait_for_healthy: duration
+  safety:
+    require_lock: boolean
+    lock_ttl: duration
+
+# Internal embedded servers
+hosted:
+  enabled: boolean
+  listen_addr: string
+  transports: list[string] # ["http", "sse"]
+  protocols: list[string] # ["mcp", "acp", "a2a"]
+  endpoints:
+    mcp: string # Default "/mcp"
+    acp: string # Default "/acp"
+    a2a: string # Default "/a2a"
+
+# Peer-to-peer relationships
+federation:
+  enabled: boolean
+  base_port: integer # Used for automatic slot claiming
+  max_port: integer
+  poll_interval: duration
+  announce_interval: duration
+  heartbeat_interval: duration
+  heartbeat_timeout: duration
+  upstream: string # Parent endpoint
+  downstream: list[string] # Child endpoints
+  rank: integer # Priority/role indicator
+
+# External observability
+telemetry:
+  enabled: boolean
+  endpoint: string
+  service_name: string
+  export_interval: duration
+
+# Tuner dashboard integration
+tuner:
+  enabled: boolean
+  advertise: boolean
+  service_type: string # e.g., "_smoke-alarm._tcp"
+  audience:
+    enabled: boolean
+    endpoint: string
+  caller_hook:
+    enabled: boolean
+    mcp_response: boolean
