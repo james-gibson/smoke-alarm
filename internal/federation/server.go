@@ -72,7 +72,6 @@ func (s *Server) Start(ctx context.Context) error {
 	go func() {
 		s.logger.Info("federation introducer listening",
 			"addr", s.opts.Listener.Addr().String(),
-			"port", s.opts.Listener.Port().String(),
 		)
 		if err := s.httpSrv.Serve(s.opts.Listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
