@@ -129,7 +129,7 @@ func (c *Client) sendIntroduction(ctx context.Context) error {
 	payload := introductionRequest{
 		Record: record,
 	}
-	resp, _ := c.postJSON(ctx, "/introductions", payload)
+	resp, err := c.postJSON(ctx, "/introductions", payload)
 	if err != nil {
 		return err
 	}
