@@ -19,7 +19,7 @@ health:
 
 runtime:
   lock_file: "/tmp/ocd-smoke-alarm.sse-remote-mixed.lock"
-  state_dir: "./state/sse-remote-mixed"
+  state_dir: "./state"
   baseline_file: "./state/sse-remote-mixed/known-good.json"
   event_history_size: 800
   graceful_shutdown_timeout: "10s"
