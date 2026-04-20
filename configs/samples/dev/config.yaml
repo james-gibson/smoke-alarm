@@ -1,0 +1,90 @@
+version: "1"
+service:
+  name: "fire-marshal"
+  environment: "observer-mode"
+  mode: "foreground"
+  log_level: "info"
+  poll_interval: "10s"
+  timeout: "5s"
+  max_workers: 2
+
+health:
+  enabled: true
+  listen_addr: "localhost:18088"
+  endpoints:
+    healthz: "/healthz"
+    readyz: "/readyz"
+    status: "/status"
+
+runtime:
+  lock_file: "/tmp/ocd-smoke-alarm.observer.lock"
+  state_dir: "./configs/samples/dev/dist/state/observer-mode"
+  baseline_file: "./configs/samples/dev/dist/state/observer-mode/known-good.json"
+  event_history_size: 400
+  graceful_shutdown_timeout: "2s"
+
+discovery:
+  enabled: true
+
+targets:
+  # Audit log (track what observers did/didn't see)
+  - id: "observe-self"
+    enabled: true
+    protocol: "http"
+    name: "Observer: Self Audit Trail"
+    endpoint: "http://localhost:18088/healthz"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    check:
+      interval: "30s"
+      timeout: "10s"
+      retries: 0
+      handshake_profile: "none"
+  - id: "observer-audit-log"
+    enabled: true
+    protocol: "http"
+    name: "Observer: Audit Trail"
+    endpoint: "http://localhost:18088/healthz"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    check:
+      interval: "30s"
+      timeout: "10s"
+      retries: 0
+      handshake_profile: "none"
+  - id: "observers-observer.1"
+    enabled: true
+    protocol: "http"
+    name: "Observer: Audit Trail"
+    endpoint: "http://localhost:28088/healthz"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    check:
+      interval: "30s"
+      timeout: "10s"
+      retries: 10
+      handshake_profile: "none"
+
+known_state:
+  enabled: true
+  persist: true
+  sustain_success_before_mark_healthy: 3
+  classify_new_failures_after_healthy_as: "regression"
+  outage_threshold_consecutive_failures: 3
+
+meta_config:
+  enabled: true
+  output_dir: "./state/observer-mode/meta-config/1"
+  formats:
+    - "json"
+  include_confidence: true
+  include_provenance: true
+
+hosted:
+  enabled: true
+
+federation:
+  enabled: true

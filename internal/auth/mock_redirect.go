@@ -42,7 +42,7 @@ type MockRedirectServer struct {
 // NewMockRedirectServer creates a new mock redirect server with sane defaults.
 func NewMockRedirectServer(opts MockRedirectOptions) *MockRedirectServer {
 	if strings.TrimSpace(opts.ListenAddr) == "" {
-		opts.ListenAddr = "127.0.0.1:8877"
+		opts.ListenAddr = "localhost:8877"
 	}
 	if strings.TrimSpace(opts.Path) == "" {
 		opts.Path = "/oauth/callback"

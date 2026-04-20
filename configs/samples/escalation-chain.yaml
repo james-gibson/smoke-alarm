@@ -27,7 +27,7 @@ service:
 
 health:
   enabled: true
-  listen_addr: "127.0.0.1:18088"
+  listen_addr: "localhost:18088"
   endpoints:
     healthz: "/healthz"
     readyz: "/readyz"
@@ -76,7 +76,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Escalation: L1 On-Call (Primary)"
-    endpoint: "http://127.0.0.1:19901/mcp"
+    endpoint: "http://localhost:19901/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -96,7 +96,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Escalation: L1 On-Call (Backup)"
-    endpoint: "http://127.0.0.1:19902/mcp"
+    endpoint: "http://localhost:19902/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -114,7 +114,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Escalation: L2 Team Lead"
-    endpoint: "http://127.0.0.1:19910/mcp"
+    endpoint: "http://localhost:19910/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -132,7 +132,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Escalation: L3 Manager"
-    endpoint: "http://127.0.0.1:19920/mcp"
+    endpoint: "http://localhost:19920/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -149,7 +149,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Escalation: L4 Executive"
-    endpoint: "http://127.0.0.1:19930/mcp"
+    endpoint: "http://localhost:19930/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -166,7 +166,7 @@ targets:
     enabled: true
     protocol: "http"
     name: "Escalation: Pager System"
-    endpoint: "http://127.0.0.1:19940/healthz"
+    endpoint: "http://localhost:19940/healthz"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -181,7 +181,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Escalation: Incident Manager"
-    endpoint: "http://127.0.0.1:19950/mcp"
+    endpoint: "http://localhost:19950/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]

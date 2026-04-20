@@ -114,7 +114,7 @@ func ClaimSlot(opts SlotOptions) (*SlotClaim, error) {
 	var chosenRole Role
 
 	for _, port := range candidates {
-		addr := fmt.Sprintf("127.0.0.1:%d", port)
+		addr := fmt.Sprintf("localhost:%d", port)
 		var lc net.ListenConfig
 		ln, listenErr := lc.Listen(context.Background(), "tcp", addr)
 		if listenErr != nil {

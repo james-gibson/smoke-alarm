@@ -23,7 +23,7 @@ service:
 
 health:
   enabled: true
-  listen_addr: "127.0.0.1:18088"
+  listen_addr: "localhost:18088"
   endpoints:
     healthz: "/healthz"
     readyz: "/readyz"
@@ -72,7 +72,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Pool: Code Review Worker 1"
-    endpoint: "http://127.0.0.1:18601/mcp"
+    endpoint: "http://localhost:18601/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -91,7 +91,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Pool: Code Review Worker 2"
-    endpoint: "http://127.0.0.1:18602/mcp"
+    endpoint: "http://localhost:18602/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -110,7 +110,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Pool: Code Review Worker 3"
-    endpoint: "http://127.0.0.1:18603/mcp"
+    endpoint: "http://localhost:18603/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -130,7 +130,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Pool: Search Worker 1"
-    endpoint: "http://127.0.0.1:18611/mcp"
+    endpoint: "http://localhost:18611/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -149,7 +149,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Pool: Search Worker 2"
-    endpoint: "http://127.0.0.1:18612/mcp"
+    endpoint: "http://localhost:18612/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]

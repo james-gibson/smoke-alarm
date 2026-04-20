@@ -25,7 +25,7 @@ service:
 
 health:
   enabled: true
-  listen_addr: "127.0.0.1:${PORT_BASE}"
+  listen_addr: "localhost:${PORT_BASE}"
   endpoints:
     healthz: "/healthz"
     readyz: "/readyz"
@@ -157,4 +157,3 @@ meta_config:
   include_confidence: true
   include_provenance: true
 FOOTER
-

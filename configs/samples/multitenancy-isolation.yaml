@@ -26,7 +26,7 @@ service:
 
 health:
   enabled: true
-  listen_addr: "127.0.0.1:18088"
+  listen_addr: "localhost:18088"
   endpoints:
     healthz: "/healthz"
     readyz: "/readyz"
@@ -82,7 +82,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Tenant A: Corporate MCP"
-    endpoint: "http://127.0.0.1:19601/mcp"
+    endpoint: "http://localhost:19601/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -92,7 +92,7 @@ targets:
     auth:
       type: "oauth"
       client_id: "tenant-corporate"
-      token_url: "http://127.0.0.1:19650/oauth/token"
+      token_url: "http://localhost:19650/oauth/token"
       scopes:
         - "tenant.corporate"
         - "mcp.full"
@@ -111,7 +111,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Tenant B: Startup MCP"
-    endpoint: "http://127.0.0.1:19602/mcp"
+    endpoint: "http://localhost:19602/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -120,7 +120,7 @@ targets:
     auth:
       type: "oauth"
       client_id: "tenant-startup"
-      token_url: "http://127.0.0.1:19650/oauth/token"
+      token_url: "http://localhost:19650/oauth/token"
       scopes:
         - "tenant.startup"
         - "mcp.limited"
@@ -138,7 +138,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Tenant C: Enterprise MCP"
-    endpoint: "http://127.0.0.1:19603/mcp"
+    endpoint: "http://localhost:19603/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -147,7 +147,7 @@ targets:
     auth:
       type: "oauth"
       client_id: "tenant-enterprise"
-      token_url: "http://127.0.0.1:19650/oauth/token"
+      token_url: "http://localhost:19650/oauth/token"
       scopes:
         - "tenant.enterprise"
         - "mcp.readonly"
@@ -165,7 +165,7 @@ targets:
     enabled: true
     protocol: "http"
     name: "Tenant: Shared Logging"
-    endpoint: "http://127.0.0.1:19610/healthz"
+    endpoint: "http://localhost:19610/healthz"
     transport: "http"
     expected:
       healthy_status_codes: [200]

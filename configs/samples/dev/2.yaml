@@ -1,0 +1,107 @@
+version: "1"
+service:
+  name: "observer-2"
+  environment: "observer-mode"
+  mode: "foreground"
+  log_level: "debug"
+  poll_interval: "10s"
+  timeout: "5s"
+  max_workers: 1
+
+health:
+  enabled: true
+  listen_addr: "localhost:38088"
+  endpoints:
+    healthz: "/healthz"
+    readyz: "/readyz"
+    status: "/status"
+
+runtime:
+  lock_file: "/tmp/ocd-smoke-alarm.observer.2.lock"
+  state_dir: "./configs/samples/dev/dist/state/observer-mode/2"
+  baseline_file: "./configs/samples/dev/dist/state/observer-mode/2/known-good.json"
+  event_history_size: 400
+  graceful_shutdown_timeout: "1s"
+
+discovery:
+  enabled: false
+
+alerts:
+  aggressive: true
+  notify_on_regression_immediately: true
+  retry_before_escalation: 2
+  dedupe_window: "1m"
+  cooldown: "30s"
+  severity:
+    healthy: "info"
+    degraded: "warn"
+    regression: "critical"
+    outage: "critical"
+  sinks:
+    log:
+      enabled: true
+    os_notification:
+      enabled: true
+
+targets:
+  - id: "observe-self"
+    enabled: true
+    protocol: "http"
+    name: "Observer: Self Audit Trail"
+    endpoint: "http://localhost:38088/healthz"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    check:
+      interval: "30s"
+      timeout: "10s"
+      retries: 0
+      handshake_profile: "none"
+  # Audit log (track what observers did/didn't see)
+  - id: "observe-fire-marshal"
+    enabled: true
+    protocol: "http"
+    name: "Observer: Audit Trail"
+    endpoint: "http://localhost:18088/healthz"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    check:
+      interval: "30s"
+      timeout: "1s"
+      retries: 2
+      handshake_profile: "none"
+  - id: "observe-flakey-alarm"
+    enabled: true
+    protocol: "http"
+    name: "Observer: Flakey Trail"
+    endpoint: "http://localhost:28088/healthz"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    check:
+      interval: "30s"
+      timeout: "1s"
+      retries: 2
+      handshake_profile: "none"
+
+known_state:
+  enabled: true
+  persist: true
+  sustain_success_before_mark_healthy: 3
+  classify_new_failures_after_healthy_as: "regression"
+  outage_threshold_consecutive_failures: 3
+
+meta_config:
+  enabled: true
+  output_dir: "./state/observer-mode/meta-config/2"
+  formats:
+    - "json"
+  include_confidence: true
+  include_provenance: true
+
+hosted:
+  enabled: true
+
+federation:
+  enabled: true

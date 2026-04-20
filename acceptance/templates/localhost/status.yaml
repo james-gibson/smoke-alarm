@@ -1,0 +1,16 @@
+
+targets:
+  - id: "d-a-client-alarm-b"
+    enabled: true
+    protocol: "http"
+    name: "Client A: Alarm B"
+    endpoint: "http://localhost:18088/status"
+    transport: "http"
+    expected:
+      expected_version: ">=v0.6.8"
+      healthy_status_codes: [200]
+    check:
+      interval: "5s"
+      timeout: "1s"
+      retries: 0
+      handshake_profile: "none"

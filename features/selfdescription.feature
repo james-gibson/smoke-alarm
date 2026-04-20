@@ -9,7 +9,6 @@
 # SelfDescription is the machine-readable service identity document.
 # Schema reference: configs/schema/self-description.schema.json
 # Served at: /.well-known/smoke-alarm.json (distinct from /healthz, /readyz, /status)
-
 @selfdescription @core
 Feature: Self-Description Endpoint
   As a downstream agent or orchestration tool
@@ -19,19 +18,17 @@ Feature: Self-Description Endpoint
   Background:
     Given the ocd-smoke-alarm binary is installed
     And health.enabled is true in the config
-
   # ── endpoint availability ─────────────────────────────────────────────────
 
   Scenario: self-description endpoint is served when health is enabled
     Given ocd-smoke-alarm is running with config "configs/sample.yaml"
-    When a GET request is sent to "http://127.0.0.1:8088/.well-known/smoke-alarm.json"
+    When a GET request is sent to "http://localhost:8088/.well-known/smoke-alarm.json"
     Then the response status code is 200
     And the Content-Type is "application/json"
 
   Scenario: self-description endpoint is listed in health endpoints block
     Given the SelfDescription document for config "configs/sample.yaml"
     Then the document health.endpoints.self_description field is "/.well-known/smoke-alarm.json"
-
   # ── document structure ────────────────────────────────────────────────────
 
   Scenario: self-description document contains required top-level fields
@@ -50,7 +47,6 @@ Feature: Self-Description Endpoint
     And the document service.mode is "foreground"
     And the document service.environment is "dev"
     And the document service.started_at is a valid RFC3339 timestamp
-
   # ── capabilities reflect config ───────────────────────────────────────────
 
   Scenario: capabilities.monitoring.protocols lists mcp and acp when targets use both
@@ -82,7 +78,6 @@ Feature: Self-Description Endpoint
     Given ocd-smoke-alarm is running with config "configs/sample.yaml"
     When a GET request is sent to the self-description endpoint
     Then the document capabilities.meta_config.enabled is true
-
   # ── targets list ─────────────────────────────────────────────────────────
 
   Scenario: targets list includes enabled targets from config
@@ -95,7 +90,6 @@ Feature: Self-Description Endpoint
     Given ocd-smoke-alarm is running with config "configs/sample.yaml"
     When a GET request is sent to the self-description endpoint
     Then the document targets list does not contain an entry with id "mcp-cloud-primary"
-
   # ── health endpoints cross-reference ──────────────────────────────────────
 
   Scenario: health block lists all configured endpoint paths
@@ -103,8 +97,7 @@ Feature: Self-Description Endpoint
     Then the document health.endpoints.healthz is "/healthz"
     And the document health.endpoints.readyz is "/readyz"
     And the document health.endpoints.status is "/status"
-    And the document health.listen_addr is "127.0.0.1:8088"
-
+    And the document health.listen_addr is "localhost:8088"
   # ── schema validation ─────────────────────────────────────────────────────
 
   Scenario: self-description document conforms to the JSON schema

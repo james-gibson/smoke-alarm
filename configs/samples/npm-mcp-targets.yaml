@@ -11,7 +11,7 @@ service:
 
 health:
   enabled: true
-  listen_addr: "127.0.0.1:18189"
+  listen_addr: "localhost:18189"
   endpoints:
     healthz: "/healthz"
     readyz: "/readyz"
@@ -54,7 +54,6 @@ auth:
     enabled: false
 
 targets:
-
   - id: "npm-mcp-modelcontextprotocol-server-filesystem"
     enabled: true
     protocol: "mcp"

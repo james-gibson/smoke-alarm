@@ -107,7 +107,7 @@ func ocdSmokeAlarmIsRunningWithConfig(cfgPath string) error {
 
 	listenAddr := cfg.Health.ListenAddr
 	if listenAddr == "" {
-		listenAddr = "127.0.0.1:8088"
+		listenAddr = "localhost:8088"
 	}
 
 	srv := health.NewServer(health.Options{
@@ -133,7 +133,7 @@ func ocdSmokeAlarmIsRunningWithConfig(cfgPath string) error {
 	hsState.serviceName = cfg.Service.Name
 
 	// Record configured→actual port mapping so aGETRequestSentTo can redirect
-	// hardcoded URLs (e.g. http://127.0.0.1:18088/healthz) to the actual port.
+	// hardcoded URLs (e.g. http://localhost:18088/healthz) to the actual port.
 	if listenAddr != boundAddr {
 		if hsState.addrRemap == nil {
 			hsState.addrRemap = make(map[string]string)

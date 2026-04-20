@@ -200,7 +200,7 @@ func TestFederationIntroducerAndFollowerLifecycle(t *testing.T) {
 	inst1 := startFederationInstance(t, "inst1", cfg1, federationStartOptions{
 		StartTimeout: 15 * time.Second,
 	})
-	membershipURL := fmt.Sprintf("http://127.0.0.1:%d/membership", basePort)
+	membershipURL := fmt.Sprintf("http://localhost:%d/membership", basePort)
 
 	view1 := waitForMembership(t, membershipURL, 10*time.Second, func(m membershipView) bool {
 		return m.Self.ID != "" && m.Self.Role == "introducer" && len(m.Peers) == 0
@@ -384,7 +384,7 @@ service:
   timeout: "1s"
 health:
   enabled: false
-  listen_addr: "127.0.0.1:65535"
+  listen_addr: "localhost:65535"
   endpoints:
     healthz: "/healthz"
     readyz: "/readyz"
@@ -448,7 +448,7 @@ func allocateFederationPortRange(t *testing.T, count int) (int, int) {
 		base := mustFreePortValue(t)
 		success := true
 		for offset := 1; offset < count; offset++ {
-			addr := fmt.Sprintf("127.0.0.1:%d", base+offset)
+			addr := fmt.Sprintf("localhost:%d", base+offset)
 			ln, err := net.Listen("tcp", addr)
 			if err != nil {
 				success = false
@@ -467,7 +467,7 @@ func allocateFederationPortRange(t *testing.T, count int) (int, int) {
 func mustFreePortValue(t *testing.T) int {
 	t.Helper()
 
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	ln, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		t.Fatalf("allocate port: %v", err)
 	}

@@ -375,7 +375,7 @@ func (g *Generator) authFromTarget(a targets.AuthConfig) MetaAuth {
 			out.TokenURL = "https://auth.example.com/oauth/token"
 		}
 		if out.RedirectURL == "" {
-			out.RedirectURL = "http://127.0.0.1:8877/oauth/callback"
+			out.RedirectURL = "http://localhost:8877/oauth/callback"
 		}
 		if out.CallbackID == "" {
 			out.CallbackID = "generated-oauth-callback"

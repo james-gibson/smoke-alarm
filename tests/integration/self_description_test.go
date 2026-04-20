@@ -36,7 +36,7 @@ func TestSelfDescription_ServedAtWellKnownPath(t *testing.T) {
 		KnownState: config.KnownStateConfig{Enabled: true},
 		Hosted: config.HostedConfig{
 			Enabled:    true,
-			ListenAddr: "127.0.0.1:0",
+			ListenAddr: "localhost:0",
 			Transports: []string{"http", "sse"},
 			Protocols:  []string{"mcp", "acp"},
 			Endpoints:  config.HostedEndpointConfig{MCP: "/mcp", ACP: "/acp"},

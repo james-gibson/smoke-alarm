@@ -27,7 +27,7 @@ service:
 
 health:
   enabled: true
-  listen_addr: "127.0.0.1:18088"
+  listen_addr: "localhost:18088"
   endpoints:
     healthz: "/healthz"
     readyz: "/readyz"
@@ -76,7 +76,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Cost: GPT-4 API Proxy"
-    endpoint: "http://127.0.0.1:19401/mcp"
+    endpoint: "http://localhost:19401/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -96,7 +96,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Cost: GPT-3.5 API Proxy"
-    endpoint: "http://127.0.0.1:19402/mcp"
+    endpoint: "http://localhost:19402/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -114,7 +114,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Cost: Local Agent (Free)"
-    endpoint: "http://127.0.0.1:19403/mcp"
+    endpoint: "http://localhost:19403/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -132,7 +132,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Cost: Rate-Limited External Service"
-    endpoint: "http://127.0.0.1:19404/mcp"
+    endpoint: "http://localhost:19404/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200, 429]
@@ -143,7 +143,7 @@ targets:
       handshake_profile: "none"
       hurl_tests:
         - name: "rate-limit-check"
-          endpoint: "http://127.0.0.1:19404/rate-limit-status"
+          endpoint: "http://localhost:19404/rate-limit-status"
           method: "GET"
 
 known_state:
@@ -158,7 +158,7 @@ meta_config:
 
 telemetry:
   enabled: true
-  endpoint: "http://127.0.0.1:19450/otel"
+  endpoint: "http://localhost:19450/otel"
   service_name: "ocd-smoke-alarm-cost"
   export_interval: "30s"
 

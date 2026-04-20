@@ -530,7 +530,7 @@ func waitForStatus(t *testing.T, url string, want int, timeout time.Duration) {
 
 func freeTCPAddr(t *testing.T) string {
 	t.Helper()
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	ln, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		t.Fatalf("listen free addr: %v", err)
 	}

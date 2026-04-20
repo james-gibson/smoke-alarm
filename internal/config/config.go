@@ -575,7 +575,7 @@ func (c *Config) ApplyDefaults() {
 		c.Discovery.Interval = "60s"
 	}
 	if len(c.Discovery.LocalProxyScan.Hosts) == 0 {
-		c.Discovery.LocalProxyScan.Hosts = []string{"127.0.0.1", "localhost"}
+		c.Discovery.LocalProxyScan.Hosts = []string{"localhost", "localhost"}
 	}
 	if len(c.Discovery.LocalProxyScan.Ports) == 0 {
 		c.Discovery.LocalProxyScan.Ports = []int{3000, 4317, 4318, 8080, 9000}

@@ -9,12 +9,15 @@ service:
   poll_interval: duration # e.g., "10s", "5m"
   timeout: duration # Global timeout
   max_workers: integer # Thread/worker count
-  version: string # Optional service version
+  # version: string # Optional service version
+  #   doesnt work??
+  #   error: parse config "./config.yaml": yaml: unmarshal errors:
+  #   line 11: field version not found in type config.ServiceConfig
 
 # Exposes self-health metrics
 health:
   enabled: boolean
-  listen_addr: string # e.g., "127.0.0.1:18088"
+  listen_addr: string # e.g., "localhost:18088"
   endpoints:
     healthz: string # path, default "/healthz"
     readyz: string # path, default "/readyz"

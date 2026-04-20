@@ -3,7 +3,6 @@
 # Exercises: internal/mdns — mDNS service advertisement via grandcat/zeroconf
 # Source: internal/mdns/advertiser.go
 # Step definitions: features/step_definitions/mdns_steps.go
-
 @mdns @core
 Feature: mDNS Service Advertisement
   As an operator running ocd-smoke-alarm on a local network
@@ -12,7 +11,6 @@ Feature: mDNS Service Advertisement
 
   Background:
     Given the ocd-smoke-alarm binary is installed
-
   # ── defaults ────────────────────────────────────────────────────────────────
 
   Scenario: domain defaults to "local" when not specified in options
@@ -22,21 +20,19 @@ Feature: mDNS Service Advertisement
   Scenario: ServiceID returns a formatted service identifier
     Given an Advertiser with service type "_smoke-alarm._tcp", domain "local", and port 9090
     Then ServiceID returns "_smoke-alarm._tcp.local:9090"
-
   # ── ParsePort ───────────────────────────────────────────────────────────────
 
   Scenario: ParsePort extracts the port from a valid host:port address
-    When ParsePort is called with "127.0.0.1:9090"
+    When ParsePort is called with "localhost:9090"
     Then the returned port is 9090
 
   Scenario: ParsePort returns 0 for an address with no port
-    When ParsePort is called with "127.0.0.1"
+    When ParsePort is called with "localhost"
     Then the returned port is 0
 
   Scenario: ParsePort returns 0 for an empty string
     When ParsePort is called with ""
     Then the returned port is 0
-
   # ── Start ───────────────────────────────────────────────────────────────────
 
   Scenario: Start registers the service on the configured port
@@ -55,7 +51,6 @@ Feature: mDNS Service Advertisement
     When Start is called with a live context
     Then Start returns a non-nil error
     And the error message contains "mdns: register"
-
   # ── Shutdown ─────────────────────────────────────────────────────────────────
 
   Scenario: Shutdown deregisters the service
@@ -68,14 +63,12 @@ Feature: mDNS Service Advertisement
     Given an Advertiser that has not been started
     When Shutdown is called
     Then no panic occurs
-
   # ── context cancellation ────────────────────────────────────────────────────
 
   Scenario: cancelling the context stops the advertisement
     Given an Advertiser that has been started with a cancellable context
     When the context is canceled
     Then the zeroconf server is shut down
-
   # ── config integration ──────────────────────────────────────────────────────
 
   Scenario: advertiser is not started when tuner.advertise is false

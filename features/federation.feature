@@ -26,7 +26,6 @@
 #     announce_interval: "1s"
 #     heartbeat_interval: "1s"
 #     heartbeat_timeout: "3s"
-
 @federation @optional
 Feature: Federation Mesh — Slot Election, Membership, and Status Fan-Out
   As an operator running multiple ocd-smoke-alarm instances
@@ -36,7 +35,6 @@ Feature: Federation Mesh — Slot Election, Membership, and Status Fan-Out
   Background:
     Given the ocd-smoke-alarm binary is installed
     And federation is enabled in the config
-
   # ── slot election ─────────────────────────────────────────────────────────
   # First process to bind base_port wins the introducer role.
   # All others claim the next available port and become followers.
@@ -63,7 +61,6 @@ Feature: Federation Mesh — Slot Election, Membership, and Status Fan-Out
     Given a config with no federation.base_port field
     When ClaimSlot is called
     Then ports 5100 through 5103 are the candidates
-
   # ── instance identity ─────────────────────────────────────────────────────
 
   Scenario: instance ID is deterministic for the same hostname, service, state_dir, and port
@@ -79,7 +76,6 @@ Feature: Federation Mesh — Slot Election, Membership, and Status Fan-Out
     Given a persisted identity.json exists with port 5100 in the candidate range
     When ClaimSlot is called and port 5100 is free
     Then the instance claims port 5100 before trying other candidates
-
   # ── slot lock ─────────────────────────────────────────────────────────────
 
   Scenario: concurrent ClaimSlot calls from different processes do not double-claim a port
@@ -92,7 +88,6 @@ Feature: Federation Mesh — Slot Election, Membership, and Status Fan-Out
     When ClaimSlot is called
     Then the stale lock is removed
     And ClaimSlot proceeds normally
-
   # ── introducer server ─────────────────────────────────────────────────────
 
   Scenario: introducer server binds on the claimed listener from SlotClaim
@@ -132,7 +127,6 @@ Feature: Federation Mesh — Slot Election, Membership, and Status Fan-Out
     And the response body contains "self"
     And the response body contains "peers"
     And the "peers" array length is 2
-
   # ── age-out ───────────────────────────────────────────────────────────────
 
   Scenario: a peer that stops heartbeating is removed after heartbeat_timeout elapses
@@ -148,7 +142,6 @@ Feature: Federation Mesh — Slot Election, Membership, and Status Fan-Out
     And "heartbeat_timeout" is set to "3s"
     When the follower sends a heartbeat at 2 seconds
     Then the follower remains in the registry after 4 seconds
-
   # ── peer cap ──────────────────────────────────────────────────────────────
 
   Scenario: registry silently drops a new peer when MaxPeers is reached
@@ -161,7 +154,6 @@ Feature: Federation Mesh — Slot Election, Membership, and Status Fan-Out
     When Upsert is called with a record whose ID matches the registry's own identity
     Then the registry peer count does not change
     And no event is fired
-
   # ── follower client ───────────────────────────────────────────────────────
 
   Scenario: follower client sends an introduction immediately on Start
@@ -190,7 +182,6 @@ Feature: Federation Mesh — Slot Election, Membership, and Status Fan-Out
     Given the follower is introduced and the introducer becomes unreachable
     When the heartbeat_interval elapses
     Then a "warn" log entry is written containing "federation heartbeat failed"
-
   # ── registry snapshot persistence ────────────────────────────────────────
 
   Scenario: registry snapshot is written atomically via temp-file rename
@@ -210,7 +201,6 @@ Feature: Federation Mesh — Slot Election, Membership, and Status Fan-Out
     Given the registry is at version 5
     When a peer is upserted
     Then the registry version is 5 + 1
-
   # ── registry events ───────────────────────────────────────────────────────
 
   Scenario: Upsert fires an EventAdded callback for a new peer
@@ -227,23 +217,22 @@ Feature: Federation Mesh — Slot Election, Membership, and Status Fan-Out
     Given the registry has a peer with id "peer-001"
     When Remove is called with that id
     Then the OnChange callback receives an event with type "removed"
-
   # ── poller fan-out ────────────────────────────────────────────────────────
   # Fan-out is valid. Cycles are forbidden. See CLAUDE.md routing constraints.
 
   Scenario: poller fetches target status from each downstream endpoint
-    Given a Poller configured with downstream endpoints ["127.0.0.1:8091", "127.0.0.1:8092"]
+    Given a Poller configured with downstream endpoints ["localhost:8091", "localhost:8092"]
     When a poll cycle runs
-    Then GET http://127.0.0.1:8091/status is requested
-    And GET http://127.0.0.1:8092/status is requested
+    Then GET http://localhost:8091/status is requested
+    And GET http://localhost:8092/status is requested
 
   Scenario: poller namespaces target IDs with the source endpoint
-    Given a downstream at "127.0.0.1:8091" returns a target with id "mcp-local"
+    Given a downstream at "localhost:8091" returns a target with id "mcp-local"
     When a poll cycle runs
-    Then the aggregated target ID is "[127.0.0.1:8091] mcp-local"
+    Then the aggregated target ID is "[localhost:8091] mcp-local"
 
   Scenario: poller reports an error target when a downstream endpoint is unreachable
-    Given a downstream endpoint "127.0.0.1:9999" is unreachable
+    Given a downstream endpoint "localhost:9999" is unreachable
     When a poll cycle runs
     Then a target with id "federation-error" is included in the update
     And the target state is "unhealthy"
@@ -254,9 +243,9 @@ Feature: Federation Mesh — Slot Election, Membership, and Status Fan-Out
     Then updateFn is called with 6 targets
 
   Scenario: SortEndpoints orders by port number ascending
-    Given endpoints ["127.0.0.1:8093", "127.0.0.1:8091", "127.0.0.1:8092"]
+    Given endpoints ["localhost:8093", "localhost:8091", "localhost:8092"]
     When SortEndpoints is called
-    Then the result is ["127.0.0.1:8091", "127.0.0.1:8092", "127.0.0.1:8093"]
+    Then the result is ["localhost:8091", "localhost:8092", "localhost:8093"]
 
   Scenario: no cycle exists when a downstream is also a peer of the introducer
     Given instance A is the introducer with downstream [B]
@@ -270,7 +259,6 @@ Feature: Federation Mesh — Slot Election, Membership, and Status Fan-Out
     Given instance A has downstream [B] and instance B has downstream [A]
     When the topology is validated
     Then a cycle error is returned
-
   # ── full lifecycle (integration) ──────────────────────────────────────────
 
   Scenario: three instances form a mesh — introducer plus two followers

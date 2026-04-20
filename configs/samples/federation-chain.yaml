@@ -25,7 +25,7 @@ service:
 
 health:
   enabled: true
-  listen_addr: "127.0.0.1:18088"
+  listen_addr: "0.0.0.0:18088"
   endpoints:
     healthz: "/healthz"
     readyz: "/readyz"
@@ -74,7 +74,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Chain: Frontend Agent"
-    endpoint: "http://127.0.0.1:18501/mcp"
+    endpoint: "http://0.0.0.0:18501/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -94,7 +94,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Chain: Router Agent"
-    endpoint: "http://127.0.0.1:18502/mcp"
+    endpoint: "http://0.0.0.0:18502/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -114,7 +114,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Chain: Backend Agent"
-    endpoint: "http://127.0.0.1:18503/mcp"
+    endpoint: "http://0.0.0.0:18503/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -134,7 +134,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Chain: Persistence Agent"
-    endpoint: "http://127.0.0.1:18504/mcp"
+    endpoint: "http://0.0.0.0:18504/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]

@@ -233,7 +233,7 @@ func (d *Discoverer) discoverLocalProxies(ctx context.Context, cfg config.Config
 
 	hosts := scan.Hosts
 	if len(hosts) == 0 {
-		hosts = []string{"127.0.0.1", "localhost"}
+		hosts = []string{"localhost", "localhost"}
 	}
 	ports := scan.Ports
 	if len(ports) == 0 {
@@ -568,7 +568,7 @@ func authFromLLMSCandidate(remoteURI string, c llmsCandidate, proto targets.Prot
 		Type:        targets.AuthOAuth,
 		ClientID:    "ocd-smoke-alarm",
 		TokenURL:    tokenURL,
-		RedirectURL: "http://127.0.0.1:8877/oauth/callback",
+		RedirectURL: "http://localhost:8877/oauth/callback",
 		CallbackID:  fmt.Sprintf("%s-callback", safeID(c.Name)),
 		Scopes:      scopes,
 		SecretRef:   fmt.Sprintf("keychain://ocd-smoke-alarm/%s/client-secret", safeID(c.Name)),

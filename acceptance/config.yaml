@@ -1,0 +1,120 @@
+version: "1"
+
+tuner:
+  enabled: false
+  advertise: false
+  service_type: "_smoke-alarm._tcp"
+health:
+  enabled: true
+  listen_addr: "localhost:18087"
+  endpoints:
+    healthz: "/healthz"
+    readyz: "/readyz"
+    status: "/status"
+
+service:
+  name: “demo-alarm” # e.g., "ocd-smoke-alarm"
+  environment: “demo-A” # Environment tag
+
+known_state:
+  enabled: true
+  persist: true
+  sustain_success_before_mark_healthy: 5
+  classify_new_failures_after_healthy_as: "regression" # "regression" | string
+  outage_threshold_consecutive_failures: 10
+
+targets:
+  - id: "host-a"
+    enabled: true
+    protocol: "http"
+    name: "Host A: Self Check"
+    endpoint: "http://riversong-4.local:19100/cluster"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    check:
+      interval: "15s"
+      timeout: "3s"
+      retries: 2
+      handshake_profile: "none"
+  - id: "host-a-alarm-upstream-a"
+    enabled: false
+    protocol: "http"
+    name: "Host A: Upstream Check"
+    endpoint: "http://jack.internal.datawhore.house:19100/cluster"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    check:
+      interval: "15s"
+      timeout: "3s"
+      retries: 2
+      handshake_profile: "none"
+  - id: "host-a-alarm-downstream-b"
+    enabled: true
+    protocol: "http"
+    name: "Host A: Upstream Check"
+    endpoint: "http://riversong-4.local:18087/status"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    check:
+      interval: "15s"
+      timeout: "3s"
+      retries: 2
+      handshake_profile: "none"
+
+
+  - id: "host-a-operator"
+    enabled: true
+    protocol: "http"
+    name: "Host A: Operator Check"
+    endpoint: "http://riversong-4.local:18088/status"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    check:
+      interval: "15s"
+      timeout: "3s"
+      retries: 0
+      handshake_profile: "none"
+
+federation:
+  enabled: false
+  upstream: "jack.internal.datawhore.house:34895/mcp"
+  downstream: ["riversong-4.local:59505/mcp"]
+
+remote_agent:
+  #  managed_updates: true
+  #  control_endpoint: "jack.internal.datawhore.house:19100/status
+  update:
+    strategy: "rolling-single"
+    stop_command: "ocd-smoke-alarm ops stop"
+    start_command: "ocd-smoke-alarm serve --mode=background --config=./config.yaml"
+    verify_command: "ocd-smoke-alarm check --config=./config.yaml"
+    rollback_on_failure: false
+    max_wait_for_healthy: "90s"
+  safety:
+    require_lock: true
+
+dynamic_config:
+  enabled: true
+  allow_overwrite: true
+
+alerts:
+  aggressive: false
+  notify_on_regression_immediately: false
+  retry_before_escalation: 0
+  dedupe_window: "2m"
+  cooldown: "300s"
+  severity:
+    healthy: "info"
+    degraded: "warn"
+    regression: "critical"
+    outage: "critical"
+  sinks:
+    log:
+      enabled: true
+    os_notification:
+      enabled: false
+      title_prefix: “[idle alarm]”

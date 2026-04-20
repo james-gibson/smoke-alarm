@@ -11,7 +11,7 @@ service:
 
 health:
   enabled: true
-  listen_addr: "127.0.0.1:28088"
+  listen_addr: "localhost:28088"
   endpoints:
     healthz: "/healthz"
     readyz: "/readyz"
@@ -33,7 +33,7 @@ discovery:
   include_env_vars: []
   local_proxy_scan:
     enabled: false
-    hosts: ["127.0.0.1"]
+    hosts: ["localhost"]
     ports: [18091]
   cloud_catalog:
     enabled: false
@@ -81,7 +81,7 @@ auth:
       allow_refresh_token: true
     mock_redirect:
       enabled: true
-      listen_addr: "127.0.0.1:28877"
+      listen_addr: "localhost:28877"
       path: "/oauth/callback"
       mode: "allow"
 
@@ -90,7 +90,7 @@ targets:
     enabled: true
     protocol: "http"
     name: "OAuth Mock Redirect Status"
-    endpoint: "http://127.0.0.1:28877/oauth/mock/status"
+    endpoint: "http://localhost:28877/oauth/mock/status"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -124,7 +124,7 @@ targets:
     enabled: true
     protocol: "acp"
     name: "Hosted ACP (OAuth-Validated)"
-    endpoint: "http://127.0.0.1:28191/acp"
+    endpoint: "http://localhost:28191/acp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -140,7 +140,7 @@ targets:
       key_name: ""
       client_id: "ocd-smoke-alarm"
       token_url: "https://auth.example.com/oauth/token"
-      redirect_url: "http://127.0.0.1:28877/oauth/callback"
+      redirect_url: "http://localhost:28877/oauth/callback"
       callback_id: "acp-oauth-callback-allow"
       scopes:
         - "acp.read"
@@ -161,7 +161,7 @@ targets:
         - "prompt/turn"
       hurl_tests:
         - name: "oauth-mock-ready"
-          endpoint: "http://127.0.0.1:28877/oauth/mock/status"
+          endpoint: "http://localhost:28877/oauth/mock/status"
           method: "GET"
           headers: {}
           body: ""
@@ -202,7 +202,7 @@ remote_agent:
 
 hosted:
   enabled: true
-  listen_addr: "127.0.0.1:28191"
+  listen_addr: "localhost:28191"
   transports:
     - "http"
     - "sse"

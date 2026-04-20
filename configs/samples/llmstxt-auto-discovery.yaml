@@ -11,7 +11,7 @@ service:
 
 health:
   enabled: true
-  listen_addr: "127.0.0.1:18088"
+  listen_addr: "localhost:18088"
   endpoints:
     healthz: "/healthz"
     readyz: "/readyz"
@@ -36,7 +36,7 @@ discovery:
   local_proxy_scan:
     enabled: false
     hosts:
-      - "127.0.0.1"
+      - "localhost"
       - "localhost"
     ports: [3000, 4317, 4318, 8080, 9000]
   cloud_catalog:
@@ -88,7 +88,7 @@ auth:
       allow_refresh_token: true
     mock_redirect:
       enabled: true
-      listen_addr: "127.0.0.1:8877"
+      listen_addr: "localhost:8877"
       path: "/oauth/callback"
       mode: "allow" # allow | fail
 
@@ -98,7 +98,7 @@ targets:
     enabled: true
     protocol: "http"
     name: "Self Health Endpoint"
-    endpoint: "http://127.0.0.1:18088/healthz"
+    endpoint: "http://localhost:18088/healthz"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -111,7 +111,7 @@ targets:
       handshake_profile: "none"
       hurl_tests:
         - name: "self-health-stop-gap"
-          endpoint: "http://127.0.0.1:18088/healthz"
+          endpoint: "http://localhost:18088/healthz"
           method: "GET"
 
   # Optional manually curated ACP target that uses full OAuth fields.
@@ -131,7 +131,7 @@ targets:
       type: "oauth"
       client_id: "ocd-smoke-alarm"
       token_url: "https://auth.example.com/oauth/token"
-      redirect_url: "http://127.0.0.1:8877/oauth/callback"
+      redirect_url: "http://localhost:8877/oauth/callback"
       callback_id: "acp-oauth-reference-callback"
       secret_ref: "keychain://ocd-smoke-alarm/acp-oauth-reference/client-secret"
       scopes:
@@ -193,7 +193,7 @@ remote_agent:
 
 hosted:
   enabled: true
-  listen_addr: "127.0.0.1:18091"
+  listen_addr: "localhost:18091"
   transports:
     - "http"
     - "sse"

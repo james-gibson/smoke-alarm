@@ -55,6 +55,8 @@ github.com/hashicorp/golang-lru v0.5.4/go.mod h1:iADmTwqILo4mZ8BN3D2Q6+9jd8WM5uG
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/james-gibson/isotope v0.2.0 h1:rqBoY/MDZEzlnZuIPfxTm46yiIrGbCCQ6yhYXR3Qjhc=
 github.com/james-gibson/isotope v0.2.0/go.mod h1:JHrGluAKZMEWKtG9pBp9CZN1jSHvplS9X80OyaY331g=
+github.com/james-gibson/isotope v0.3.4 h1:hlIqYdBzCThwbfWN07DncCa4AnYNrs5sJu0cRYO5JFY=
+github.com/james-gibson/isotope v0.3.4/go.mod h1:JHrGluAKZMEWKtG9pBp9CZN1jSHvplS9X80OyaY331g=
 github.com/kr/pretty v0.2.1/go.mod h1:ipq/a2n7PKx3OHsz4KJII5eveXtPO4qwEXGdVfWzfnI=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
 github.com/kr/pretty v0.3.1/go.mod h1:hoEshYVHaxMs3cyo3Yncou5ZscifuDolrwPKZanG3xk=

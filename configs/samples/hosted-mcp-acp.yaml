@@ -1,7 +1,7 @@
 version: "1"
 
 service:
-  name: "ocd-smoke-alarm"
+  name: "ocd-self-mcp"
   environment: "sample-hosted"
   mode: "foreground" # foreground | background
   log_level: "info"
@@ -11,7 +11,7 @@ service:
 
 health:
   enabled: true
-  listen_addr: "127.0.0.1:18088"
+  listen_addr: ":18088"
   endpoints:
     healthz: "/healthz"
     readyz: "/readyz"
@@ -35,17 +35,20 @@ discovery:
     - "ACP_AGENT_URL"
   local_proxy_scan:
     enabled: false
-    hosts: ["127.0.0.1"]
+    hosts: ["0.0.0.0"]
     ports: [3000, 8080]
   cloud_catalog:
-    enabled: false
-    urls: []
+    enabled: true
+    urls: ["http://jack.internal.datawhore.house:19100/cluster"]
   llms_txt:
-    enabled: false
-    remote_uris: []
-    fetch_timeout: "5s"
-    require_https: true
-    auto_register_as_targets: false
+    enabled: true
+    remote_uris:
+      - "https://modelcontextprotocol.io/llms.txt"
+      - "https://agentclientprotocol.com/llms.txt"
+      - "https://llmstxt.org/llms.txt"
+    fetch_timeout: "6s"
+    require_https: false
+    auto_register_as_targets: true
     auto_register_oauth: false
 
 alerts:
@@ -84,7 +87,7 @@ auth:
     # Optional local callback mock endpoint used for allow/fail testing.
     mock_redirect:
       enabled: true
-      listen_addr: "127.0.0.1:8877"
+      listen_addr: "0.0.0.0:8877"
       path: "/oauth/callback"
       mode: "allow" # allow | fail
 
@@ -94,14 +97,14 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Hosted MCP HTTP"
-    endpoint: "http://127.0.0.1:18091/mcp"
+    endpoint: "http://0.0.0.0:18091/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
       min_capabilities:
         - "tools/list"
         - "resources/list"
-      known_agent_count_min: 0
+      known_agent_count_min: 1
       expected_version: ""
     auth:
       type: "none"
@@ -116,7 +119,7 @@ targets:
         - "resources/list"
       hurl_tests:
         - name: "hosted-mcp-health-gate"
-          endpoint: "http://127.0.0.1:18088/healthz"
+          endpoint: "http://0.0.0.0:18088/healthz"
           method: "GET"
 
   # Embedded hosted ACP over HTTP JSON-RPC
@@ -124,7 +127,7 @@ targets:
     enabled: true
     protocol: "acp"
     name: "Hosted ACP HTTP"
-    endpoint: "http://127.0.0.1:18091/acp"
+    endpoint: "http://0.0.0.0:18091/acp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -150,7 +153,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Hosted MCP SSE"
-    endpoint: "http://127.0.0.1:18091/mcp?transport=sse"
+    endpoint: "http://0.0.0.0:18091/mcp?transport=sse"
     transport: "sse"
     expected:
       healthy_status_codes: [200]
@@ -170,7 +173,7 @@ targets:
     enabled: true
     protocol: "acp"
     name: "Hosted ACP SSE"
-    endpoint: "http://127.0.0.1:18091/acp?transport=sse"
+    endpoint: "http://0.0.0.0:18091/acp?transport=sse"
     transport: "sse"
     expected:
       healthy_status_codes: [200]
@@ -222,7 +225,7 @@ remote_agent:
 # Embedded hosted MCP/ACP services exposed by this smoke alarm process.
 hosted:
   enabled: true
-  listen_addr: "127.0.0.1:18091"
+  listen_addr: ":0"
   transports:
     - "http"
     - "sse"
@@ -246,3 +249,7 @@ dynamic_config:
   serve_base_url: "/dynamic-config"
   allow_overwrite: true
   require_unique_ids: true
+
+federation:
+  enabled: true
+  upstream: "http://jack.internal.datawhore.house:19100"

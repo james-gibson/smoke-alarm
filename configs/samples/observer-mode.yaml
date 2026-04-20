@@ -28,7 +28,7 @@ service:
 
 health:
   enabled: true
-  listen_addr: "127.0.0.1:18088"
+  listen_addr: "localhost:18088"
   endpoints:
     healthz: "/healthz"
     readyz: "/readyz"
@@ -83,7 +83,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Observer Target: Incident Coordinator"
-    endpoint: "http://127.0.0.1:20001/mcp"
+    endpoint: "http://localhost:20001/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -103,7 +103,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Observer: Team Member (Learning)"
-    endpoint: "http://127.0.0.1:20002/mcp"
+    endpoint: "http://localhost:20002/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -112,7 +112,7 @@ targets:
     auth:
       type: "oauth"
       client_id: "observer-onboarding"
-      token_url: "http://127.0.0.1:20050/oauth/token"
+      token_url: "http://localhost:20050/oauth/token"
       scopes:
         - "incident.read"
     check:
@@ -128,14 +128,14 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Observer: Security Auditor"
-    endpoint: "http://127.0.0.1:20003/mcp"
+    endpoint: "http://localhost:20003/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
     auth:
       type: "oauth"
       client_id: "observer-security"
-      token_url: "http://127.0.0.1:20050/oauth/token"
+      token_url: "http://localhost:20050/oauth/token"
       scopes:
         - "incident.read"
         - "security.events"
@@ -152,14 +152,14 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Observer: Customer Success"
-    endpoint: "http://127.0.0.1:20004/mcp"
+    endpoint: "http://localhost:20004/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
     auth:
       type: "oauth"
       client_id: "observer-cs"
-      token_url: "http://127.0.0.1:20050/oauth/token"
+      token_url: "http://localhost:20050/oauth/token"
       scopes:
         - "incident.read"
         - "status.public"
@@ -176,14 +176,14 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Observer: Manager"
-    endpoint: "http://127.0.0.1:20005/mcp"
+    endpoint: "http://localhost:20005/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
     auth:
       type: "oauth"
       client_id: "observer-manager"
-      token_url: "http://127.0.0.1:20050/oauth/token"
+      token_url: "http://localhost:20050/oauth/token"
       scopes:
         - "incident.read"
         - "metrics.team"
@@ -200,7 +200,7 @@ targets:
     enabled: true
     protocol: "http"
     name: "Observer: Audit Trail"
-    endpoint: "http://127.0.0.1:20010/healthz"
+    endpoint: "http://localhost:20010/healthz"
     transport: "http"
     expected:
       healthy_status_codes: [200]

@@ -23,7 +23,7 @@ service:
 
 health:
   enabled: true
-  listen_addr: "127.0.0.1:18088"
+  listen_addr: "localhost:18088"
   endpoints:
     healthz: "/healthz"
     readyz: "/readyz"
@@ -38,7 +38,7 @@ runtime:
 
 hosted:
   enabled: true
-  listen_addr: "127.0.0.1:18089"
+  listen_addr: "localhost:18089"
   protocols: ["mcp"]
   transports: ["http"]
   endpoints:
@@ -75,7 +75,7 @@ targets:
     enabled: true
     protocol: "http"
     name: "Local Health"
-    endpoint: "http://127.0.0.1:18088/healthz"
+    endpoint: "http://localhost:18088/healthz"
     transport: "http"
     expected:
       healthy_status_codes: [200]

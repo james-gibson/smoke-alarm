@@ -7,7 +7,7 @@ require (
 	github.com/charmbracelet/lipgloss v1.0.0
 	github.com/cucumber/godog v0.15.1
 	github.com/grandcat/zeroconf v1.0.0
-	github.com/james-gibson/isotope v0.2.0
+	github.com/james-gibson/isotope v0.3.4
 	go.opentelemetry.io/otel v1.28.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp v1.28.0
 	go.opentelemetry.io/otel/metric v1.28.0

@@ -91,7 +91,7 @@ func NewServer(opts Options) *Server {
 		opts.Version = "0.1.0"
 	}
 	if strings.TrimSpace(opts.ListenAddr) == "" {
-		opts.ListenAddr = "127.0.0.1:8091"
+		opts.ListenAddr = "localhost:8091"
 	}
 	if opts.ShutdownTimeout <= 0 {
 		opts.ShutdownTimeout = 8 * time.Second

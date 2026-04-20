@@ -26,10 +26,6 @@
           "description": "Service name",
           "type": "string"
         },
-        "version": {
-          "description": "Application version",
-          "type": "string"
-        },
         "mode": {
           "description": "Current operational mode",
           "type": "string",
@@ -137,7 +133,13 @@
               "type": "array",
               "items": {
                 "type": "string",
-                "enum": ["static", "environment", "local_proxy", "cloud_catalog", "llms_txt"]
+                "enum": [
+                  "static",
+                  "environment",
+                  "local_proxy",
+                  "cloud_catalog",
+                  "llms_txt"
+                ]
               }
             },
             "llms_txt_uris": {
@@ -274,7 +276,11 @@
             "probe": {
               "description": "What the service connects to for health checks",
               "type": "string",
-              "enum": ["configured_targets_only", "discovery_derived", "unrestricted"]
+              "enum": [
+                "configured_targets_only",
+                "discovery_derived",
+                "unrestricted"
+              ]
             },
             "listen": {
               "description": "Ports/addresses the service binds to",

@@ -173,7 +173,7 @@ func InitializeHealthSteps(ctx *godog.ScenarioContext) {
 func theHealthServerIsStarted() error {
 	// Find a free port by asking the OS.
 	var lc net.ListenConfig
-	ln, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:0")
+	ln, err := lc.Listen(context.Background(), "tcp", "localhost:0")
 	if err != nil {
 		return fmt.Errorf("find free port: %w", err)
 	}
@@ -704,7 +704,7 @@ func doPost(path, contentType string, body io.Reader) error {
 
 func theConfiguredListenAddressHasAFreePort() error {
 	var lc net.ListenConfig
-	ln, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:0")
+	ln, err := lc.Listen(context.Background(), "tcp", "localhost:0")
 	if err != nil {
 		return fmt.Errorf("find free port: %w", err)
 	}
@@ -721,7 +721,7 @@ func theConfiguredListenAddressHasAFreePort() error {
 
 func theConfiguredListenPortIsOccupied() error {
 	var lc net.ListenConfig
-	ln, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:0")
+	ln, err := lc.Listen(context.Background(), "tcp", "localhost:0")
 	if err != nil {
 		return fmt.Errorf("bind occupier: %w", err)
 	}
@@ -739,7 +739,7 @@ func bindWithRetryIsCalledWithRetries(n int) error {
 	if hsState.bwrSrv == nil {
 		// Default: find a free port and create a server.
 		var lc net.ListenConfig
-		ln, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:0")
+		ln, err := lc.Listen(context.Background(), "tcp", "localhost:0")
 		if err != nil {
 			return fmt.Errorf("find free port: %w", err)
 		}

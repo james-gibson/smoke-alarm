@@ -138,7 +138,7 @@ func TestConfigValidateAggregatesProblems(t *testing.T) {
 			GracefulShutdownTimeout: "5s",
 		},
 		Health: HealthConfig{
-			ListenAddr: "127.0.0.1:0",
+			ListenAddr: "localhost:0",
 			Endpoints: HealthRoutes{
 				Healthz: "/healthz",
 				Readyz:  "/readyz",

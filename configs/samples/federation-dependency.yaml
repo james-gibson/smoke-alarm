@@ -30,7 +30,7 @@ service:
 
 health:
   enabled: true
-  listen_addr: "127.0.0.1:18088"
+  listen_addr: "localhost:18088"
   endpoints:
     healthz: "/healthz"
     readyz: "/readyz"
@@ -79,7 +79,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Dependency: Database Primary"
-    endpoint: "http://127.0.0.1:18701/mcp"
+    endpoint: "http://localhost:18701/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -93,7 +93,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Dependency: Redis Cache"
-    endpoint: "http://127.0.0.1:18702/mcp"
+    endpoint: "http://localhost:18702/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -108,7 +108,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Dependency: Auth Service"
-    endpoint: "http://127.0.0.1:18710/mcp"
+    endpoint: "http://localhost:18710/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -125,7 +125,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Dependency: User Service"
-    endpoint: "http://127.0.0.1:18711/mcp"
+    endpoint: "http://localhost:18711/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -142,7 +142,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Dependency: Database Replica"
-    endpoint: "http://127.0.0.1:18703/mcp"
+    endpoint: "http://localhost:18703/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -156,7 +156,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Dependency: Stripe API (external)"
-    endpoint: "http://127.0.0.1:18704/mcp"
+    endpoint: "http://localhost:18704/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -170,7 +170,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Dependency: Payment Service"
-    endpoint: "http://127.0.0.1:18712/mcp"
+    endpoint: "http://localhost:18712/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -187,7 +187,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Dependency: API Gateway"
-    endpoint: "http://127.0.0.1:18720/mcp"
+    endpoint: "http://localhost:18720/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]

@@ -7,11 +7,11 @@ service:
   log_level: "info"
   poll_interval: "10s"
   timeout: "5s"
-  max_workers: 8
+  max_workers: 8433
 
 health:
   enabled: true
-  listen_addr: "127.0.0.1:18088"
+  listen_addr: "localhost:18088"
   endpoints:
     healthz: "/healthz"
     readyz: "/readyz"
@@ -85,13 +85,13 @@ auth:
       allow_refresh_token: true
     mock_redirect:
       enabled: true
-      listen_addr: "127.0.0.1:8877"
+      listen_addr: "localhost:8877"
       path: "/oauth/callback"
       mode: "allow"
 
 targets:
   - id: "mcp-remote-sse-primary"
-    enabled: true
+    enabled: false
     protocol: "mcp"
     name: "Remote MCP SSE Primary"
     endpoint: "https://mcp.example.com/stream?transport=sse"
@@ -130,7 +130,7 @@ targets:
           method: "GET"
 
   - id: "acp-remote-sse-primary"
-    enabled: true
+    enabled: false
     protocol: "acp"
     name: "Remote ACP SSE Primary"
     endpoint: "https://agent.example.com/events?transport=sse"
@@ -149,7 +149,7 @@ targets:
       key_name: ""
       client_id: "ocd-smoke-alarm"
       token_url: "https://auth.example.com/oauth/token"
-      redirect_url: "http://127.0.0.1:8877/oauth/callback"
+      redirect_url: "http://localhost:8877/oauth/callback"
       callback_id: "acp-remote-sse-primary-callback"
       scopes:
         - "acp.read"
@@ -171,7 +171,7 @@ targets:
           method: "GET"
 
   - id: "mcp-remote-https-strict"
-    enabled: true
+    enabled: false
     protocol: "mcp"
     name: "Remote MCP HTTPS Strict"
     endpoint: "https://mcp.example.com/rpc"
@@ -213,7 +213,7 @@ targets:
           method: "GET"
 
   - id: "acp-remote-https-strict-oauth"
-    enabled: true
+    enabled: false
     protocol: "acp"
     name: "Remote ACP HTTPS Strict OAuth"
     endpoint: "https://agent.example.com/acp"
@@ -232,7 +232,7 @@ targets:
       key_name: ""
       client_id: "ocd-smoke-alarm"
       token_url: "https://auth.example.com/oauth/token"
-      redirect_url: "http://127.0.0.1:8877/oauth/callback"
+      redirect_url: "http://localhost:8877/oauth/callback"
       callback_id: "acp-remote-https-strict-oauth-callback"
       scopes:
         - "acp.read"
@@ -278,11 +278,11 @@ meta_config:
 
 remote_agent:
   managed_updates: true
-  control_endpoint: "http://127.0.0.1:8099"
+  control_endpoint: "http://localhost:8099"
   update:
     strategy: "rolling-single"
     stop_command: "ocd-smoke-alarm ops stop"
-    start_command: "ocd-smoke-alarm serve --mode=background --config=./configs/samples/sse-remote-mixed.yaml --health-addr=127.0.0.1:18088"
+    start_command: "ocd-smoke-alarm serve --mode=background --config=./configs/samples/sse-remote-mixed.yaml --health-addr=localhost:18088"
     verify_command: "ocd-smoke-alarm check --config=./configs/samples/sse-remote-mixed.yaml"
     rollback_on_failure: true
     max_wait_for_healthy: "90s"
@@ -291,8 +291,8 @@ remote_agent:
     lock_ttl: "5m"
 
 hosted:
-  enabled: false
-  listen_addr: "127.0.0.1:18091"
+  enabled: true
+  listen_addr: "localhost:18091"
   transports:
     - "http"
     - "sse"

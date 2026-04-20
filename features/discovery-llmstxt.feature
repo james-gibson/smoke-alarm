@@ -4,7 +4,6 @@
 # Config reference: configs/samples/llmstxt-auto-discovery.yaml
 # Step definitions: features/step_definitions/discovery_llmstxt_steps.go
 # see: features/config-validation.feature (schema), features/oauth-mock.feature (oauth registration)
-
 @discovery-llmstxt @core
 Feature: LLMs.txt Auto-Discovery
   As an operator
@@ -15,15 +14,14 @@ Feature: LLMs.txt Auto-Discovery
     Given the ocd-smoke-alarm binary is installed
     And a valid config file "configs/samples/llmstxt-auto-discovery.yaml" exists
     And network access to llms.txt URIs is available
-
   # ── fetch behavior ───────────────────────────────────────────────────────
 
   Scenario: discovery fetches each configured llms.txt URI
     Given discovery is enabled with llms_txt URIs:
-      | uri                                         |
-      | https://modelcontextprotocol.io/llms.txt    |
-      | https://agentclientprotocol.com/llms.txt    |
-      | https://llmstxt.org/llms.txt                |
+      | uri                                      |
+      | https://modelcontextprotocol.io/llms.txt |
+      | https://agentclientprotocol.com/llms.txt |
+      | https://llmstxt.org/llms.txt             |
     When discovery runs once
     Then each URI is fetched exactly once per discovery interval
     And fetch requests use HTTPS
@@ -41,7 +39,6 @@ Feature: LLMs.txt Auto-Discovery
     When discovery runs once
     Then the fetch is abandoned after 6 seconds
     And a warning is logged containing "fetch timeout"
-
   # ── target auto-registration ──────────────────────────────────────────────
 
   Scenario: discovery registers a valid MCP endpoint from llms.txt as a probe target
@@ -60,7 +57,6 @@ Feature: LLMs.txt Auto-Discovery
     Given "auto_register_as_targets" is set to false
     When discovery runs once
     Then no new targets are added to the target registry
-
   # ── oauth auto-registration ───────────────────────────────────────────────
 
   Scenario: discovery registers OAuth config for an endpoint that declares it
@@ -74,7 +70,6 @@ Feature: LLMs.txt Auto-Discovery
     And "auto_register_oauth" is set to false
     When discovery runs once
     Then no OAuth config is registered for endpoint "https://acp.example.com/v1"
-
   # ── discovery interval ────────────────────────────────────────────────────
 
   Scenario: discovery re-runs at the configured interval
@@ -82,11 +77,10 @@ Feature: LLMs.txt Auto-Discovery
     When 31 seconds elapse after the first discovery run
     Then a second discovery run is initiated
     And no busy polling occurs between runs
-
   # ── self-health control target ────────────────────────────────────────────
 
   Scenario: self-health target is probed independently of discovery
     Given the "self-health" target is enabled in config "configs/samples/llmstxt-auto-discovery.yaml"
     When the probe for target "self-health" completes
     Then the target "self-health" is classified as "HEALTHY"
-    And the health endpoint "http://127.0.0.1:18088/healthz" returned status code 200
+    And the health endpoint "http://localhost:18088/healthz" returned status code 200

@@ -26,7 +26,7 @@ service:
 
 health:
   enabled: true
-  listen_addr: "127.0.0.1:18088"
+  listen_addr: "localhost:18088"
   endpoints:
     healthz: "/healthz"
     readyz: "/readyz"
@@ -39,7 +39,7 @@ runtime:
   event_history_size: 1000
   graceful_shutdown_timeout: "10s"
   # Session expires after 4 hours - warroom doesn't run forever
-  session_ttl: "4h"
+  # session_ttl: "4h"
 
 discovery:
   enabled: false
@@ -84,7 +84,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Incident: Session Coordinator"
-    endpoint: "http://127.0.0.1:19701/mcp"
+    endpoint: "http://localhost:19701/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -94,7 +94,7 @@ targets:
     auth:
       type: "oauth"
       client_id: "incident-coordinator"
-      token_url: "http://127.0.0.1:19750/oauth/token"
+      token_url: "http://localhost:19750/oauth/token"
       scopes:
         - "incident.write"
     check:
@@ -111,7 +111,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Incident: On-Call Engineer"
-    endpoint: "http://127.0.0.1:19702/mcp"
+    endpoint: "http://localhost:19702/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -120,7 +120,7 @@ targets:
     auth:
       type: "oauth"
       client_id: "incident-engineer"
-      token_url: "http://127.0.0.1:19750/oauth/token"
+      token_url: "http://localhost:19750/oauth/token"
       scopes:
         - "incident.read"
         - "incident.write"
@@ -138,7 +138,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Incident: Security Team"
-    endpoint: "http://127.0.0.1:19703/mcp"
+    endpoint: "http://localhost:19703/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -147,7 +147,7 @@ targets:
     auth:
       type: "oauth"
       client_id: "incident-security"
-      token_url: "http://127.0.0.1:19750/oauth/token"
+      token_url: "http://localhost:19750/oauth/token"
       scopes:
         - "incident.read"
         - "security.logs"
@@ -165,7 +165,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Incident: Operations"
-    endpoint: "http://127.0.0.1:19704/mcp"
+    endpoint: "http://localhost:19704/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -174,7 +174,7 @@ targets:
     auth:
       type: "oauth"
       client_id: "incident-ops"
-      token_url: "http://127.0.0.1:19750/oauth/token"
+      token_url: "http://localhost:19750/oauth/token"
       scopes:
         - "incident.read"
         - "infra.status"
@@ -192,7 +192,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Incident: Shared Context Store"
-    endpoint: "http://127.0.0.1:19710/mcp"
+    endpoint: "http://localhost:19710/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -206,7 +206,7 @@ targets:
 
 known_state:
   enabled: true
-  persist: false  # Ephemeral - don't keep baseline across sessions
+  persist: false # Ephemeral - don't keep baseline across sessions
   sustain_success_before_mark_healthy: 1
   classify_new_failures_after_healthy_as: "regression"
   outage_threshold_consecutive_failures: 2

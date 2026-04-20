@@ -27,7 +27,7 @@ service:
 
 health:
   enabled: true
-  listen_addr: "127.0.0.1:18088"
+  listen_addr: "localhost:18088"
   endpoints:
     healthz: "/healthz"
     readyz: "/readyz"
@@ -83,7 +83,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Secure Context: Broker"
-    endpoint: "http://127.0.0.1:19801/mcp"
+    endpoint: "http://localhost:19801/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -92,7 +92,7 @@ targets:
     auth:
       type: "oauth"
       client_id: "context-broker"
-      token_url: "http://127.0.0.1:19850/oauth/token"
+      token_url: "http://localhost:19850/oauth/token"
       scopes:
         - "context.broker"
     check:
@@ -109,7 +109,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Secure Context: Engineering Provider"
-    endpoint: "http://127.0.0.1:19802/mcp"
+    endpoint: "http://localhost:19802/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -118,7 +118,7 @@ targets:
     auth:
       type: "oauth"
       client_id: "provider-engineering"
-      token_url: "http://127.0.0.1:19850/oauth/token"
+      token_url: "http://localhost:19850/oauth/token"
       scopes:
         - "context.write"
         - "context.tech"
@@ -136,7 +136,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Secure Context: Business Provider"
-    endpoint: "http://127.0.0.1:19803/mcp"
+    endpoint: "http://localhost:19803/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -145,7 +145,7 @@ targets:
     auth:
       type: "oauth"
       client_id: "provider-business"
-      token_url: "http://127.0.0.1:19850/oauth/token"
+      token_url: "http://localhost:19850/oauth/token"
       scopes:
         - "context.write"
         - "context.business"
@@ -163,14 +163,14 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Secure Context: Encrypted Store"
-    endpoint: "http://127.0.0.1:19810/mcp"
+    endpoint: "http://localhost:19810/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
     auth:
       type: "oauth"
       client_id: "encrypted-store"
-      token_url: "http://127.0.0.1:19850/oauth/token"
+      token_url: "http://localhost:19850/oauth/token"
       scopes:
         - "context.storage"
     check:

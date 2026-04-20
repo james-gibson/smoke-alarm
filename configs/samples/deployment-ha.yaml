@@ -23,7 +23,7 @@ service:
 
 health:
   enabled: true
-  listen_addr: "127.0.0.1:18088"
+  listen_addr: "localhost:18088"
   endpoints:
     healthz: "/healthz"
     readyz: "/readyz"
@@ -72,7 +72,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "HA: Primary A (Preferred)"
-    endpoint: "http://127.0.0.1:19101/mcp"
+    endpoint: "http://localhost:19101/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -87,12 +87,12 @@ targets:
         - "initialize"
         - "tools/list"
 
-  # Primary B - the "standby" node  
+  # Primary B - the "standby" node
   - id: "ha-primary-b"
     enabled: true
     protocol: "mcp"
     name: "HA: Primary B (Standby)"
-    endpoint: "http://127.0.0.1:19102/mcp"
+    endpoint: "http://localhost:19102/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -112,7 +112,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "HA: Shared State Store"
-    endpoint: "http://127.0.0.1:19110/mcp"
+    endpoint: "http://localhost:19110/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -127,7 +127,7 @@ targets:
     enabled: true
     protocol: "http"
     name: "HA: Load Balancer"
-    endpoint: "http://127.0.0.1:19120/healthz"
+    endpoint: "http://localhost:19120/healthz"
     transport: "http"
     expected:
       healthy_status_codes: [200, 204]

@@ -246,7 +246,7 @@ func testIdentity(id, stateDir string, port int, role Role) Identity {
 func freePort(t *testing.T) int {
 	t.Helper()
 
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	ln, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		t.Fatalf("failed to allocate port: %v", err)
 	}

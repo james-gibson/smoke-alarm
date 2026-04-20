@@ -7,7 +7,7 @@ version: "1"
 #
 # Use case: Warroom scenario where incident commander delegates to:
 #   - File retrieval specialist
-#   - Code search specialist  
+#   - Code search specialist
 #   - Documentation specialist
 #   - Deployment specialist
 #
@@ -24,7 +24,7 @@ service:
 
 health:
   enabled: true
-  listen_addr: "127.0.0.1:18088"
+  listen_addr: "localhost:18088"
   endpoints:
     healthz: "/healthz"
     readyz: "/readyz"
@@ -70,7 +70,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Hub Coordinator Agent"
-    endpoint: "http://127.0.0.1:18401/mcp"
+    endpoint: "http://localhost:18401/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -93,7 +93,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Spoke: Files Specialist"
-    endpoint: "http://127.0.0.1:18402/mcp"
+    endpoint: "http://localhost:18402/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -115,7 +115,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Spoke: Code Search Specialist"
-    endpoint: "http://127.0.0.1:18403/mcp"
+    endpoint: "http://localhost:18403/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -137,7 +137,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Spoke: Documentation Specialist"
-    endpoint: "http://127.0.0.1:18404/mcp"
+    endpoint: "http://localhost:18404/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]

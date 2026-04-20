@@ -156,9 +156,9 @@ func cmdServe(args []string) error {
 	fs := flag.NewFlagSet("serve", flag.ContinueOnError)
 	configPath := fs.String("config", "configs/samples/hosted-mcp-acp.yaml", "Path to config file")
 	modeOverride := fs.String("mode", "", "Run mode override: foreground|background|headless")
-	healthAddrOverride := fs.String("health-addr", "", "Health listen addr override, e.g. 127.0.0.1:8088")
+	healthAddrOverride := fs.String("health-addr", "", "Health listen addr override, e.g. localhost:8088")
 	telemetryOverride := fs.String("telemetry", "", "OTEL collector endpoint (e.g., http://localhost:4318/v1/metrics)")
-	federationOverride := fs.String("federation", "", "Federation endpoints (upstream:127.0.0.1:8088,downstream:127.0.0.1:8081,127.0.0.1:8082)")
+	federationOverride := fs.String("federation", "", "Federation endpoints (upstream:localhost:8088,downstream:localhost:8081,localhost:8082)")
 	stateDir := fs.String("state-dir", "", "State directory (default: ./state)")
 	lockFile := fs.String("lock-file", "", "Lock file path (default: /tmp/<service-name>.lock)")
 	nameOverride := fs.String("name", "", "Service name (default: ocd-smoke-alarm)")
@@ -589,7 +589,7 @@ func applyDemoOverrides(cfg *config.Config) {
 
 	// Ensure hosted exploratory services are available.
 	cfg.Hosted.Enabled = true
-	cfg.Hosted.ListenAddr = fallbackStr(cfg.Hosted.ListenAddr, "127.0.0.1:18091")
+	cfg.Hosted.ListenAddr = fallbackStr(cfg.Hosted.ListenAddr, "localhost:18091")
 	cfg.Hosted.Transports = ensureStringFoldContains(cfg.Hosted.Transports, "http")
 	cfg.Hosted.Transports = ensureStringFoldContains(cfg.Hosted.Transports, "sse")
 	cfg.Hosted.Protocols = ensureStringFoldContains(cfg.Hosted.Protocols, "mcp")
@@ -601,7 +601,7 @@ func applyDemoOverrides(cfg *config.Config) {
 
 	// Enable deterministic OAuth callback handling for exploration demos.
 	cfg.Auth.OAuth.MockRedirect.Enabled = true
-	cfg.Auth.OAuth.MockRedirect.ListenAddr = fallbackStr(cfg.Auth.OAuth.MockRedirect.ListenAddr, "127.0.0.1:8877")
+	cfg.Auth.OAuth.MockRedirect.ListenAddr = fallbackStr(cfg.Auth.OAuth.MockRedirect.ListenAddr, "localhost:8877")
 	cfg.Auth.OAuth.MockRedirect.Path = fallbackStr(cfg.Auth.OAuth.MockRedirect.Path, "/oauth/callback")
 	cfg.Auth.OAuth.MockRedirect.Mode = fallbackStr(cfg.Auth.OAuth.MockRedirect.Mode, "allow")
 }
@@ -1265,7 +1265,7 @@ func cmdOpsStop(args []string) error {
 func cmdOpsStatus(args []string) error {
 	fs := flag.NewFlagSet("ops status", flag.ContinueOnError)
 	pidFile := fs.String("pid-file", "./state/"+appName+".pid", "PID file path")
-	healthURL := fs.String("health-url", "http://127.0.0.1:8088/healthz", "Health URL")
+	healthURL := fs.String("health-url", "http://localhost:8088/healthz", "Health URL")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -1874,7 +1874,7 @@ func cmdTuner(args []string) error {
 		return nil
 	case "audience":
 		fs := flag.NewFlagSet("tuner audience", flag.ContinueOnError)
-		addr := fs.String("addr", "127.0.0.1:18088", "Hosted server address")
+		addr := fs.String("addr", "localhost:18088", "Hosted server address")
 		channel := fs.String("channel", "", "Channel name")
 		count := fs.Int("count", 1, "Audience count")
 		if err := fs.Parse(args[1:]); err != nil {
@@ -1908,7 +1908,7 @@ func cmdTuner(args []string) error {
 
 func cmdTUI(args []string) error {
 	fs := flag.NewFlagSet("tui", flag.ContinueOnError)
-	addr := fs.String("addr", "127.0.0.1:8088", "Health server address")
+	addr := fs.String("addr", "localhost:8088", "Health server address")
 	refresh := fs.String("refresh", "5s", "Refresh interval (default 5s for background use)")
 	jsonOutput := fs.Bool("json", false, "Output JSON logs to stdout")
 	verbose := fs.Bool("v", false, "Show verbose details (components, events, debug)")

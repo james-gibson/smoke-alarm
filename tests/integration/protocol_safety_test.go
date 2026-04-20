@@ -327,7 +327,7 @@ func TestSafetyScanner_FileRegistrationWithRunner(t *testing.T) {
 
 	target := targets.Target{
 		ID:       "safety-file-pass",
-		Endpoint: "http://127.0.0.1:9999/healthz",
+		Endpoint: "http://localhost:9999/healthz",
 		Check: targets.CheckPolicy{
 			HURLTests: []targets.HURLTest{
 				{

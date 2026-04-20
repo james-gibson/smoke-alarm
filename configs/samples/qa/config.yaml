@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=../../schema.yaml
+
+version: "1"
+serviceConfig:
+  version: "1"
+service:
+  name: "qa"
+  environment: "dev"
+  # mode: "background"
+health:
+  enabled: true
+  listen_addr: "localhost:18088"
+  endpoints:
+    healthz: "/healthz"
+    readyz: "/readyz"
+
+runtime:
+  state_dir: "./state/qa/config"
+
+discovery:
+  enabled: false
+  cloud_catalog:
+    enabled: false
+    urls:
+      [
+        "http://192.168.1.30:19100",
+        "http://riverdock.internal.datawhore.house:19100",
+        "http://0.0.0.0:19100",
+        "http://localhost:19100",
+      ]
+  llms_txt: # Auto-discovery via llms.txt protocol
+    enabled: false
+    auto_register_as_targets: true
+known_state:
+  enabled: true
+  persist: true
+  sustain_success_before_mark_healthy: 4
+  classify_new_failures_after_healthy_as: "regression"
+
+meta_config:
+  enabled: true
+  output_dir: "./state/qa/meta"
+  formats:
+    - "yaml"
+    - "json"
+  include_confidence: true
+  include_provenance: true
+dynamic_config:
+  enabled: true
+  directory: "./state/qa/dynamic-config"
+  formats: ["markdown"]
+  serve_base_url: "/dynamic-config"
+  allow_overwrite: true
+  require_unique_ids: true
+
+hosted:
+  enabled: true
+  listen_addr: "localhost:0"
+  transports: ["http", "sse"]
+  protocols: ["mcp", "acp", "a2a"]
+federation:
+  # base_port: 19100
+  enabled: false
+  # upstream: "http://192.168.1.30:44541/introductions"
+  # downstream:
+  #   [
+  #     "http://192.168.1.30:33829/status",
+  #     "localhost:19101",
+  #     "localhost:19102",
+  #     "localhost:19103",
+  #   ]

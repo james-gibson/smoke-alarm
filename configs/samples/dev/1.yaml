@@ -1,0 +1,153 @@
+version: "1"
+service:
+  name: "observer-1"
+  environment: "observer-mode"
+  mode: "background"
+  log_level: "info"
+  poll_interval: "10s"
+  timeout: "5s"
+  max_workers: 2
+
+health:
+  enabled: true
+  listen_addr: "localhost:28088"
+  endpoints:
+    healthz: "/healthz"
+    readyz: "/readyz"
+    status: "/status"
+
+runtime:
+  lock_file: "/tmp/ocd-smoke-alarm.observer.1.lock"
+  state_dir: "./configs/samples/dev/dist/state/observer-mode/1"
+  baseline_file: "./configs/samples/dev/dist/state/observer-mode/1/known-good.json"
+  event_history_size: 400
+  graceful_shutdown_timeout: "1s"
+
+discovery:
+  enabled: false
+
+alerts:
+  aggressive: true
+  notify_on_regression_immediately: false
+  retry_before_escalation: 2
+  dedupe_window: "1m"
+  cooldown: "30s"
+  severity:
+    healthy: "info"
+    degraded: "warn"
+    regression: "critical"
+    outage: "critical"
+  sinks:
+    log:
+      enabled: true
+    os_notification:
+      enabled: true
+
+targets:
+  - id: "observe-self"
+    enabled: true
+    protocol: "http"
+    name: "Observer: Self Audit Trail"
+    endpoint: "http://localhost:28088/healthz"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    check:
+      interval: "30s"
+      timeout: "10s"
+      retries: 0
+      handshake_profile: "none"
+  # Audit log (track what observers did/didn't see)
+  - id: "observe-fire-marshal"
+    enabled: true
+    protocol: "http"
+    name: "Observer: Audit Trail"
+    endpoint: "http://localhost:18088/healthz"
+    transport: "http"
+    expected:
+      healthy_status_codes: [200]
+    check:
+      interval: "30s"
+      timeout: "1s"
+      retries: 2
+      handshake_profile: "none"
+  - id: "npm-mcp-modelcontextprotocol-server-memory"
+    enabled: true
+    protocol: "mcp"
+    name: "MCP @modelcontextprotocol/server-memory (npx)"
+    endpoint: "stdio://local"
+    transport: "stdio"
+    stdio:
+      command: "npx"
+      args:
+        - "-y"
+        - "@modelcontextprotocol/server-memory"
+      env:
+        MCP_LOG_LEVEL: "warn"
+      cwd: "."
+    expected:
+      min_capabilities:
+        - "tools/list"
+    auth:
+      type: "none"
+    check:
+      interval: "10s"
+      timeout: "8s"
+      retries: 1
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+      hurl_tests: []
+  # TODO: this one is a known failure, disabled until it can be fixed
+  # and by fixing it, i mean it should fail, but we shouldn't alarm on failures
+  # we should only alarm on unexpected successes (this package doesnt exist)
+  - id: "npm-mcp-modelcontextprotocol-server-github"
+    enabled: false
+    protocol: "mcp"
+    name: "MCP @modelcontextprotocol/server-github (npx)"
+    endpoint: "stdio://local"
+    transport: "stdio"
+    stdio:
+      command: "npx"
+      args:
+        - "-y"
+        - "@modelcontextprotocol/server-github"
+      env:
+        MCP_LOG_LEVEL: "warn"
+      cwd: "."
+    expected:
+      min_capabilities:
+        - "tools/list"
+    auth:
+      type: "none"
+    check:
+      interval: "10s"
+      timeout: "8s"
+      retries: 1
+      handshake_profile: "strict"
+      required_methods:
+        - "initialize"
+        - "tools/list"
+      hurl_tests: []
+
+known_state:
+  enabled: true
+  persist: true
+  sustain_success_before_mark_healthy: 3
+  classify_new_failures_after_healthy_as: "regression"
+  outage_threshold_consecutive_failures: 3
+
+meta_config:
+  enabled: true
+  output_dir: "./state/observer-mode/meta-config/1"
+  formats:
+    - "json"
+  include_confidence: true
+  include_provenance: true
+
+hosted:
+  enabled: false
+
+federation:
+  enabled: true

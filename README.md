@@ -116,7 +116,7 @@ Example minimal config (illustrative):
 version: 1
 runtime:
   mode: background
-  health_addr: "127.0.0.1:8088"
+  health_addr: "localhost:8088"
 
 monitor:
   interval: "30s"
@@ -125,7 +125,7 @@ monitor:
 targets:
   - id: "local-mcp"
     kind: "mcp"
-    endpoint: "http://127.0.0.1:9000"
+    endpoint: "http://localhost:9000"
     auth:
       type: "none"
 ```
@@ -133,20 +133,20 @@ targets:
 ## 2) Run in foreground (TUI)
 
 ```sh
-go run ./cmd/ocd-smoke-alarm --mode=foreground --config=configs/dev.yaml --health-addr=127.0.0.1:8088
+go run ./cmd/ocd-smoke-alarm --mode=foreground --config=configs/dev.yaml --health-addr=localhost:8088
 ```
 
 ## 3) Run in background
 
 ```sh
-go run ./cmd/ocd-smoke-alarm --mode=background --config=configs/dev.yaml --health-addr=127.0.0.1:8088
+go run ./cmd/ocd-smoke-alarm --mode=background --config=configs/dev.yaml --health-addr=localhost:8088
 ```
 
 ## 4) Health check
 
 ```sh
-curl -fsS http://127.0.0.1:8088/healthz
-curl -fsS http://127.0.0.1:8088/readyz
+curl -fsS http://localhost:8088/healthz
+curl -fsS http://localhost:8088/readyz
 ```
 
 ## 5) Local-first startup profile (recommended for first run)
@@ -181,7 +181,7 @@ check:
   retries: 1
   hurl_tests:
     - name: "health-gate"
-      endpoint: "http://127.0.0.1:3000/healthz"
+      endpoint: "http://localhost:3000/healthz"
       method: "GET"
 ```
 
@@ -228,7 +228,7 @@ If you run with `configs/sample.yaml` unchanged, some failures are expected:
 
 - Placeholder cloud MCP/ACP endpoints (for example `example.com`) are not real service endpoints.
 - Placeholder keystore references (for example `keychain://...`) may not exist yet on your machine.
-- Optional local dependencies (like OTel collector at `127.0.0.1:13133`) may be offline.
+- Optional local dependencies (like OTel collector at `localhost:13133`) may be offline.
 
 Typical first-run outputs may include:
 
@@ -355,11 +355,11 @@ go mod tidy
 go build -o ./bin/ocd-smoke-alarm ./cmd/ocd-smoke-alarm
 
 # 3) restart
-./bin/ocd-smoke-alarm --mode=background --config=configs/prod.yaml --health-addr=127.0.0.1:8088 &
+./bin/ocd-smoke-alarm --mode=background --config=configs/prod.yaml --health-addr=localhost:8088 &
 
 # 4) verify
-curl -fsS http://127.0.0.1:8088/healthz
-curl -fsS http://127.0.0.1:8088/readyz
+curl -fsS http://localhost:8088/healthz
+curl -fsS http://localhost:8088/readyz
 ```
 
 ## Update safety rules for agents

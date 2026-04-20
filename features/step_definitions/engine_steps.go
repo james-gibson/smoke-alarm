@@ -244,7 +244,7 @@ func makeEngTargetCfg(id, interval string) config.TargetConfig {
 		Protocol:  "http",
 		Transport: "http",
 		Name:      id,
-		Endpoint:  "http://127.0.0.1:1/",
+		Endpoint:  "http://localhost:1/",
 		Check: config.TargetCheckConfig{
 			Interval: interval,
 			Timeout:  "500ms",
@@ -887,7 +887,7 @@ func aTargetHasHURLSafetyCheckConfigured(id string) error {
 	tc.Check.HURLTests = []config.HURLTestConfig{
 		{
 			Name:     "safety-check",
-			Endpoint: "http://127.0.0.1:1/health",
+			Endpoint: "http://localhost:1/health",
 			Method:   "GET",
 		},
 	}
@@ -1444,7 +1444,7 @@ func aTargetWithTransportForEngine(id, transport string) error {
 		Protocol:  targets.ProtocolHTTP,
 		Transport: targets.Transport(transport),
 		Name:      id,
-		Endpoint:  "http://127.0.0.1:1/",
+		Endpoint:  "http://localhost:1/",
 		Check:     targets.CheckPolicy{Interval: 5 * time.Millisecond, Timeout: 500 * time.Millisecond},
 	}
 	engState.stdioHasTarget = true

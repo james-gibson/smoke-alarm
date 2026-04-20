@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../configs/schema/self-description.schema.json
 version: "1"
 
 # deployment-canary.yaml
@@ -18,17 +19,18 @@ version: "1"
 # Rollback: point traffic back to Blue, verify Blue is still healthy.
 
 service:
-  name: "ocd-smoke-alarm"
+  # version: "1"
+  name: "ocd-canary"
   environment: "deployment-canary"
-  mode: "foreground"
-  log_level: "info"
-  poll_interval: "5s"
-  timeout: "3s"
-  max_workers: 8
+  mode: "background"
+  # log_level: "debug"
+  # poll_interval: "5s"
+  # timeout: "3s"
+  # max_workers: 8
 
 health:
-  enabled: true
-  listen_addr: "127.0.0.1:18088"
+  # enabled: true
+  listen_addr: "localhost:18088"
   endpoints:
     healthz: "/healthz"
     readyz: "/readyz"
@@ -60,7 +62,7 @@ alerts:
       enabled: true
     os_notification:
       enabled: true
-      title_prefix: "[Canary]"
+      title_prefix: "[:blue: :green:]"
 
 auth:
   keystore:
@@ -77,7 +79,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Canary: Blue (Current Production)"
-    endpoint: "http://127.0.0.1:19001/mcp"
+    endpoint: "http://localhost:19001/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -102,7 +104,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Canary: Green (New Version)"
-    endpoint: "http://127.0.0.1:19002/mcp"
+    endpoint: "http://localhost:19002/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -128,7 +130,7 @@ targets:
     enabled: false
     protocol: "mcp"
     name: "Canary: Comparison Logic"
-    endpoint: "http://127.0.0.1:19003/mcp"
+    endpoint: "http://localhost:19003/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -150,7 +152,7 @@ meta_config:
   output_dir: "./state/deployment-canary/meta-config"
   formats:
     - "json"
-    - "markdown"
+    # - "markdown"
 
 dynamic_config:
   enabled: true

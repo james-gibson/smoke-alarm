@@ -11,7 +11,7 @@ service:
 
 health:
   enabled: true
-  listen_addr: "127.0.0.1:29088"
+  listen_addr: "localhost:29088"
   endpoints:
     healthz: "/healthz"
     readyz: "/readyz"
@@ -35,7 +35,7 @@ discovery:
     - "ACP_AGENT_URL"
   local_proxy_scan:
     enabled: false
-    hosts: ["127.0.0.1"]
+    hosts: ["localhost"]
     ports: [3000]
   cloud_catalog:
     enabled: false
@@ -83,7 +83,7 @@ auth:
       allow_refresh_token: true
     mock_redirect:
       enabled: true
-      listen_addr: "127.0.0.1:28877"
+      listen_addr: "localhost:28877"
       path: "/oauth/callback"
       mode: "fail" # allow | fail
 
@@ -94,7 +94,7 @@ targets:
     enabled: true
     protocol: "acp"
     name: "ACP OAuth Mock Fail"
-    endpoint: "http://127.0.0.1:28191/acp"
+    endpoint: "http://localhost:28191/acp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -108,7 +108,7 @@ targets:
       type: "oauth"
       client_id: "ocd-smoke-alarm"
       token_url: "https://auth.example.local/oauth/token"
-      redirect_url: "http://127.0.0.1:18877/oauth/callback"
+      redirect_url: "http://localhost:18877/oauth/callback"
       callback_id: "oauth-fail-callback"
       scopes:
         - "acp.read"
@@ -125,7 +125,7 @@ targets:
         - "prompt/turn"
       hurl_tests:
         - name: "oauth-mock-redirect-callback-fail"
-          endpoint: "http://127.0.0.1:28877/oauth/callback?state=s2&callback_id=cb-fail-1"
+          endpoint: "http://localhost:28877/oauth/callback?state=s2&callback_id=cb-fail-1"
           method: "GET"
 
 known_state:
@@ -160,7 +160,7 @@ dynamic_config:
 
 hosted:
   enabled: true
-  listen_addr: "127.0.0.1:28191"
+  listen_addr: "localhost:28191"
   transports:
     - "http"
     - "sse"

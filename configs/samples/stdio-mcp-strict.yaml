@@ -11,7 +11,7 @@ service:
 
 health:
   enabled: true
-  listen_addr: "127.0.0.1:18188"
+  listen_addr: "localhost:18188"
   endpoints:
     healthz: "/healthz"
     readyz: "/readyz"
@@ -34,7 +34,7 @@ discovery:
   local_proxy_scan:
     enabled: false
     hosts:
-      - "127.0.0.1"
+      - "localhost"
     ports: [3000]
   cloud_catalog:
     enabled: false
@@ -82,7 +82,7 @@ auth:
       allow_refresh_token: false
     mock_redirect:
       enabled: false
-      listen_addr: "127.0.0.1:8877"
+      listen_addr: "localhost:8877"
       path: "/oauth/callback"
       mode: "allow"
 
@@ -166,7 +166,7 @@ remote_agent:
 
 hosted:
   enabled: false
-  listen_addr: "127.0.0.1:8091"
+  listen_addr: "localhost:8091"
   transports:
     - "http"
     - "sse"

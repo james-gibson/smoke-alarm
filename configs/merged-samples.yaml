@@ -22,7 +22,7 @@ health:
   enabled: true
   # Each instance will bind its own health address based on its slot port.
   # Override per-instance with --health-addr if running manually.
-  listen_addr: "127.0.0.1:18190"
+  listen_addr: "localhost:18190"
   endpoints:
     healthz: "/healthz"
     readyz: "/readyz"
@@ -44,7 +44,7 @@ discovery:
   local_proxy_scan:
     enabled: false
     hosts:
-      - "127.0.0.1"
+      - "localhost"
     ports: [3000]
   cloud_catalog:
     enabled: false
@@ -91,7 +91,7 @@ auth:
     # Optional local callback mock endpoint used for allow/fail testing.
     mock_redirect:
       enabled: false
-      listen_addr: "127.0.0.1:8877"
+      listen_addr: "localhost:8877"
       path: "/oauth/callback"
       mode: "allow" # allow | fail
 # ── uvx MCP package targets ───────────────────────────────────────────────────
@@ -229,7 +229,7 @@ meta_config:
 # Embedded hosted MCP/ACP services exposed by this smoke alarm process.
 hosted:
   enabled: true
-  listen_addr: "127.0.0.1:18089"
+  listen_addr: "localhost:18089"
   transports: ["http"]
   protocols: ["mcp"]
   endpoints:
@@ -241,8 +241,8 @@ federation:
   # Slot claiming: the first process to bind base_port becomes the introducer.
   # Subsequent processes claim base_port+1, base_port+2, etc. as followers.
   # The introducer serves /introductions, /heartbeats, /membership on base_port.
-  base_port: 5900
-  max_port: 5910 # supports up to 4 instances (5100-5103)
+  base_port: 19100
+  max_port: 19110 # supports up to 10 instances
   # How often followers poll downstream peers' /status endpoints.
   poll_interval: "5s"
   # How often each instance re-announces itself to the introducer.
@@ -253,8 +253,8 @@ federation:
   heartbeat_timeout: "30s"
   # Upstream and downstream are left empty here — slot election is automatic.
   # For explicit topology, set:
-  #   upstream: "127.0.0.1:5100"         # follower points at introducer
-  #   downstream: ["127.0.0.1:5101"]     # introducer polls followers for /status
+  #   upstream: "localhost:5100"         # follower points at introducer
+  #   downstream: ["localhost:5101"]     # introducer polls followers for /status
   upstream: ""
   downstream: []
   rank: 0 # 0 = auto-detect from claimed port

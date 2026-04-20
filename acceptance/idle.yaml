@@ -1,0 +1,19 @@
+version: "1"
+
+tuner:
+  enabled: true
+  advertise: true
+  service_type: "_smoke-alarm._tcp"
+
+service:
+  name: “idle-demo-alarm” # e.g., "ocd-smoke-alarm"
+  environment: “idle-demo-A” # Environment tag
+
+known_state:
+  enabled: true
+  persist: true
+  sustain_success_before_mark_healthy: 5
+  classify_new_failures_after_healthy_as: "regression" # "regression" | string
+  outage_threshold_consecutive_failures: 10
+
+targets:

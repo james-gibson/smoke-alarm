@@ -11,7 +11,7 @@ service:
 
 health:
   enabled: true
-  listen_addr: "127.0.0.1:18190"
+  listen_addr: "localhost:18190"
   endpoints:
     healthz: "/healthz"
     readyz: "/readyz"
@@ -58,7 +58,6 @@ auth:
 # Add or remove entries in this list to test different packages.
 # Each entry runs: uvx <package> [args...]
 targets:
-
   - id: "uvx-mcp-fetch"
     enabled: true
     protocol: "mcp"
@@ -192,4 +191,3 @@ meta_config:
     token: "${TOKEN}"
     client_secret: "${CLIENT_SECRET}"
     endpoint: "${ENDPOINT}"
-

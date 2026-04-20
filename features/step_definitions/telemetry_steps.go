@@ -54,8 +54,8 @@ func resetTelState() {
 // See TF-TELEMETRY-7 in TASKS.md.
 func telExporterEndpoint() string {
 	// Always use a bare host:port — full URLs from config cause URL parse errors.
-	if telState.endpoint == "http://127.0.0.1:19999" {
-		return "127.0.0.1:19999"
+	if telState.endpoint == "http://localhost:19999" {
+		return "localhost:19999"
 	}
 	return "localhost:4318"
 }
@@ -423,7 +423,7 @@ func noExportRequestSent() error {
 
 func telemetryEndpointUnreachable() error {
 	// Use an address that will refuse connections.
-	telState.endpoint = "http://127.0.0.1:19999"
+	telState.endpoint = "http://localhost:19999"
 	return nil
 }
 

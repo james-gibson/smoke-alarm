@@ -120,7 +120,7 @@ func NewServer(opts Options) *Server {
 		opts.ServiceName = "ocd-smoke-alarm"
 	}
 	if strings.TrimSpace(opts.ListenAddr) == "" {
-		opts.ListenAddr = "127.0.0.1:8088"
+		opts.ListenAddr = "localhost:8088"
 	}
 	if strings.TrimSpace(opts.HealthzPath) == "" {
 		opts.HealthzPath = "/healthz"

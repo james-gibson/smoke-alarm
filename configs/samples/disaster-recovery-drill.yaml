@@ -27,7 +27,7 @@ service:
 
 health:
   enabled: true
-  listen_addr: "127.0.0.1:18088"
+  listen_addr: "localhost:18088"
   endpoints:
     healthz: "/healthz"
     readyz: "/readyz"
@@ -76,7 +76,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "DR: Region A Primary"
-    endpoint: "http://127.0.0.1:19501/mcp"
+    endpoint: "http://localhost:19501/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -94,7 +94,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "DR: Region A Secondary"
-    endpoint: "http://127.0.0.1:19502/mcp"
+    endpoint: "http://localhost:19502/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -112,7 +112,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "DR: Region B Failover"
-    endpoint: "http://127.0.0.1:19511/mcp"
+    endpoint: "http://localhost:19511/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -130,7 +130,7 @@ targets:
     enabled: true
     protocol: "http"
     name: "DR: Global Config Store"
-    endpoint: "http://127.0.0.1:19520/healthz"
+    endpoint: "http://localhost:19520/healthz"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -145,7 +145,7 @@ targets:
     enabled: true
     protocol: "http"
     name: "DR: Global Load Balancer"
-    endpoint: "http://127.0.0.1:19530/healthz"
+    endpoint: "http://localhost:19530/healthz"
     transport: "http"
     expected:
       healthy_status_codes: [200]

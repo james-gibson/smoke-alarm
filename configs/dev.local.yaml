@@ -11,7 +11,7 @@ service:
 
 health:
   enabled: true
-  listen_addr: "127.0.0.1:18088"
+  listen_addr: "localhost:18088"
   endpoints:
     healthz: "/healthz"
     readyz: "/readyz"
@@ -36,7 +36,7 @@ discovery:
   local_proxy_scan:
     enabled: false
     hosts:
-      - "127.0.0.1"
+      - "localhost"
     ports: [3000, 8080]
   cloud_catalog:
     enabled: true
@@ -82,7 +82,7 @@ targets:
     enabled: true
     protocol: "http"
     name: "Self Health Endpoint"
-    endpoint: "http://127.0.0.1:18088/healthz"
+    endpoint: "http://localhost:18088/healthz"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -108,7 +108,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Hosted MCP HTTP"
-    endpoint: "http://127.0.0.1:18091/mcp"
+    endpoint: "http://localhost:18091/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -140,7 +140,7 @@ targets:
     enabled: true
     protocol: "acp"
     name: "Hosted ACP HTTP"
-    endpoint: "http://127.0.0.1:18091/acp"
+    endpoint: "http://localhost:18091/acp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -172,7 +172,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Hosted MCP SSE"
-    endpoint: "http://127.0.0.1:18091/mcp?transport=sse"
+    endpoint: "http://localhost:18091/mcp?transport=sse"
     transport: "sse"
     expected:
       healthy_status_codes: [200]
@@ -198,7 +198,7 @@ targets:
     enabled: true
     protocol: "acp"
     name: "Hosted ACP SSE"
-    endpoint: "http://127.0.0.1:18091/acp?transport=sse"
+    endpoint: "http://localhost:18091/acp?transport=sse"
     transport: "sse"
     expected:
       healthy_status_codes: [200]
@@ -265,7 +265,7 @@ targets:
     enabled: false
     protocol: "acp"
     name: "Local ACP Stub"
-    endpoint: "ws://127.0.0.1:19002/acp"
+    endpoint: "ws://localhost:19002/acp"
     transport: "websocket"
     expected:
       healthy_status_codes: [101]
@@ -308,7 +308,7 @@ meta_config:
 
 hosted:
   enabled: true
-  listen_addr: "127.0.0.1:18091"
+  listen_addr: "localhost:18091"
   transports:
     - "http"
     - "sse"

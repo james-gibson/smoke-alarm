@@ -27,7 +27,7 @@ service:
 
 health:
   enabled: true
-  listen_addr: "127.0.0.1:18088"
+  listen_addr: "localhost:18088"
   endpoints:
     healthz: "/healthz"
     readyz: "/readyz"
@@ -82,7 +82,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Audit: Production MCP (Strict)"
-    endpoint: "http://127.0.0.1:19301/mcp"
+    endpoint: "http://localhost:19301/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -94,8 +94,8 @@ targets:
     auth:
       type: "oauth"
       client_id: "audit-mcp-client"
-      token_url: "http://127.0.0.1:19350/oauth/token"
-      redirect_url: "http://127.0.0.1:8877/oauth/callback"
+      token_url: "http://localhost:19350/oauth/token"
+      redirect_url: "http://localhost:8877/oauth/callback"
       callback_id: "audit-mcp-callback"
       scopes:
         - "mcp.read"
@@ -116,7 +116,7 @@ targets:
     enabled: true
     protocol: "acp"
     name: "Audit: ACP with Session Tracking"
-    endpoint: "http://127.0.0.1:19302/acp"
+    endpoint: "http://localhost:19302/acp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -126,7 +126,7 @@ targets:
     auth:
       type: "oauth"
       client_id: "audit-acp-client"
-      token_url: "http://127.0.0.1:19350/oauth/token"
+      token_url: "http://localhost:19350/oauth/token"
       scopes:
         - "acp.session"
         - "audit.log"
@@ -151,13 +151,13 @@ meta_config:
   output_dir: "./state/compliance-audit/meta-config"
   formats:
     - "json"
-    - "markdown"
+    # - "markdown"
   include_confidence: true
   include_provenance: true
 
 telemetry:
   enabled: true
-  endpoint: "http://127.0.0.1:19401/otel"
+  endpoint: "http://localhost:19401/otel"
   service_name: "ocd-smoke-alarm-compliance"
   export_interval: "30s"
 

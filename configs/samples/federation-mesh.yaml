@@ -14,7 +14,7 @@ version: "1"
 #   go run ./cmd/ocd-smoke-alarm serve --mode=foreground --config=configs/samples/federation-mesh.yaml
 #
 # Each process will self-assign its role. The introducer's membership view is
-# readable at http://127.0.0.1:5100/membership once all three are running.
+# readable at http://localhost:5100/membership once all three are running.
 
 service:
   name: "ocd-smoke-alarm"
@@ -29,7 +29,7 @@ health:
   enabled: true
   # Each instance will bind its own health address based on its slot port.
   # Override per-instance with --health-addr if running manually.
-  listen_addr: "127.0.0.1:18088"
+  listen_addr: "localhost:18088"
   endpoints:
     healthz: "/healthz"
     readyz: "/readyz"
@@ -136,7 +136,7 @@ remote_agent:
 
 hosted:
   enabled: false
-  listen_addr: "127.0.0.1:18091"
+  listen_addr: "localhost:18091"
   transports:
     - "http"
     - "sse"
@@ -170,7 +170,7 @@ federation:
   # Subsequent processes claim base_port+1, base_port+2, etc. as followers.
   # The introducer serves /introductions, /heartbeats, /membership on base_port.
   base_port: 5100
-  max_port: 5103  # supports up to 4 instances (5100-5103)
+  max_port: 5103 # supports up to 4 instances (5100-5103)
 
   # How often followers poll downstream peers' /status endpoints.
   poll_interval: "5s"
@@ -186,8 +186,8 @@ federation:
 
   # Upstream and downstream are left empty here — slot election is automatic.
   # For explicit topology, set:
-  #   upstream: "127.0.0.1:5100"         # follower points at introducer
-  #   downstream: ["127.0.0.1:5101"]     # introducer polls followers for /status
+  #   upstream: "localhost:5100"         # follower points at introducer
+  #   downstream: ["localhost:5101"]     # introducer polls followers for /status
   upstream: ""
   downstream: []
-  rank: 0  # 0 = auto-detect from claimed port
+  rank: 0 # 0 = auto-detect from claimed port

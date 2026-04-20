@@ -229,7 +229,7 @@ func isLocalHTTPTokenURL(u *url.URL) bool {
 		return false
 	}
 	h := strings.ToLower(u.Hostname())
-	return h == "localhost" || h == "127.0.0.1" || h == "::1"
+	return h == "localhost" || h == "localhost" || h == "::1"
 }
 
 // HookOAuthValidator allows callers to inject custom oauth validation logic.

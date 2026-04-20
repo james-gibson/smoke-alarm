@@ -17,7 +17,7 @@ This document is optimized for unattended operations on Linux and macOS.
 ## Scope and Assumptions
 
 - The service binary is `ocd-smoke-alarm`.
-- A valid config file exists (default: `configs/sample.yaml` or environment-provided path).
+- Sample config files exists (default: `configs/sample.yaml` or `configs/samples/*.yml` or environment-provided path).
 - Agent has permissions to:
   - stop/start process
   - replace binary/artifacts
@@ -54,9 +54,9 @@ Recommended paths (customizable):
 - Binary:
   - `./bin/ocd-smoke-alarm`
 - Config:
-  - `./configs/production.yaml`
+  - `./configs/samples/mcp-add-meta-20260408-045454.yaml`
 - PID file:
-  - `./run/ocd-smoke-alarm.pid`
+  - `./run/ocd-smoke-alarm.agent-runbook.pid`
 - Lock file:
   - `./run/ocd-smoke-alarm.update.lock`
 - Active version marker:

@@ -12,7 +12,7 @@ service:
 
 health:
   enabled: true
-  listen_addr: "127.0.0.1:8088"
+  listen_addr: "localhost:8088"
   self_check: true
   endpoints:
     healthz: "/healthz"
@@ -39,7 +39,7 @@ discovery:
   local_proxy_scan:
     enabled: true
     hosts:
-      - "127.0.0.1"
+      - "localhost"
       - "localhost"
     ports: [3000, 4317, 4318, 8080, 9000]
   cloud_catalog:
@@ -137,7 +137,7 @@ targets:
       type: "oauth"
       client_id: "ocd-smoke-alarm"
       token_url: "https://auth.example.com/oauth/token"
-      redirect_url: "http://127.0.0.1:8877/oauth/callback"
+      redirect_url: "http://localhost:8877/oauth/callback"
       callback_id: "acp-remote-agent-callback"
       scopes:
         - "acp.read"
@@ -158,7 +158,7 @@ targets:
     enabled: true
     protocol: "mcp"
     name: "Local MCP Proxy"
-    endpoint: "http://127.0.0.1:3000/mcp"
+    endpoint: "http://localhost:3000/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -178,10 +178,10 @@ targets:
         - "initialize"
       hurl_tests:
         - name: "mcp-local-proxy-healthz"
-          endpoint: "http://127.0.0.1:3000/healthz"
+          endpoint: "http://localhost:3000/healthz"
           method: "GET"
         - name: "mcp-local-proxy-readyz"
-          endpoint: "http://127.0.0.1:3000/readyz"
+          endpoint: "http://localhost:3000/readyz"
           method: "GET"
 
   # Local stdio MCP server smoke target (example)
@@ -219,7 +219,7 @@ targets:
         - "resources/list"
       hurl_tests:
         - name: "preflight-local-health"
-          endpoint: "http://127.0.0.1:3000/healthz"
+          endpoint: "http://localhost:3000/healthz"
           method: "GET"
 
   # Local stdio ACP server smoke target (example)
@@ -256,7 +256,7 @@ targets:
         - "prompt/turn"
       hurl_tests:
         - name: "preflight-acp-health"
-          endpoint: "http://127.0.0.1:3001/healthz"
+          endpoint: "http://localhost:3001/healthz"
           method: "GET"
 
   # OpenTelemetry collector liveness target (optional)
@@ -264,7 +264,7 @@ targets:
     enabled: true
     protocol: "http"
     name: "OTel Collector Health"
-    endpoint: "http://127.0.0.1:13133/healthz"
+    endpoint: "http://localhost:13133/healthz"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -276,7 +276,7 @@ targets:
       retries: 1
       hurl_tests:
         - name: "otel-healthz-stop-gap"
-          endpoint: "http://127.0.0.1:13133/healthz"
+          endpoint: "http://localhost:13133/healthz"
           method: "GET"
 
 known_state:
@@ -301,7 +301,7 @@ meta_config:
 
 remote_agent:
   managed_updates: true
-  control_endpoint: "http://127.0.0.1:8099"
+  control_endpoint: "http://localhost:8099"
   update:
     strategy: "rolling-single"
     stop_command: "ocd-smoke-alarm ops stop"
@@ -315,7 +315,7 @@ remote_agent:
 
 hosted:
   enabled: false
-  listen_addr: "127.0.0.1:8091"
+  listen_addr: "localhost:8091"
   transports:
     - "http"
     - "sse"

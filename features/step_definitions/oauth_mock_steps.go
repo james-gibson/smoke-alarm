@@ -166,7 +166,7 @@ func ocdSmokeAlarmStartsWithThatConfig() error {
 	}
 	addr := oauthState.mockCfg.ListenAddr
 	if addr == "" {
-		addr = "127.0.0.1:8877"
+		addr = "localhost:8877"
 	}
 	path := oauthState.mockCfg.Path
 	if path == "" {
@@ -212,7 +212,7 @@ func thePathIsServed(path string) error {
 func aConfigWithMockRedirectDisabled() error {
 	oauthState.mockCfg = config.OAuthMockRedirectConfig{
 		Enabled:    false,
-		ListenAddr: "127.0.0.1:28877",
+		ListenAddr: "localhost:28877",
 		Path:       "/oauth/callback",
 		Mode:       "allow",
 	}
@@ -222,7 +222,7 @@ func aConfigWithMockRedirectDisabled() error {
 func aConfigFileWithMockRedirectDisabled() error {
 	oauthState.mockCfg = config.OAuthMockRedirectConfig{
 		Enabled:    false,
-		ListenAddr: "127.0.0.1:28877",
+		ListenAddr: "localhost:28877",
 		Path:       "/oauth/callback",
 		Mode:       "allow",
 	}
@@ -233,7 +233,7 @@ func aConfigFileWithMockRedirectDisabled() error {
 func noListenerIsBoundOnMockRedirect() error {
 	addr := oauthState.mockCfg.ListenAddr
 	if addr == "" {
-		addr = "127.0.0.1:28877"
+		addr = "localhost:28877"
 	}
 	statusURL := fmt.Sprintf("http://%s/oauth/mock/status", addr)
 	client := &http.Client{Timeout: 300 * time.Millisecond}
