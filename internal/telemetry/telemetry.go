@@ -27,7 +27,6 @@ func NewExporter(endpoint, serviceName string) (*Exporter, error) {
 
 	exporter, err := otlpmetrichttp.New(context.Background(),
 		otlpmetrichttp.WithEndpoint(endpoint),
-		otlpmetrichttp.WithInsecure(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("create OTEL exporter: %w", err)
