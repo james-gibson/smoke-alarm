@@ -187,7 +187,6 @@ func (s *Server) snapshotResponse() membershipResponse {
 
 func (s *Server) ageOutLoop(ctx context.Context) {
 	ticker := time.NewTicker(s.opts.AgeOutInterval)
-	// defer ticker.Stop()
 
 	for {
 		select {
