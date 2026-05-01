@@ -16,4 +16,8 @@ known_state:
   classify_new_failures_after_healthy_as: "regression" # "regression" | string
   outage_threshold_consecutive_failures: 10
 
+telemetry:
+  enabled: true
+  service_name: idle_demo
+  endpoint: api.honeycomb.io:443
 targets:
