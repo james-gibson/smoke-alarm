@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/james-gibson/smoke-alarm/refs/heads/main/configs/schema/config.schema.json",
+  "$id": "https://raw.githubusercontent.com/james-gibson/smoke-alarm/refs/heads/main/configs/schema/self-description.schema.json",
   "title": "Smoke Alarm Config",
   "description": "Configuration schema for smoke-alarm instances",
   "type": "object",
