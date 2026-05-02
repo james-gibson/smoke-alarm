@@ -1,446 +1,365 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/ocd-smoke-alarm/self-description.schema.json",
-  "title": "ocd-smoke-alarm self-description",
-  "description": "Machine-readable description of an ocd-smoke-alarm instance, its capabilities, endpoints, and permission model. Designed for third-party clients and accessibility auditors.",
+  "$id": "https://raw.githubusercontent.com/james-gibson/smoke-alarm/refs/heads/main/configs/schema/config.schema.json",
+  "title": "Smoke Alarm Config",
+  "description": "Configuration schema for smoke-alarm instances",
   "type": "object",
-  "required": ["version", "service", "health", "capabilities"],
-  "additionalProperties": false,
   "properties": {
-    "$schema": {
-      "description": "JSON Schema reference for validation",
-      "type": "string"
-    },
-    "version": {
-      "description": "Self-description schema version",
-      "type": "string",
-      "const": "1"
-    },
+    "version": { "type": "string" },
+
     "service": {
-      "description": "Identity and operational mode of this instance",
       "type": "object",
-      "required": ["name", "version", "mode"],
-      "additionalProperties": false,
       "properties": {
-        "name": {
-          "description": "Service name",
-          "type": "string"
-        },
-        "mode": {
-          "description": "Current operational mode",
-          "type": "string",
-          "enum": ["foreground", "background", "headless"]
-        },
-        "environment": {
-          "description": "Deployment environment label",
-          "type": "string"
-        },
-        "started_at": {
-          "description": "ISO 8601 timestamp of instance start",
-          "type": "string",
-          "format": "date-time"
-        }
+        "name":          { "type": "string" },
+        "environment":   { "type": "string" },
+        "mode":          { "type": "string", "enum": ["foreground", "background"] },
+        "log_level":     { "type": "string", "enum": ["debug", "info", "warn", "error"] },
+        "poll_interval": { "type": "string", "description": "Duration string e.g. '10s', '5m'" },
+        "timeout":       { "type": "string", "description": "Global timeout duration string" },
+        "max_workers":   { "type": "integer" }
       }
     },
+
     "health": {
-      "description": "Health and readiness endpoint paths",
       "type": "object",
-      "required": ["endpoints"],
-      "additionalProperties": false,
       "properties": {
-        "listen_addr": {
-          "description": "Address the health server is bound to",
-          "type": "string"
-        },
+        "enabled":     { "type": "boolean" },
+        "listen_addr": { "type": "string" },
         "endpoints": {
           "type": "object",
-          "additionalProperties": false,
           "properties": {
-            "healthz": {
-              "description": "Liveness probe path",
-              "type": "string"
-            },
-            "readyz": {
-              "description": "Readiness probe path",
-              "type": "string"
-            },
-            "status": {
-              "description": "Detailed status path (target states, regressions)",
-              "type": "string"
-            },
-            "self_description": {
-              "description": "Path serving this self-description document",
-              "type": "string"
-            }
+            "healthz": { "type": "string" },
+            "readyz":  { "type": "string" },
+            "status":  { "type": "string" }
           }
         }
       }
     },
-    "capabilities": {
-      "description": "What this instance can do, organized by category",
+
+    "runtime": {
       "type": "object",
-      "additionalProperties": false,
       "properties": {
-        "monitoring": {
-          "description": "Target monitoring capabilities",
+        "lock_file":                 { "type": "string" },
+        "state_dir":                 { "type": "string" },
+        "baseline_file":             { "type": "string" },
+        "event_history_size":        { "type": "integer" },
+        "graceful_shutdown_timeout": { "type": "string" },
+        "session_ttl":               { "type": "string" }
+      }
+    },
+
+    "discovery": {
+      "type": "object",
+      "properties": {
+        "enabled":             { "type": "boolean" },
+        "interval":            { "type": "string" },
+        "include_local_paths": { "type": "array", "items": { "type": "string" } },
+        "include_env_vars":    { "type": "array", "items": { "type": "string" } },
+        "local_proxy_scan": {
           "type": "object",
-          "additionalProperties": false,
           "properties": {
-            "protocols": {
-              "description": "Protocols this instance can validate",
-              "type": "array",
-              "items": {
-                "type": "string",
-                "enum": ["mcp", "acp", "http"]
-              }
-            },
-            "transports": {
-              "description": "Transport types supported for probing",
-              "type": "array",
-              "items": {
-                "type": "string",
-                "enum": ["http", "https", "sse", "websocket", "stdio"]
-              }
-            },
-            "handshake_profiles": {
-              "description": "Available handshake validation depths",
-              "type": "array",
-              "items": {
-                "type": "string",
-                "enum": ["none", "base", "strict"]
-              }
-            },
-            "regression_detection": {
-              "description": "Whether known-good baseline tracking is enabled",
-              "type": "boolean"
-            },
-            "safety_checks": {
-              "description": "Whether HURL pre-protocol safety checks are enabled",
-              "type": "boolean"
-            }
+            "enabled": { "type": "boolean" },
+            "hosts":   { "type": "array", "items": { "type": "string" } },
+            "ports":   { "type": "array", "items": { "type": "integer" } }
           }
         },
-        "discovery": {
-          "description": "Target discovery capabilities",
+        "cloud_catalog": {
           "type": "object",
-          "additionalProperties": false,
           "properties": {
-            "enabled": {
-              "type": "boolean"
-            },
-            "sources": {
-              "description": "Active discovery source types",
-              "type": "array",
-              "items": {
-                "type": "string",
-                "enum": [
-                  "static",
-                  "environment",
-                  "local_proxy",
-                  "cloud_catalog",
-                  "llms_txt"
-                ]
-              }
-            },
-            "llms_txt_uris": {
-              "description": "Registered authoritative llms.txt URIs being fetched",
-              "type": "array",
-              "items": {
-                "type": "string",
-                "format": "uri"
-              }
-            }
+            "enabled": { "type": "boolean" },
+            "urls":    { "type": "array", "items": { "type": "string" } }
           }
         },
-        "hosted": {
-          "description": "Embedded MCP/ACP endpoints hosted by this instance",
+        "llms_txt": {
           "type": "object",
-          "additionalProperties": false,
           "properties": {
-            "enabled": {
-              "type": "boolean"
-            },
-            "listen_addr": {
-              "type": "string"
-            },
-            "endpoints": {
-              "description": "Hosted protocol endpoint paths",
+            "enabled":                 { "type": "boolean" },
+            "remote_uris":             { "type": "array", "items": { "type": "string" } },
+            "fetch_timeout":           { "type": "string" },
+            "require_https":           { "type": "boolean" },
+            "auto_register_as_targets":{ "type": "boolean" },
+            "auto_register_oauth":     { "type": "boolean" }
+          }
+        }
+      }
+    },
+
+    "alerts": {
+      "type": "object",
+      "properties": {
+        "aggressive":                        { "type": "boolean" },
+        "notify_on_regression_immediately":  { "type": "boolean" },
+        "retry_before_escalation":           { "type": "integer" },
+        "dedupe_window":                     { "type": "string" },
+        "cooldown":                          { "type": "string" },
+        "severity": {
+          "type": "object",
+          "properties": {
+            "healthy":    { "type": "string" },
+            "degraded":   { "type": "string" },
+            "regression": { "type": "string" },
+            "outage":     { "type": "string" }
+          }
+        },
+        "sinks": {
+          "type": "object",
+          "properties": {
+            "log": {
               "type": "object",
-              "additionalProperties": false,
+              "properties": { "enabled": { "type": "boolean" } }
+            },
+            "os_notification": {
+              "type": "object",
               "properties": {
-                "mcp": { "type": "string" },
-                "acp": { "type": "string" },
-                "a2a": { "type": "string" }
+                "enabled":      { "type": "boolean" },
+                "title_prefix": { "type": "string" }
               }
-            },
-            "transports": {
-              "description": "Transports enabled for hosted endpoints",
-              "type": "array",
-              "items": {
-                "type": "string",
-                "enum": ["http", "sse"]
-              }
-            },
-            "protocols": {
-              "description": "Protocols enabled for hosted endpoints",
-              "type": "array",
-              "items": {
-                "type": "string",
-                "enum": ["mcp", "acp", "a2a"]
-              }
-            }
-          }
-        },
-        "dynamic_config": {
-          "description": "Dynamic config artifact generation",
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "enabled": {
-              "type": "boolean"
-            },
-            "formats": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "enum": ["json", "markdown"]
-              }
-            },
-            "serve_base_url": {
-              "description": "Base URL for static serving of generated artifacts",
-              "type": "string"
-            }
-          }
-        },
-        "meta_config": {
-          "description": "Meta-config template generation for mcp-add",
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "enabled": {
-              "type": "boolean"
-            },
-            "formats": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "enum": ["yaml", "json"]
-              }
-            }
-          }
-        },
-        "federation": {
-          "description": "Multi-instance federation (experimental)",
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "enabled": {
-              "type": "boolean"
-            },
-            "role": {
-              "description": "Current federation role",
-              "type": "string",
-              "enum": ["introducer", "follower", "standalone"]
             }
           }
         }
       }
     },
-    "permissions": {
-      "description": "What this service reads, probes, and modifies. Follows ask/allow/deny convention.",
+
+    "auth": {
       "type": "object",
-      "additionalProperties": false,
       "properties": {
-        "filesystem": {
-          "description": "Filesystem access patterns",
+        "keystore": {
           "type": "object",
-          "additionalProperties": false,
           "properties": {
-            "read": {
-              "description": "Paths the service reads (configs, state, baseline files)",
-              "type": "array",
-              "items": { "type": "string" }
-            },
-            "write": {
-              "description": "Paths the service writes (state dir, dynamic configs, lock files)",
-              "type": "array",
-              "items": { "type": "string" }
-            }
+            "enabled":  { "type": "boolean" },
+            "provider": { "type": "string" }
           }
         },
-        "network": {
-          "description": "Network access patterns",
+        "redaction": {
           "type": "object",
-          "additionalProperties": false,
           "properties": {
-            "probe": {
-              "description": "What the service connects to for health checks",
-              "type": "string",
-              "enum": [
-                "configured_targets_only",
-                "discovery_derived",
-                "unrestricted"
-              ]
-            },
-            "listen": {
-              "description": "Ports/addresses the service binds to",
-              "type": "array",
-              "items": { "type": "string" }
-            },
-            "outbound_domains": {
-              "description": "Domains the service may contact (llms.txt fetches, cloud catalogs)",
-              "type": "array",
-              "items": { "type": "string" }
-            }
+            "enabled": { "type": "boolean" },
+            "mask":    { "type": "string" }
           }
         },
-        "secrets": {
-          "description": "How the service handles credentials",
+        "oauth": {
           "type": "object",
-          "additionalProperties": false,
           "properties": {
-            "keystore": {
-              "description": "Whether OS keystore is used for secret material",
-              "type": "boolean"
+            "enabled":                  { "type": "boolean" },
+            "token_grace_period":       { "type": "string" },
+            "unattended": {
+              "type": "object",
+              "properties": {
+                "enabled":                   { "type": "boolean" },
+                "allow_device_code":         { "type": "boolean" },
+                "allow_client_credentials":  { "type": "boolean" },
+                "allow_refresh_token":       { "type": "boolean" }
+              }
             },
-            "env_refs": {
-              "description": "Environment variable patterns used for secret injection",
-              "type": "array",
-              "items": { "type": "string" }
-            },
-            "redaction": {
-              "description": "Whether auth fields are redacted in logs and status output",
-              "type": "boolean"
+            "mock_redirect": {
+              "type": "object",
+              "properties": {
+                "enabled":     { "type": "boolean" },
+                "listen_addr": { "type": "string" },
+                "path":        { "type": "string" },
+                "mode":        { "type": "string", "enum": ["allow", "fail"] }
+              }
             }
           }
         }
       }
     },
-    "mcp": {
-      "description": "MCP server configurations being monitored, using OpenCode-compatible shapes",
-      "type": "object",
-      "propertyNames": { "type": "string" },
-      "additionalProperties": {
-        "anyOf": [
-          {
-            "description": "Local MCP server (stdio command)",
-            "type": "object",
-            "required": ["type", "command"],
-            "additionalProperties": false,
-            "properties": {
-              "type": {
-                "type": "string",
-                "const": "local"
-              },
-              "command": {
-                "description": "Command and arguments to run the MCP server",
-                "type": "array",
-                "items": { "type": "string" }
-              },
-              "environment": {
-                "description": "Environment variables for the MCP server process",
-                "type": "object",
-                "propertyNames": { "type": "string" },
-                "additionalProperties": { "type": "string" }
-              },
-              "enabled": { "type": "boolean" },
-              "timeout": {
-                "description": "Timeout in ms for MCP server requests",
-                "type": "integer",
-                "exclusiveMinimum": 0
-              }
-            }
-          },
-          {
-            "description": "Remote MCP server (HTTP/SSE/WS)",
-            "type": "object",
-            "required": ["type", "url"],
-            "additionalProperties": false,
-            "properties": {
-              "type": {
-                "type": "string",
-                "const": "remote"
-              },
-              "url": {
-                "description": "URL of the remote MCP server",
-                "type": "string",
-                "format": "uri"
-              },
-              "enabled": { "type": "boolean" },
-              "headers": {
-                "description": "Headers to send with requests",
-                "type": "object",
-                "propertyNames": { "type": "string" },
-                "additionalProperties": { "type": "string" }
-              },
-              "oauth": {
-                "description": "OAuth configuration (false to disable auto-detection)",
-                "anyOf": [
-                  {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "properties": {
-                      "client_id": { "type": "string" },
-                      "client_secret_ref": {
-                        "description": "Reference to client secret (env:// or keychain://)",
-                        "type": "string"
-                      },
-                      "scope": { "type": "string" },
-                      "token_url": {
-                        "type": "string",
-                        "format": "uri"
-                      }
-                    }
-                  },
-                  {
-                    "type": "boolean",
-                    "const": false
-                  }
-                ]
-              },
-              "timeout": {
-                "description": "Timeout in ms for MCP server requests",
-                "type": "integer",
-                "exclusiveMinimum": 0
-              }
-            }
-          }
-        ]
-      }
-    },
+
     "targets": {
-      "description": "Summary of monitored targets and their current state (populated at runtime)",
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["id", "protocol", "transport"],
-        "additionalProperties": false,
+        "required": ["id", "protocol", "endpoint"],
         "properties": {
-          "id": { "type": "string" },
-          "name": { "type": "string" },
-          "protocol": {
-            "type": "string",
-            "enum": ["mcp", "acp", "http"]
+          "id":        { "type": "string" },
+          "enabled":   { "type": "boolean" },
+          "protocol":  { "type": "string", "enum": ["mcp", "acp", "http"] },
+          "name":      { "type": "string" },
+          "endpoint":  { "type": "string" },
+          "transport": { "type": "string", "enum": ["http", "stdio", "sse"] },
+          "stdio": {
+            "type": "object",
+            "properties": {
+              "command": { "type": "string" },
+              "args":    { "type": "array", "items": { "type": "string" } },
+              "env":     { "type": "object", "additionalProperties": { "type": "string" } },
+              "cwd":     { "type": "string" }
+            }
           },
-          "transport": {
-            "type": "string",
-            "enum": ["http", "https", "sse", "websocket", "stdio"]
+          "expected": {
+            "type": "object",
+            "properties": {
+              "healthy_status_codes":  { "type": "array", "items": { "type": "integer" } },
+              "min_capabilities":      { "type": "array", "items": { "type": "string" } },
+              "known_agent_count_min": { "type": "integer" },
+              "expected_version":      { "type": "string" }
+            }
           },
-          "endpoint": { "type": "string" },
-          "state": {
-            "description": "Current health state (populated at runtime, absent in static file)",
-            "type": "string",
-            "enum": ["HEALTHY", "DEGRADED", "REGRESSION", "OUTAGE", "UNKNOWN"]
+          "auth": {
+            "type": "object",
+            "properties": {
+              "type":         { "type": "string", "enum": ["none", "oauth", "bearer", "mtls"] },
+              "client_id":    { "type": "string" },
+              "token_url":    { "type": "string" },
+              "redirect_url": { "type": "string" },
+              "callback_id":  { "type": "string" },
+              "secret_ref":   { "type": "string" },
+              "scopes":       { "type": "array", "items": { "type": "string" } },
+              "header":       { "type": "string" },
+              "key_name":     { "type": "string" },
+              "cert_ref":     { "type": "string" },
+              "key_ref":      { "type": "string" }
+            }
           },
-          "auth_type": {
-            "type": "string",
-            "enum": ["none", "bearer", "apikey", "oauth"]
-          },
-          "handshake_profile": {
-            "type": "string",
-            "enum": ["none", "base", "strict"]
-          },
-          "enabled": { "type": "boolean" }
+          "check": {
+            "type": "object",
+            "properties": {
+              "interval":          { "type": "string" },
+              "timeout":           { "type": "string" },
+              "retries":           { "type": "integer" },
+              "handshake_profile": { "type": "string", "enum": ["strict", "none", "base"] },
+              "required_methods":  { "type": "array", "items": { "type": "string" } },
+              "hurl_tests": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name":     { "type": "string" },
+                    "endpoint": { "type": "string" },
+                    "method":   { "type": "string", "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"] }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "known_state": {
+      "type": "object",
+      "properties": {
+        "enabled":                              { "type": "boolean" },
+        "persist":                              { "type": "boolean" },
+        "sustain_success_before_mark_healthy":  { "type": "integer" },
+        "classify_new_failures_after_healthy_as": { "type": "string" },
+        "outage_threshold_consecutive_failures":  { "type": "integer" }
+      }
+    },
+
+    "meta_config": {
+      "type": "object",
+      "properties": {
+        "enabled":             { "type": "boolean" },
+        "output_dir":          { "type": "string" },
+        "formats":             { "type": "array", "items": { "type": "string", "enum": ["yaml", "json", "markdown"] } },
+        "include_confidence":  { "type": "boolean" },
+        "include_provenance":  { "type": "boolean" },
+        "placeholders":        { "type": "object", "additionalProperties": { "type": "string" } }
+      }
+    },
+
+    "dynamic_config": {
+      "type": "object",
+      "properties": {
+        "enabled":            { "type": "boolean" },
+        "directory":          { "type": "string" },
+        "formats":            { "type": "array", "items": { "type": "string" } },
+        "serve_base_url":     { "type": "string" },
+        "allow_overwrite":    { "type": "boolean" },
+        "require_unique_ids": { "type": "boolean" }
+      }
+    },
+
+    "remote_agent": {
+      "type": "object",
+      "properties": {
+        "managed_updates":    { "type": "boolean" },
+        "control_endpoint":   { "type": "string" },
+        "update": {
+          "type": "object",
+          "properties": {
+            "strategy":            { "type": "string" },
+            "stop_command":        { "type": "string" },
+            "start_command":       { "type": "string" },
+            "verify_command":      { "type": "string" },
+            "rollback_on_failure": { "type": "boolean" },
+            "max_wait_for_healthy":{ "type": "string" }
+          }
+        },
+        "safety": {
+          "type": "object",
+          "properties": {
+            "require_lock": { "type": "boolean" },
+            "lock_ttl":     { "type": "string" }
+          }
+        }
+      }
+    },
+
+    "hosted": {
+      "type": "object",
+      "properties": {
+        "enabled":     { "type": "boolean" },
+        "listen_addr": { "type": "string" },
+        "transports":  { "type": "array", "items": { "type": "string", "enum": ["http", "sse"] } },
+        "protocols":   { "type": "array", "items": { "type": "string", "enum": ["mcp", "acp", "a2a"] } },
+        "endpoints": {
+          "type": "object",
+          "properties": {
+            "mcp": { "type": "string" },
+            "acp": { "type": "string" },
+            "a2a": { "type": "string" }
+          }
+        }
+      }
+    },
+
+    "federation": {
+      "type": "object",
+      "properties": {
+        "enabled":              { "type": "boolean" },
+        "base_port":            { "type": "integer" },
+        "max_port":             { "type": "integer" },
+        "poll_interval":        { "type": "string" },
+        "announce_interval":    { "type": "string" },
+        "heartbeat_interval":   { "type": "string" },
+        "heartbeat_timeout":    { "type": "string" },
+        "upstream":             { "type": "string" },
+        "downstream":           { "type": "array", "items": { "type": "string" } },
+        "rank":                 { "type": "integer" }
+      }
+    },
+
+    "telemetry": {
+      "type": "object",
+      "properties": {
+        "enabled":         { "type": "boolean" },
+        "endpoint":        { "type": "string" },
+        "service_name":    { "type": "string" },
+        "export_interval": { "type": "string" }
+      }
+    },
+
+    "tuner": {
+      "type": "object",
+      "properties": {
+        "enabled":      { "type": "boolean" },
+        "advertise":    { "type": "boolean" },
+        "service_type": { "type": "string" },
+        "audience": {
+          "type": "object",
+          "properties": {
+            "enabled":  { "type": "boolean" },
+            "endpoint": { "type": "string" }
+          }
+        },
+        "caller_hook": {
+          "type": "object",
+          "properties": {
+            "enabled":      { "type": "boolean" },
+            "mcp_response": { "type": "boolean" }
+          }
         }
       }
     }
