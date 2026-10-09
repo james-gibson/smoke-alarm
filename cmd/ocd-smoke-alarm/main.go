@@ -1207,6 +1207,9 @@ func cmdOps(args []string) error {
 	}
 
 	switch args[0] {
+	case "-h", "--help", "help":
+		printOpsUsage()
+		return nil
 	case "stop":
 		return cmdOpsStop(args[1:])
 	case "status":
@@ -1218,6 +1221,18 @@ func cmdOps(args []string) error {
 	default:
 		return fmt.Errorf("unknown ops subcommand %q", args[0])
 	}
+}
+
+func printOpsUsage() {
+	fmt.Printf(`%s %s
+
+Usage:
+  %s ops stop       [--pid-file=path] [--wait=15s]
+  %s ops status     [--pid-file=path] [--health-url=url]
+  %s ops reload     --config=...
+  %s ops self-check --config=... [--json]
+
+`, appName, version(), appName, appName, appName, appName)
 }
 
 func cmdOpsStop(args []string) error {
