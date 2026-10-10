@@ -95,36 +95,68 @@ func InitializeSSETransportSteps(ctx *godog.ScenarioContext) {
 
 // ── stub implementations ───────────────────────────────────────────────────
 
-func theSSEEndpointIsReachable(endpoint string) error                       { return godog.ErrPending }
-func theEndpointStreamsValidMCPEvents() error                               { return godog.ErrPending }
-func theEndpointStreamsValidACPEvents() error                               { return godog.ErrPending }
-func theProbeEstablishesSSEConnection() error                               { return godog.ErrPending }
-func theSSEEndpointIsUnreachable(endpoint string) error                     { return godog.ErrPending }
-func theSSEEndpointClosesStreamPrematurely(endpoint string) error           { return godog.ErrPending }
-func theTargetHasAuthType(id, authType string) error                        { return godog.ErrPending }
-func theSecretRefResolvesToValidToken(ref string) error                     { return godog.ErrPending }
-func theSSEConnectionRequestContainsHeader(header string) error             { return godog.ErrPending }
-func theTokenValueIsNotLoggedInPlaintext() error                            { return godog.ErrPending }
-func theTargetHasHandshakeProfile(id, profile string) error                 { return godog.ErrPending }
-func noRequiredMethodsCheckIsPerformed() error                              { return godog.ErrPending }
-func classificationIsBasedSolelyOnHTTPStatus() error                        { return godog.ErrPending }
-func theEndpointRespondsToAllMethodsIn(field string) error                  { return godog.ErrPending }
-func theTargetHasHurlTestNamed(id, name string) error                       { return godog.ErrPending }
+func theSSEEndpointIsReachable(endpoint string) error { return godog.ErrPending }
+
+func theEndpointStreamsValidMCPEvents() error { return godog.ErrPending }
+
+func theEndpointStreamsValidACPEvents() error { return godog.ErrPending }
+
+func theProbeEstablishesSSEConnection() error { return godog.ErrPending }
+
+func theSSEEndpointIsUnreachable(endpoint string) error { return godog.ErrPending }
+
+func theSSEEndpointClosesStreamPrematurely(endpoint string) error { return godog.ErrPending }
+
+func theTargetHasAuthType(id, authType string) error { return godog.ErrPending }
+
+func theSecretRefResolvesToValidToken(ref string) error { return godog.ErrPending }
+
+func theSSEConnectionRequestContainsHeader(header string) error { return godog.ErrPending }
+
+func theTokenValueIsNotLoggedInPlaintext() error { return godog.ErrPending }
+
+func theTargetHasHandshakeProfile(id, profile string) error { return godog.ErrPending }
+
+func noRequiredMethodsCheckIsPerformed() error { return godog.ErrPending }
+
+func classificationIsBasedSolelyOnHTTPStatus() error { return godog.ErrPending }
+
+func theEndpointRespondsToAllMethodsIn(field string) error { return godog.ErrPending }
+
+func theTargetHasHurlTestNamed(id, name string) error { return godog.ErrPending }
+
 func thePreflightEndpointReturnsStatusCode(endpoint string, code int) error { return godog.ErrPending }
-func theHURLPreflightIsExecutedBeforeSSE(name string) error                 { return godog.ErrPending }
-func theSSEConnectionOnlyAfterPreflightPasses() error                       { return godog.ErrPending }
-func theSSEConnectionIsNotAttempted() error                                 { return godog.ErrPending }
-func theConfigHasSettingSetToInt(config, key string, val int) error         { return godog.ErrPending }
-func allFourTargetsAreEnabled() error                                       { return godog.ErrPending }
-func aProbeCycleRuns() error                                                { return godog.ErrPending }
-func allFourProbesAreDispatchedConcurrently() error                         { return godog.ErrPending }
-func noMoreThanNWorkersActive(n int) error                                  { return godog.ErrPending }
-func configFlagIsTrueInConfig(flag, config string) error                    { return godog.ErrPending }
-func aManagedUpdateIsTriggered() error                                      { return godog.ErrPending }
-func theCommandIsExecutedFirst(cmd string) error                            { return godog.ErrPending }
-func theCommandIsExecutedAfterStop(cmd string) error                        { return godog.ErrPending }
-func theCommandIsExecutedAfterStart(cmd string) error                       { return godog.ErrPending }
-func onVerifyFailurePreviousVersionRestored() error                         { return godog.ErrPending }
-func theVerifyCommandExitsNonZero() error                                   { return godog.ErrPending }
-func thePreviousBinaryVersionIsRestored() error                             { return godog.ErrPending }
-func aREGRESSIONEventIsEmitted() error                                      { return godog.ErrPending }
+
+func theHURLPreflightIsExecutedBeforeSSE(name string) error { return godog.ErrPending }
+
+func theSSEConnectionOnlyAfterPreflightPasses() error { return godog.ErrPending }
+
+func theSSEConnectionIsNotAttempted() error { return godog.ErrPending }
+
+func theConfigHasSettingSetToInt(config, key string, val int) error { return godog.ErrPending }
+
+func allFourTargetsAreEnabled() error { return godog.ErrPending }
+
+func aProbeCycleRuns() error { return godog.ErrPending }
+
+func allFourProbesAreDispatchedConcurrently() error { return godog.ErrPending }
+
+func noMoreThanNWorkersActive(n int) error { return godog.ErrPending }
+
+func configFlagIsTrueInConfig(flag, config string) error { return godog.ErrPending }
+
+func aManagedUpdateIsTriggered() error { return godog.ErrPending }
+
+func theCommandIsExecutedFirst(cmd string) error { return godog.ErrPending }
+
+func theCommandIsExecutedAfterStop(cmd string) error { return godog.ErrPending }
+
+func theCommandIsExecutedAfterStart(cmd string) error { return godog.ErrPending }
+
+func onVerifyFailurePreviousVersionRestored() error { return godog.ErrPending }
+
+func theVerifyCommandExitsNonZero() error { return godog.ErrPending }
+
+func thePreviousBinaryVersionIsRestored() error { return godog.ErrPending }
+
+func aREGRESSIONEventIsEmitted() error { return godog.ErrPending }

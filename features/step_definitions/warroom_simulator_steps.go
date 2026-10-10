@@ -131,31 +131,56 @@ func aWarroomSimulatorSessionIsConfiguredWithScenarioAndSeverity(scenario, sev s
 func theSimulationIsLoadedButNotStarted() error { return godog.ErrPending }
 
 // theOutputContains — owned by skill_system_steps.go
-func theOutputContainsPrompt(prompt string) error                            { return godog.ErrPending }
-func aWarroomSimulatorSessionIsConfiguredAndReady() error                    { return godog.ErrPending }
-func theUserIssuesCommand(cmd string) error                                  { return godog.ErrPending }
-func theSimulationStatusChangesTo(status string) error                       { return godog.ErrPending }
-func theIncidentElapsedTimerBegins() error                                   { return godog.ErrPending }
-func participantsAreCalledWithJoinCodes() error                              { return godog.ErrPending }
-func aWarroomSimulatorSessionIsActiveWithCode(role, code string) error       { return godog.ErrPending }
-func theParticipantIsMarkedAsJoined(role string) error                       { return godog.ErrPending }
-func theResponseTimeIsRecordedFor(role string) error                         { return godog.ErrPending }
-func aWarroomSimulatorSessionIsActive() error                                { return godog.ErrPending }
-func theSimulatorRespondsWithInvalidCodeMessage() error                      { return godog.ErrPending }
-func noParticipantIsMarkedAsJoined() error                                   { return godog.ErrPending }
-func aWarroomSimulatorSessionWithP1AlarmActive(alarmID string) error         { return godog.ErrPending }
-func theAlarmIsMarkedAsResolved(alarmID string) error                        { return godog.ErrPending }
-func p2IsUnblocked() error                                                   { return godog.ErrPending }
-func aWarroomSimulatorSessionWithP1AndP2BothActive() error                   { return godog.ErrPending }
-func theSimulatorRejectsTheCommand() error                                   { return godog.ErrPending }
-func theResponseStatesThatP1MustBeResolvedFirst() error                      { return godog.ErrPending }
-func theOutputIncludesElapsedTime() error                                    { return godog.ErrPending }
-func theOutputIncludesParticipantJoinTable() error                           { return godog.ErrPending }
-func theOutputIncludesAlarmStatusTable() error                               { return godog.ErrPending }
+func theOutputContainsPrompt(prompt string) error { return godog.ErrPending }
+
+func aWarroomSimulatorSessionIsConfiguredAndReady() error { return godog.ErrPending }
+
+func theUserIssuesCommand(cmd string) error { return godog.ErrPending }
+
+func theSimulationStatusChangesTo(status string) error { return godog.ErrPending }
+
+func theIncidentElapsedTimerBegins() error { return godog.ErrPending }
+
+func participantsAreCalledWithJoinCodes() error { return godog.ErrPending }
+
+func aWarroomSimulatorSessionIsActiveWithCode(role, code string) error { return godog.ErrPending }
+
+func theParticipantIsMarkedAsJoined(role string) error { return godog.ErrPending }
+
+func theResponseTimeIsRecordedFor(role string) error { return godog.ErrPending }
+
+func aWarroomSimulatorSessionIsActive() error { return godog.ErrPending }
+
+func theSimulatorRespondsWithInvalidCodeMessage() error { return godog.ErrPending }
+
+func noParticipantIsMarkedAsJoined() error { return godog.ErrPending }
+
+func aWarroomSimulatorSessionWithP1AlarmActive(alarmID string) error { return godog.ErrPending }
+
+func theAlarmIsMarkedAsResolved(alarmID string) error { return godog.ErrPending }
+
+func p2IsUnblocked() error { return godog.ErrPending }
+
+func aWarroomSimulatorSessionWithP1AndP2BothActive() error { return godog.ErrPending }
+
+func theSimulatorRejectsTheCommand() error { return godog.ErrPending }
+
+func theResponseStatesThatP1MustBeResolvedFirst() error { return godog.ErrPending }
+
+func theOutputIncludesElapsedTime() error { return godog.ErrPending }
+
+func theOutputIncludesParticipantJoinTable() error { return godog.ErrPending }
+
+func theOutputIncludesAlarmStatusTable() error { return godog.ErrPending }
+
 func aWarroomSimulatorSessionWithJoinTimeout(role string, seconds int) error { return godog.ErrPending }
-func nSecondsPassWithoutJoining(seconds int, role string) error              { return godog.ErrPending }
-func theSimulatorTriggersAnEscalation() error                                { return godog.ErrPending }
-func aNewJoinCodeIsIssuedForEscalatedRole() error                            { return godog.ErrPending }
+
+func nSecondsPassWithoutJoining(seconds int, role string) error { return godog.ErrPending }
+
+func theSimulatorTriggersAnEscalation() error { return godog.ErrPending }
+
+func aNewJoinCodeIsIssuedForEscalatedRole() error { return godog.ErrPending }
+
 func aWarroomSimulatorSessionWithP1AlarmAndDismissTimeout(field string, minutes int) error {
 	return godog.ErrPending
 }
