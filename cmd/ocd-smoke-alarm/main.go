@@ -471,16 +471,29 @@ func cmdServe(args []string) error {
 			StateDir:         cfg.Runtime.StateDir,
 			AnnounceInterval: announceInterval,
 			HeartbeatTimeout: heartbeatTimeout,
+			ClusterID:        cfg.Federation.ClusterID,
 		}
 		registryOpts.OnChange = func(ev federation.Event) {
-			if hs != nil && registry != nil {
-				snap := registry.Snapshot()
-				hs.SetComponent("federation", true, fmt.Sprintf("role=%s peers=%d", slot.Identity.Role, len(snap.Peers)))
+			if hs == nil || registry == nil {
+				return
 			}
+			snap := registry.Snapshot()
+			hs.SetComponent("federation", true, fmt.Sprintf("role=%s peers=%d", slot.Identity.Role, len(snap.Peers)))
+			// Mirror mesh membership into the isotope list: same-cluster peers
+			// are trusted by construction, and their isotope is dropped when the
+			// peer ages out.
+			federation.MirrorMember(hs, registry.Self(), ev)
 		}
 		registry, err = federation.NewRegistry(slot.Identity, registryOpts)
 		if err != nil {
 			return fmt.Errorf("federation registry: %w", err)
+		}
+		// Register this instance's own isotope so the cluster includes every
+		// link, not only the peers it has introduced.
+		if hs != nil && cfg.Federation.ClusterID != "" {
+			if rec, ok := federation.IsotopeForMember(registry.Self()); ok {
+				hs.UpsertIsotope(rec)
+			}
 		}
 		if logger != nil {
 			logger.Info("federation slot claimed",

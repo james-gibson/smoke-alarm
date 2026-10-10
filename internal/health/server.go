@@ -505,6 +505,32 @@ func (s *Server) handleIsotopeList(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, records)
 }
 
+// UpsertIsotope adds or replaces an isotope record. Modules (for example the
+// federation mesh) use it to register internal isotopes for members they trust
+// by construction, without a network round-trip through /isotope/register.
+func (s *Server) UpsertIsotope(rec isotope.Record) {
+	if strings.TrimSpace(rec.Name) == "" {
+		return
+	}
+	if rec.RegisteredAt.IsZero() {
+		rec.RegisteredAt = time.Now().UTC()
+	}
+	s.mu.Lock()
+	s.isotopes[rec.Name] = rec
+	s.mu.Unlock()
+}
+
+// RemoveIsotope deletes a previously registered isotope by name. Unknown names
+// are ignored.
+func (s *Server) RemoveIsotope(name string) {
+	if strings.TrimSpace(name) == "" {
+		return
+	}
+	s.mu.Lock()
+	delete(s.isotopes, name)
+	s.mu.Unlock()
+}
+
 // RegisterFeature adds or replaces a feature in the registry with status "unclaimed".
 // Idempotent: re-registering an already-certified feature preserves its certified status.
 func (s *Server) RegisterFeature(f Feature) {

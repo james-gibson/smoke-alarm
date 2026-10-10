@@ -171,6 +171,25 @@ func TestInSet(t *testing.T) {
 	}
 }
 
+func TestLoadFederationClusterID(t *testing.T) {
+	raw := `
+version: "1"
+federation:
+  enabled: true
+  cluster_id: "lezz-base:5100-5107"
+`
+	cfg, err := LoadBytes([]byte(raw))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !cfg.Federation.Enabled {
+		t.Fatal("expected federation.enabled=true")
+	}
+	if cfg.Federation.ClusterID != "lezz-base:5100-5107" {
+		t.Fatalf("federation.cluster_id = %q, want lezz-base:5100-5107", cfg.Federation.ClusterID)
+	}
+}
+
 func TestReconcileOpenCodeLocalTarget(t *testing.T) {
 	raw := `
 version: "1"

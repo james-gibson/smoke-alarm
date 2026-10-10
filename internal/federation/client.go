@@ -173,6 +173,9 @@ func (c *Client) applyMembership(m membershipResponse) {
 	if m.Version > c.lastVersion.Load() {
 		c.lastVersion.Store(m.Version)
 	}
+	// Seed the introducer as a peer so followers see (and can trust) the node
+	// that fronted them; self upserts are ignored by the registry.
+	c.opts.Registry.Upsert(m.Self, "membership")
 	for _, peer := range m.Peers {
 		c.opts.Registry.Upsert(peer, "membership")
 	}

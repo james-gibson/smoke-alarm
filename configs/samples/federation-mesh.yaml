@@ -166,6 +166,13 @@ telemetry:
 federation:
   enabled: true
 
+  # Shared cluster identity. When set, instances that announce the same
+  # cluster_id are trusted by construction: each mesh member is mirrored into
+  # the instance's isotope list at the peer-certified rung, so a self-formed
+  # cluster trusts its own links without external registry lookups. Leave empty
+  # to disable self-trust.
+  cluster_id: "federation-mesh-sample"
+
   # Slot claiming: the first process to bind base_port becomes the introducer.
   # Subsequent processes claim base_port+1, base_port+2, etc. as followers.
   # The introducer serves /introductions, /heartbeats, /membership on base_port.
