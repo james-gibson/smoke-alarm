@@ -126,8 +126,14 @@ func (r *Registry) Self() InstanceRecord {
 // Upsert introduces or refreshes a peer record.
 func (r *Registry) Upsert(rec InstanceRecord, reason string) Event {
 	r.mu.Lock()
-	defer r.mu.Unlock()
+	event := r.upsertLocked(rec, reason)
+	r.mu.Unlock()
+	r.notify(event)
+	return event
+}
 
+// upsertLocked performs the registry mutation. Callers must hold r.mu.
+func (r *Registry) upsertLocked(rec InstanceRecord, reason string) Event {
 	// Ignore self-record updates; handled separately.
 	if rec.ID == "" || rec.ID == r.self.ID {
 		return Event{}
@@ -156,17 +162,24 @@ func (r *Registry) Upsert(rec InstanceRecord, reason string) Event {
 	if !exists {
 		eventType = EventAdded
 	}
-	event := Event{
+	return Event{
 		Type:    eventType,
 		Record:  rec,
 		Reason:  reason,
 		At:      now,
 		Version: r.version,
 	}
-	if r.opts.OnChange != nil {
-		r.opts.OnChange(event)
+}
+
+// notify delivers an event to the OnChange callback when one is configured. It
+// must be called with r.mu *not* held: callbacks are allowed to re-enter the
+// registry (for example via Snapshot), which would deadlock against a held
+// write lock.
+func (r *Registry) notify(event Event) {
+	if event.Type == "" || r.opts.OnChange == nil {
+		return
 	}
-	return event
+	r.opts.OnChange(event)
 }
 
 // Remove deletes a peer from the registry.
@@ -176,25 +189,24 @@ func (r *Registry) Remove(peerID, reason string) Event {
 	}
 
 	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	entry, exists := r.peers[peerID]
 	if !exists {
+		r.mu.Unlock()
 		return Event{}
 	}
 	delete(r.peers, peerID)
 	r.version++
+	version := r.version
+	r.mu.Unlock()
 
 	event := Event{
 		Type:    EventRemoved,
 		Record:  entry.record,
 		Reason:  reason,
 		At:      time.Now().UTC(),
-		Version: r.version,
+		Version: version,
 	}
-	if r.opts.OnChange != nil {
-		r.opts.OnChange(event)
-	}
+	r.notify(event)
 	return event
 }
 
@@ -207,8 +219,6 @@ func (r *Registry) AgeOut() []Event {
 
 	now := time.Now().UTC()
 	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	var events []Event
 	for id, entry := range r.peers {
 		if now.Sub(entry.record.LastSeenAt) < timeout {
@@ -216,17 +226,18 @@ func (r *Registry) AgeOut() []Event {
 		}
 		delete(r.peers, id)
 		r.version++
-		ev := Event{
+		events = append(events, Event{
 			Type:    EventRemoved,
 			Record:  entry.record,
 			Reason:  "heartbeat_timeout",
 			At:      now,
 			Version: r.version,
-		}
-		events = append(events, ev)
-		if r.opts.OnChange != nil {
-			r.opts.OnChange(ev)
-		}
+		})
+	}
+	r.mu.Unlock()
+
+	for _, ev := range events {
+		r.notify(ev)
 	}
 	return events
 }
