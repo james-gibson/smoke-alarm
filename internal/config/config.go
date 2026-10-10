@@ -73,6 +73,7 @@ type Config struct {
 
 type FederationConfig struct {
 	Enabled           bool     `yaml:"enabled"`
+	ClusterID         string   `yaml:"cluster_id"`         // shared identity; same-cluster peers are trusted by construction
 	Upstream          string   `yaml:"upstream"`           // upstream endpoint to report to
 	Downstream        []string `yaml:"downstream"`         // downstream endpoints to poll
 	Rank              int      `yaml:"rank"`               // rank based on port (lower = upstream)

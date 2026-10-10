@@ -38,6 +38,9 @@ type InstanceRecord struct {
 	Upstream    string            `json:"upstream,omitempty"`
 	Downstream  []string          `json:"downstream,omitempty"`
 	Meta        map[string]string `json:"meta,omitempty"`
+	// ClusterID is the shared federation cluster identity. Peers carrying the
+	// same non-empty value are trusted by construction (see IsotopeForMember).
+	ClusterID string `json:"cluster_id,omitempty"`
 }
 
 // Event describes a change in the registry that may be surfaced to observers.
@@ -65,6 +68,9 @@ type RegistryOptions struct {
 	HeartbeatTimeout time.Duration
 	MaxPeers         int
 	OnChange         func(Event)
+	// ClusterID is the shared cluster identity announced to peers. Same-cluster
+	// peers are treated as trusted mesh members. Empty disables self-trust.
+	ClusterID string
 }
 
 // registryEntry keeps runtime-only tracking data.
@@ -120,6 +126,7 @@ func (r *Registry) Self() InstanceRecord {
 		AnnouncedAt: time.Now().UTC(),
 		LastSeenAt:  time.Now().UTC(),
 		Introducer:  r.self.ID,
+		ClusterID:   r.opts.ClusterID,
 	}
 }
 
