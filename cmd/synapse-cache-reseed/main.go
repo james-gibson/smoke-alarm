@@ -1,12 +1,15 @@
-// Command synapse-cache-reseed rebuilds Synapse MCP's knowledge cache for the
-// smoke-alarm feature knowledge base.
+// Command synapse-cache-reseed rebuilds Synapse MCP's knowledge cache for a
+// repository's feature knowledge base.
 //
-// The derived docs under docs/features are the source of truth for summaries:
-// each catalog doc describes one Gherkin .feature file, so its title and
-// description are written onto that feature's header chunk. Subsystem rollup
-// docs have no .feature source, so their own heading chunk is used instead.
-// Chunk ids are re-resolved from the live index on every run; nothing is
-// persisted between runs.
+// Gherkin is the source of truth. In the default docs mode the derived docs
+// under docs/features supply the summaries: each catalog doc describes one
+// Gherkin .feature file, so its title and description are written onto that
+// feature's header chunk, and subsystem rollup docs (which have no .feature
+// source) use their own heading chunk instead. In --features-dir mode the
+// generator scans .feature files directly and derives every summary from the
+// Gherkin Feature: name and description paragraph, so no derived docs are
+// required. Chunk ids are re-resolved from the live index on every run;
+// nothing is persisted between runs.
 package main
 
 import (
@@ -15,6 +18,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -37,13 +41,14 @@ const (
 )
 
 type options struct {
-	synapseURL string
-	repoID     string
-	repoRoot   string
-	docsRoot   string
-	timeout    time.Duration
-	weight     float64
-	apply      bool
+	synapseURL  string
+	repoID      string
+	repoRoot    string
+	docsRoot    string
+	featuresDir string
+	timeout     time.Duration
+	weight      float64
+	apply       bool
 }
 
 func main() {
@@ -60,6 +65,7 @@ func parseFlags() options {
 	flag.StringVar(&opts.repoID, "repo", "smoke-alarm", "Synapse repository id")
 	flag.StringVar(&opts.repoRoot, "repo-root", ".", "path to the repository root")
 	flag.StringVar(&opts.docsRoot, "docs-root", "docs/features", "feature docs directory relative to --repo-root")
+	flag.StringVar(&opts.featuresDir, "features-dir", "", "scan .feature files under this directory (relative to --repo-root) instead of using --docs-root")
 	flag.DurationVar(&opts.timeout, "timeout", 30*time.Second, "per-request HTTP timeout")
 	flag.Float64Var(&opts.weight, "weight", 1, "learning signal weight for learned queries")
 	flag.BoolVar(&opts.apply, "apply", false, "write summaries and learning signals (default is a dry run)")
@@ -68,12 +74,24 @@ func parseFlags() options {
 }
 
 func run(ctx context.Context, opts options) error {
-	set, err := loadDocs(opts.repoRoot, opts.docsRoot)
+	var (
+		set      docSet
+		features []featureDoc
+		err      error
+	)
+	if opts.featuresDir != "" {
+		features, err = scanFeatures(opts.repoRoot, opts.featuresDir)
+		if err == nil && len(features) == 0 {
+			err = fmt.Errorf("no .feature files under %s", opts.featuresDir)
+		}
+	} else {
+		set, err = loadDocs(opts.repoRoot, opts.docsRoot)
+		if err == nil && len(set.catalogs) == 0 && len(set.subsystems) == 0 {
+			err = fmt.Errorf("no markdown docs under %s", opts.docsRoot)
+		}
+	}
 	if err != nil {
 		return err
-	}
-	if len(set.catalogs) == 0 && len(set.subsystems) == 0 {
-		return fmt.Errorf("no markdown docs under %s", opts.docsRoot)
 	}
 
 	client, err := dialMCP(ctx, opts.synapseURL, opts.timeout)
@@ -81,14 +99,20 @@ func run(ctx context.Context, opts options) error {
 		return fmt.Errorf("connect to Synapse at %s: %w", opts.synapseURL, err)
 	}
 
-	plan := buildPlan(ctx, client, opts, set)
+	var plan *plan
+	if opts.featuresDir != "" {
+		plan = buildFeaturePlan(ctx, client, opts, features)
+	} else {
+		plan = buildDocsPlan(ctx, client, opts, set)
+	}
+
 	if err := applyPlan(ctx, client, opts, plan); err != nil {
 		return err
 	}
-	report(opts, set, plan)
+	report(opts, plan)
 
 	if len(plan.failures) > 0 {
-		return fmt.Errorf("%d doc(s) could not be resolved", len(plan.failures))
+		return fmt.Errorf("%d item(s) could not be resolved", len(plan.failures))
 	}
 	return nil
 }
@@ -152,8 +176,9 @@ func loadDocs(repoRoot, docsRoot string) (docSet, error) {
 	if err != nil {
 		return docSet{}, err
 	}
+	// Subsystem rollup docs are optional: a repository may be catalog-only.
 	subsystems, err := readDocDir(repoRoot, filepath.Join(docsRoot, subsystemSubdir))
-	if err != nil {
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return docSet{}, err
 	}
 	return docSet{catalogs: catalogs, subsystems: subsystems}, nil
@@ -225,13 +250,13 @@ func aliasFor(path string) string {
 	return strings.ReplaceAll(strings.ReplaceAll(base, "-", " "), "_", " ")
 }
 
-// gherkinTagFrequency counts how many catalog docs carry each Gherkin tag.
-// Tags shared across docs are ambiguous as learned queries and are skipped.
-func gherkinTagFrequency(catalogs []doc) map[string]int {
+// tagFrequency counts how many items carry each Gherkin tag. Tags shared
+// across items are ambiguous as learned queries and are skipped.
+func tagFrequency(tagLists [][]string) map[string]int {
 	frequency := make(map[string]int)
-	for _, d := range catalogs {
+	for _, tags := range tagLists {
 		seen := make(map[string]bool)
-		for _, tag := range d.fm.GherkinTags {
+		for _, tag := range tags {
 			name := strings.TrimPrefix(strings.TrimSpace(tag), "@")
 			if name == "" || seen[name] {
 				continue
@@ -241,6 +266,14 @@ func gherkinTagFrequency(catalogs []doc) map[string]int {
 		}
 	}
 	return frequency
+}
+
+func docTagLists(docs []doc) [][]string {
+	tagLists := make([][]string, 0, len(docs))
+	for _, d := range docs {
+		tagLists = append(tagLists, d.fm.GherkinTags)
+	}
+	return tagLists
 }
 
 func catalogQueries(d doc, heading string, tagFrequency map[string]int) []string {
@@ -257,6 +290,129 @@ func catalogQueries(d doc, heading string, tagFrequency map[string]int) []string
 
 func subsystemQueries(d doc) []string {
 	return []string{d.fm.Title, aliasFor(d.path)}
+}
+
+// --- features ----------------------------------------------------------------
+
+// featureDoc is a Gherkin .feature file and the parts of it that seed the
+// cache: its tags, Feature: name, and description paragraph.
+type featureDoc struct {
+	path        string // repository-relative, slash-separated
+	name        string // text after "Feature:"
+	description string // leading description paragraph, collapsed to one line
+	tags        []string
+}
+
+// summary renders the feature as the cache summary line, mirroring the docs
+// mode "title — description" shape.
+func (f featureDoc) summary() string {
+	name := strings.TrimSpace(f.name)
+	description := strings.TrimSpace(f.description)
+	switch {
+	case name == "":
+		return description
+	case description == "":
+		return name
+	default:
+		return name + " — " + description
+	}
+}
+
+// scanFeatures walks dir (relative to repoRoot) and parses every .feature file
+// it finds, in sorted order.
+func scanFeatures(repoRoot, dir string) ([]featureDoc, error) {
+	root := filepath.Join(repoRoot, filepath.FromSlash(dir))
+	features := make([]featureDoc, 0)
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".feature") {
+			return nil
+		}
+		rel, err := filepath.Rel(repoRoot, path)
+		if err != nil {
+			return err
+		}
+		fd, err := parseFeatureFile(path, filepath.ToSlash(rel))
+		if err != nil {
+			return err
+		}
+		features = append(features, fd)
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("scan %s: %w", dir, err)
+	}
+	sort.Slice(features, func(i, j int) bool { return features[i].path < features[j].path })
+	return features, nil
+}
+
+// parseFeatureFile extracts the tags, Feature: name, and description paragraph
+// from a Gherkin file. Description lines stop at the first keyword, tag, or
+// scenario keyword; blank lines and comments inside the paragraph are dropped.
+func parseFeatureFile(path, rel string) (featureDoc, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return featureDoc{}, fmt.Errorf("read %s: %w", rel, err)
+	}
+	fd := featureDoc{path: rel}
+	var description []string
+	inFeature := false
+	for _, raw := range strings.Split(string(data), "\n") {
+		line := strings.TrimSpace(raw)
+		if !inFeature {
+			switch {
+			case strings.HasPrefix(line, "@"):
+				fd.tags = append(fd.tags, strings.Fields(line)...)
+			case strings.HasPrefix(line, "Feature:"):
+				fd.name = strings.TrimSpace(strings.TrimPrefix(line, "Feature:"))
+				inFeature = true
+			}
+			continue
+		}
+		if isGherkinKeyword(line) || strings.HasPrefix(line, "@") {
+			break
+		}
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		description = append(description, line)
+	}
+	fd.description = strings.Join(description, " ")
+	return fd, nil
+}
+
+// isGherkinKeyword reports whether line opens a Gherkin block, which terminates
+// the Feature description.
+func isGherkinKeyword(line string) bool {
+	keywords := []string{
+		"Background:",
+		"Scenario:",
+		"Scenario Outline:",
+		"Scenario Template:",
+		"Rule:",
+		"Example:",
+		"Examples:",
+	}
+	for _, keyword := range keywords {
+		if strings.HasPrefix(line, keyword) {
+			return true
+		}
+	}
+	return false
+}
+
+func featureQueries(f featureDoc, tagFrequency map[string]int) []string {
+	queries := []string{f.name, aliasFor(f.path)}
+	for _, tag := range f.tags {
+		name := strings.TrimPrefix(strings.TrimSpace(tag), "@")
+		if name == "" || tagFrequency[name] != 1 {
+			continue
+		}
+		queries = append(queries, name)
+	}
+	return queries
 }
 
 // --- chunk resolution --------------------------------------------------------
@@ -335,6 +491,13 @@ type plan struct {
 	failures   []string
 	warnings   []string
 	learnIndex map[string]string
+	inputs     []inputCount
+}
+
+// inputCount records how many source items were scanned, for the run report.
+type inputCount struct {
+	label string
+	count int
 }
 
 func (p *plan) addFailure(path string, err error) {
@@ -356,9 +519,15 @@ func (p *plan) addLearn(query, chunkID string) {
 	p.learns = append(p.learns, learnItem{query: query, chunkID: chunkID})
 }
 
-func buildPlan(ctx context.Context, client *mcpClient, opts options, set docSet) *plan {
-	p := &plan{learnIndex: make(map[string]string)}
-	tagFrequency := gherkinTagFrequency(set.catalogs)
+func buildDocsPlan(ctx context.Context, client *mcpClient, opts options, set docSet) *plan {
+	p := &plan{
+		learnIndex: make(map[string]string),
+		inputs: []inputCount{
+			{label: "catalog docs", count: len(set.catalogs)},
+			{label: "subsystem docs", count: len(set.subsystems)},
+		},
+	}
+	tagFrequency := tagFrequency(docTagLists(set.catalogs))
 
 	for _, d := range set.catalogs {
 		featurePath, err := featurePathFor(opts.repoID, d.fm.Source)
@@ -390,6 +559,33 @@ func buildPlan(ctx context.Context, client *mcpClient, opts options, set docSet)
 		}
 		p.summaries = append(p.summaries, summaryItem{ChunkID: ref.ChunkID, Summary: d.summary(), SummaryType: "user"})
 		for _, query := range subsystemQueries(d) {
+			p.addLearn(query, ref.ChunkID)
+		}
+	}
+	return p
+}
+
+// buildFeaturePlan derives summaries and learned queries straight from Gherkin,
+// so no derived docs are needed.
+func buildFeaturePlan(ctx context.Context, client *mcpClient, opts options, features []featureDoc) *plan {
+	p := &plan{
+		learnIndex: make(map[string]string),
+		inputs:     []inputCount{{label: "feature files", count: len(features)}},
+	}
+	tagLists := make([][]string, 0, len(features))
+	for _, f := range features {
+		tagLists = append(tagLists, f.tags)
+	}
+	frequency := tagFrequency(tagLists)
+
+	for _, f := range features {
+		ref, err := resolveFeatureChunk(ctx, client, opts.repoID, f.path)
+		if err != nil {
+			p.addFailure(f.path, err)
+			continue
+		}
+		p.summaries = append(p.summaries, summaryItem{ChunkID: ref.ChunkID, Summary: f.summary(), SummaryType: "user"})
+		for _, query := range featureQueries(f, frequency) {
 			p.addLearn(query, ref.ChunkID)
 		}
 	}
@@ -450,7 +646,7 @@ func saveSummaries(ctx context.Context, client *mcpClient, items []summaryItem) 
 
 // --- reporting ---------------------------------------------------------------
 
-func report(opts options, set docSet, p *plan) {
+func report(opts options, p *plan) {
 	mode := "dry run"
 	if opts.apply {
 		mode = "applied"
@@ -458,11 +654,12 @@ func report(opts options, set docSet, p *plan) {
 	fmt.Printf("%s (%s)\n", appName, mode)
 	fmt.Printf("  synapse:  %s\n", opts.synapseURL)
 	fmt.Printf("  repo:     %s\n", opts.repoID)
-	fmt.Printf("  docs:     %s\n\n", opts.docsRoot)
-	fmt.Printf("  catalog docs:   %d\n", len(set.catalogs))
-	fmt.Printf("  subsystem docs: %d\n", len(set.subsystems))
-	fmt.Printf("  summaries:      %d\n", len(p.summaries))
-	fmt.Printf("  learn queries:  %d\n", len(p.learns))
+	fmt.Printf("  source:   %s\n\n", sourceLabel(opts))
+	for _, in := range p.inputs {
+		fmt.Printf("  %-16s %d\n", in.label+":", in.count)
+	}
+	fmt.Printf("  summaries:       %d\n", len(p.summaries))
+	fmt.Printf("  learned queries: %d\n", len(p.learns))
 	if len(p.warnings) > 0 {
 		fmt.Printf("\n  warnings (%d):\n", len(p.warnings))
 		for _, warning := range p.warnings {
@@ -478,4 +675,11 @@ func report(opts options, set docSet, p *plan) {
 	if !opts.apply {
 		fmt.Println("\n  dry run: pass --apply to write summaries and learning signals")
 	}
+}
+
+func sourceLabel(opts options) string {
+	if opts.featuresDir != "" {
+		return opts.featuresDir + " (gherkin)"
+	}
+	return opts.docsRoot + " (docs)"
 }
