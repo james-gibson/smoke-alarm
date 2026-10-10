@@ -230,6 +230,66 @@ func TestDurationHelpers(t *testing.T) {
 	}
 }
 
+// TestRegistryOnChangeMayReenterRegistry guards against the introducer
+// deadlock described in james-gibson/smoke-alarm#10: the OnChange callback
+// wired by ocd-smoke-alarm calls back into Registry.Snapshot(). If OnChange
+// were invoked while the registry write lock was held, that re-entry would
+// deadlock the introducer on the first introduction (or removal / age-out).
+func TestRegistryOnChangeMayReenterRegistry(t *testing.T) {
+	t.Parallel()
+
+	stateDir := t.TempDir()
+	reg, err := NewRegistry(testIdentity("self-introducer", stateDir, 6400, RoleIntroducer), RegistryOptions{
+		StateDir:         stateDir,
+		HeartbeatTimeout: time.Millisecond,
+	})
+	if err != nil {
+		t.Fatalf("NewRegistry: %v", err)
+	}
+
+	// Mirror the production callback: it calls back into the registry.
+	reg.opts.OnChange = func(Event) { _ = reg.Snapshot() }
+
+	peer := InstanceRecord{ID: "peer-reentrant", Port: 6401, Role: RoleFollower}
+
+	run := func(name string, fn func() Event) Event {
+		t.Helper()
+		done := make(chan Event, 1)
+		go func() { done <- fn() }()
+		select {
+		case ev := <-done:
+			return ev
+		case <-time.After(3 * time.Second):
+			t.Fatalf("%s deadlocked: OnChange re-entered the registry while the lock was held", name)
+			return Event{}
+		}
+	}
+
+	if ev := run("Upsert", func() Event { return reg.Upsert(peer, "introduction") }); ev.Type != EventAdded {
+		t.Fatalf("expected EventAdded, got %q", ev.Type)
+	}
+	if ev := run("Remove", func() Event { return reg.Remove(peer.ID, "test") }); ev.Type != EventRemoved {
+		t.Fatalf("expected EventRemoved, got %q", ev.Type)
+	}
+
+	// Re-add and age the peer out so AgeOut exercises the callback too.
+	if ev := run("Upsert", func() Event { return reg.Upsert(peer, "re-add") }); ev.Type != EventAdded {
+		t.Fatalf("expected EventAdded, got %q", ev.Type)
+	}
+	time.Sleep(5 * time.Millisecond)
+
+	ageDone := make(chan []Event, 1)
+	go func() { ageDone <- reg.AgeOut() }()
+	select {
+	case evs := <-ageDone:
+		if len(evs) != 1 || evs[0].Type != EventRemoved {
+			t.Fatalf("expected one removal from AgeOut, got %#v", evs)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("AgeOut deadlocked: OnChange re-entered the registry while the lock was held")
+	}
+}
+
 func testIdentity(id, stateDir string, port int, role Role) Identity {
 	return Identity{
 		ID:          id,
