@@ -249,7 +249,3 @@ dynamic_config:
   serve_base_url: "/dynamic-config"
   allow_overwrite: true
   require_unique_ids: true
-
-federation:
-  enabled: true
-  upstream: "http://jack.internal.datawhore.house:19100"

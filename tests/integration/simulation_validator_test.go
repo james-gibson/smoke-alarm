@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 // projectRoot returns the project root directory by walking up from cwd to find go.mod.
@@ -133,9 +135,18 @@ func TestSimulationValidatorConfigAnalysis(t *testing.T) {
 
 			content := string(data)
 
-			// Check federation config
-			hasFederation := strings.Contains(content, "federation:") &&
-				strings.Contains(content, "enabled: true")
+			// Check federation config by parsing the YAML. A substring scan is
+			// too coarse: unrelated "enabled: true" keys elsewhere in the file
+			// make every config look federated.
+			var meta struct {
+				Federation struct {
+					Enabled bool `yaml:"enabled"`
+				} `yaml:"federation"`
+			}
+			if err := yaml.Unmarshal(data, &meta); err != nil {
+				t.Fatalf("parse %s: %v", tt.configPath, err)
+			}
+			hasFederation := meta.Federation.Enabled
 			if hasFederation != tt.wantFederation {
 				t.Errorf("federation enabled = %v, want %v", hasFederation, tt.wantFederation)
 			}
