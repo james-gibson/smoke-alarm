@@ -28,7 +28,7 @@ targets:
     enabled: true
     protocol: "http"
     name: "Host A: Self Check"
-    endpoint: "http://riversong-4.local:19100/cluster"
+    endpoint: "http://localhost:19100/cluster"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -41,7 +41,7 @@ targets:
     enabled: false
     protocol: "http"
     name: "Host A: Upstream Check"
-    endpoint: "http://jack.internal.datawhore.house:19100/cluster"
+    endpoint: "http://example.com:19100/cluster"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -54,7 +54,7 @@ targets:
     enabled: true
     protocol: "http"
     name: "Host A: Upstream Check"
-    endpoint: "http://riversong-4.local:18087/status"
+    endpoint: "http://localhost:18087/status"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -69,7 +69,7 @@ targets:
     enabled: true
     protocol: "http"
     name: "Host A: Operator Check"
-    endpoint: "http://riversong-4.local:18088/status"
+    endpoint: "http://localhost:18088/status"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -81,12 +81,12 @@ targets:
 
 federation:
   enabled: false
-  upstream: "jack.internal.datawhore.house:34895/mcp"
-  downstream: ["riversong-4.local:59505/mcp"]
+  upstream: "example.com:34895/mcp"
+  downstream: ["localhost:59505/mcp"]
 
 remote_agent:
   #  managed_updates: true
-  #  control_endpoint: "jack.internal.datawhore.house:19100/status
+  #  control_endpoint: "example.com:19100/status
   update:
     strategy: "rolling-single"
     stop_command: "ocd-smoke-alarm ops stop"

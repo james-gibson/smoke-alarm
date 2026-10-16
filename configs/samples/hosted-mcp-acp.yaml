@@ -39,7 +39,7 @@ discovery:
     ports: [3000, 8080]
   cloud_catalog:
     enabled: true
-    urls: ["http://jack.internal.datawhore.house:19100/cluster"]
+    urls: ["http://example.com:19100/cluster"]
   llms_txt:
     enabled: true
     remote_uris:

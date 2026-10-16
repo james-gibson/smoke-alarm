@@ -84,7 +84,7 @@ targets:
     enabled: false
     protocol: "http"
     name: "Host A: Upstream Check"
-    endpoint: "http://riversong-4.local:18087/status"
+    endpoint: "http://localhost:18087/status"
     transport: "http"
     expected:
       expected_version: ">=v0.6.8"
@@ -143,7 +143,7 @@ targets:
     enabled: true
     protocol: "http"
     name: "Host Jack: lezz demo"
-    endpoint: "http://jack.internal.datawhore.house:19100/cluster"
+    endpoint: "http://example.com:19100/cluster"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -157,11 +157,11 @@ targets:
 federation:
   enabled: true
   base_port: 17088
-  downstream: ["localhost:19100/cluster","jack.internal.datawhore.house:19100/cluster"]
-  #upstream: "riversong-4.local:19100/cluster"
+  downstream: ["localhost:19100/cluster","example.com:19100/cluster"]
+  #upstream: "localhost:19100/cluster"
 remote_agent:
   #  managed_updates: true
-  #  control_endpoint: "jack.internal.datawhore.house:19100/status
+  #  control_endpoint: "example.com:19100/status
   update:
     strategy: "rolling-single"
     stop_command: "ocd-smoke-alarm ops stop"
