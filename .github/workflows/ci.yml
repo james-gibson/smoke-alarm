@@ -20,15 +20,18 @@ jobs:
         os:
           - ubuntu-latest
           - macos-latest
+        # Must satisfy go.mod (go 1.25.0, toolchain go1.26.5). setup-go v7
+        # exports GOTOOLCHAIN=local, so Go will no longer auto-switch to the
+        # toolchain directive; the installed version is the one that runs.
         go:
-          - "1.22.x"
+          - "1.26.x"
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version: ${{ matrix.go }}
           cache: true
@@ -42,11 +45,13 @@ jobs:
       - name: Verify formatting (gofumpt)
         run: make fmt-check
 
-      # Pinned deliberately: `version: latest` let gofumpt drift change CI
-      # behaviour with no repo change and broke the release gate on files
-      # nobody edited (issue #17). Bump via PR instead.
+      # Pinned deliberately (same version as release.yml) so CI cannot
+      # start failing on files nobody edited when a new golangci-lint
+      # release tightens rules (issue #17). Action itself bumped to v9
+      # to avoid Node 20 deprecation (issue #30); bump this version
+      # via PR.
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v7
+        uses: golangci/golangci-lint-action@v9
         with:
           version: v2.15.0
           args: --timeout=5m
