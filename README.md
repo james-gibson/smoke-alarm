@@ -7,6 +7,26 @@ Continuous health monitoring for HTTP endpoints. Polls configured targets on an 
 - **Foreground** with a Bubble Tea TUI for live triage
 - **Background** as a low-overhead monitoring service (managed by `lezz.go`)
 
+## Trust after connection
+
+**A caller can connect to an MCP service; whether it is trusted after connecting is
+a separate question, and one most transport specifications do not answer.** This lab
+measures it. A caller carries a **42i distance** — the extent to which it has
+departed from **nominal** (the service level a call promises) against **linear time**
+(the shared tick) — and the distance maps to a **rung** that limits what the caller
+may read. A caller that keeps departing is removed from the routeable set.
+
+```
+ nominal ●────────────  the level a call promises
+          ╲
+           ╲ distance     +8 / +16 / +32 …
+            ●───────────  where it landed (linear time →)
+```
+
+One measure, regardless of source — a stale credential, a clock skew, a tampered
+receipt, a honeypot contact. Model: `kb/scripts/lab/PLANE.md`. Figures:
+`kb/scripts/lab/MATH.md`. Full page with references: `kb/scripts/lab/SPLASH.md`.
+
 ## In the Lab
 
 ocd-smoke-alarm is part of a cluster of tools that share a common lab environment. See [lab-safety](https://github.com/james-gibson/lab-safety) for the full ecosystem map.
@@ -483,6 +503,8 @@ Use this command in agent-driven update validation to confirm integration checks
 
 All sample configs live in `configs/samples/` and are intended for editor-side inspection and immediate smoke testing:
 
+> **Full catalog:** all 33 samples are documented in [`configs/samples/README.md`](configs/samples/README.md), grouped by theme — transports, federation, warroom, auth/secrets, deployment/ops, discovery, and the dev/QA harness.
+
 - `configs/samples/stdio-mcp-strict.yaml`
   - strict stdio MCP handshake path (`initialize`, `tools/list`, `resources/list`).
 - `configs/samples/sse-remote-mixed.yaml`
@@ -630,7 +652,9 @@ This allows users to build new configs from discovery output, save them as porta
 - `TASKS.md` — prioritized backlog with dependencies
 - `AGENT_HANDOFF.md` — token-constrained continuation guide
 - `docs/` — operational and troubleshooting docs (as implementation expands)
-- `configs/samples/` — ready-to-run profile catalog for local/remote/hosted/OAuth workflows
+- [Client Request Flow](docs/request-flow.md) — process diagrams for how a client request moves through the alarm
+- [Request-Pathing Blast Radius](docs/pathing-blast-radius.md) — availability and blast-radius math for each request-pathing style
+- `configs/samples/` — ready-to-run profile catalog for local/remote/hosted/OAuth workflows; see the [Sample Config Catalog](configs/samples/README.md)
 
 ---
 
