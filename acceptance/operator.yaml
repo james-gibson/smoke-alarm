@@ -6,7 +6,7 @@ tuner:
   service_type: "_smoke-alarm._tcp"
 health:
   enabled: true
-  listen_addr: "riversong-4.local:18088"
+  listen_addr: "localhost:18088"
   endpoints:
     healthz: "/healthz"
     readyz: "/readyz"
@@ -28,7 +28,7 @@ targets:
     enabled: true
     protocol: "http"
     name: "Host A: Self Check"
-    endpoint: "http://riversong-4.local:19100/cluster"
+    endpoint: "http://localhost:19100/cluster"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -41,7 +41,7 @@ targets:
     enabled: true
     protocol: "http"
     name: "Host A: Upstream Check"
-    endpoint: "http://jack.internal.datawhore.house:19100/cluster"
+    endpoint: "http://example.com:19100/cluster"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -55,7 +55,7 @@ targets:
     enabled: false
     protocol: "http"
     name: "Host A: Upstream Check"
-    endpoint: "http://riversong-4.local:57336/status"
+    endpoint: "http://localhost:57336/status"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -69,7 +69,7 @@ targets:
     enabled: false
     protocol: "mcp"
     name: "Upstream: ADHD"
-    endpoint: "http://jack.internal.datawhore.house:34895/mcp"
+    endpoint: "http://example.com:34895/mcp"
     transport: "http"
     expected:
       healthy_status_codes: [200]
@@ -83,16 +83,16 @@ targets:
 
 federation:
   enabled: false
-  upstream: "http://jack.interna.datawhore.house:19100/status"
-  # downstream: ["riversong-4.local:57335", "jack.internal.datawhore.house:35997"]
+  upstream: "http://example.com:19100/status"
+  # downstream: ["localhost:57335", "example.com:35997"]
 
 remote_agent:
   #  managed_updates: true
-  #  control_endpoint: "jack.internal.datawhore.house:19100/status
+  #  control_endpoint: "example.com:19100/status
   update:
     strategy: "rolling-single"
     stop_command: "ocd-smoke-alarm ops stop"
-    start_command: "ocd-smoke-alarm serve --mode=background --config=./operator.yaml --health-addr=riversong-4.local:18087"
+    start_command: "ocd-smoke-alarm serve --mode=background --config=./operator.yaml --health-addr=localhost:18087"
     verify_command: "ocd-smoke-alarm check --config=./operator.yaml"
     rollback_on_failure: true
     max_wait_for_healthy: "90s"

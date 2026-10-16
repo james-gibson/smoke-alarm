@@ -23,8 +23,8 @@ discovery:
     enabled: false
     urls:
       [
-        "http://192.168.1.30:19100",
-        "http://riverdock.internal.datawhore.house:19100",
+        "http://192.0.2.1:19100",
+        "http://example.com:19100",
         "http://0.0.0.0:19100",
         "http://localhost:19100",
       ]
@@ -61,10 +61,10 @@ hosted:
 federation:
   # base_port: 19100
   enabled: false
-  # upstream: "http://192.168.1.30:44541/introductions"
+  # upstream: "http://192.0.2.1:44541/introductions"
   # downstream:
   #   [
-  #     "http://192.168.1.30:33829/status",
+  #     "http://192.0.2.1:33829/status",
   #     "localhost:19101",
   #     "localhost:19102",
   #     "localhost:19103",
