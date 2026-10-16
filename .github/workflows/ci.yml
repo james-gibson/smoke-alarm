@@ -36,19 +36,19 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
-      - name: Verify formatting (gofmt)
-        run: |
-          unformatted="$(gofmt -l .)"
-          if [ -n "$unformatted" ]; then
-            echo "The following files are not gofmt-formatted:"
-            echo "$unformatted"
-            exit 1
-          fi
+      # gofumpt is a strict superset of gofmt, so this replaces a plain
+      # gofmt check. The version is pinned in the Makefile so local runs
+      # and CI check exactly the same rules.
+      - name: Verify formatting (gofumpt)
+        run: make fmt-check
 
+      # Pinned deliberately: `version: latest` let gofumpt drift change CI
+      # behaviour with no repo change and broke the release gate on files
+      # nobody edited (issue #17). Bump via PR instead.
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v7
         with:
-          version: latest
+          version: v2.15.0
           args: --timeout=5m
 
       - name: Run unit tests
