@@ -440,6 +440,13 @@ func (s *Server) handleFederationReport(w http.ResponseWriter, r *http.Request) 
 		s.UpsertTargetStatus(t)
 	}
 
+	// Merge upstream components too — an upstream (e.g. adhd) reports security
+	// events (honeypot contact) as components, not targets. Dropping them here
+	// silently loses the event.
+	for _, c := range incoming.Components {
+		s.SetComponent(c.Name, c.Healthy, c.Detail)
+	}
+
 	s.SetComponent("federation", true, fmt.Sprintf("received %d targets from upstream", len(incoming.Targets)))
 	writeJSON(w, http.StatusOK, map[string]any{"status": "accepted"})
 }
