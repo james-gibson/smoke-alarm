@@ -20,8 +20,11 @@ jobs:
         os:
           - ubuntu-latest
           - macos-latest
+        # Must satisfy go.mod (go 1.25.0, toolchain go1.26.5). setup-go v7
+        # exports GOTOOLCHAIN=local, so Go will no longer auto-switch to the
+        # toolchain directive; the installed version is the one that runs.
         go:
-          - "1.22.x"
+          - "1.26.x"
 
     steps:
       - name: Checkout
