@@ -3,10 +3,32 @@
 // instance in-process instead of shelling out to the ocd-smoke-alarm binary
 // with a generated YAML config.
 //
-// This first iteration runs the monitor engine and the health endpoints
-// (/healthz, /readyz, /status) and, when tuner advertising is enabled,
-// advertises the instance over mDNS. Hosted MCP/ACP validation, discovery,
-// dynamic config, and federation are intentionally out of scope for now.
+// An instance runs the monitor engine and the health endpoints (/healthz,
+// /readyz, /status) and, when tuner advertising is enabled, advertises itself
+// over mDNS. The engine is wired from the config the way the CLI wires it, so
+// known-state baselines (regression detection), alert sinks, and the telemetry
+// exporter all take effect. Set Options.FeaturesDir to also register Gherkin
+// feature files for dashboard certification status.
+//
+// # Subsystems that are not run in-process
+//
+// A smoke-alarm config can enable subsystems this facade does not run. When it
+// does, New reports them — via Instance.Unsupported, a warning log, or an error
+// when Options.Strict is set — rather than ignoring them silently:
+//
+//   - hosted MCP/ACP/HTTP/SSE validation server (hosted.enabled)
+//   - discovery and dynamic config persistence (discovery.enabled,
+//     dynamic_config.enabled)
+//   - the federation mesh (federation.enabled)
+//   - the OAuth mock redirect server (auth.oauth.mock_redirect.enabled)
+//   - remote-agent managed updates (remote_agent.managed_updates), which
+//     describe managing a *process* and so have no meaning in-process
+//   - the foreground TUI (service.mode: foreground)
+//
+// The runtime lock file and PID file are also not written. An embedded instance
+// is a guest in the host's process, so writing the host's PID would make
+// `ops stop -pid-file` signal the host itself. A host that needs a managed
+// lifecycle (ops stop/reload) should run the CLI as a subprocess instead.
 package smokealarm
 
 import (
@@ -15,13 +37,18 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/james-gibson/smoke-alarm/internal/alerts"
 	"github.com/james-gibson/smoke-alarm/internal/config"
 	"github.com/james-gibson/smoke-alarm/internal/engine"
 	"github.com/james-gibson/smoke-alarm/internal/health"
+	"github.com/james-gibson/smoke-alarm/internal/knownstate"
 	"github.com/james-gibson/smoke-alarm/internal/mdns"
+	"github.com/james-gibson/smoke-alarm/internal/telemetry"
 )
 
 // Config is smoke-alarm's configuration type. Aliasing it lets embedders build
@@ -47,6 +74,14 @@ type Options struct {
 	// HealthSyncInterval controls how often engine status is mirrored onto the
 	// health server. Defaults to 1s.
 	HealthSyncInterval time.Duration
+	// FeaturesDir, when non-empty, registers the *.feature files it contains
+	// with the health server so dashboards can display this instance's
+	// certification status. The CLI registers from "features".
+	FeaturesDir string
+	// Strict makes New return an error, instead of logging a warning, when the
+	// config enables a subsystem this facade does not run. See the package doc
+	// for the list.
+	Strict bool
 }
 
 // Instance is a runnable in-process smoke-alarm.
@@ -57,6 +92,8 @@ type Instance struct {
 	eng    *engine.Engine
 	hs     *health.Server
 
+	unsupported []string
+
 	mu         sync.Mutex
 	started    bool
 	addr       string
@@ -65,6 +102,10 @@ type Instance struct {
 }
 
 // New builds an instance from a config. It does not start anything; call Start.
+//
+// New applies config defaults, then wires the engine exactly as
+// cmd/ocd-smoke-alarm does. If the config enables a subsystem this facade does
+// not run, New reports it instead of ignoring it — see Options.Strict.
 func New(cfg Config, opts Options) (*Instance, error) {
 	if opts.Logger == nil {
 		opts.Logger = slog.Default()
@@ -76,13 +117,36 @@ func New(cfg Config, opts Options) (*Instance, error) {
 		opts.HealthSyncInterval = time.Second
 	}
 
+	// New may be handed a hand-built Config as well as one from LoadConfig, so
+	// apply defaults here as the CLI does before wiring anything. ApplyDefaults
+	// only fills blank scalars — it never turns an Enabled flag on.
+	cfg.ApplyDefaults()
 	cfg = withSelfCheck(cfg)
-	eng, err := engine.New(cfg)
+
+	unsupported := unsupportedEnabled(cfg)
+	if len(unsupported) > 0 {
+		if opts.Strict {
+			return nil, fmt.Errorf(
+				"smokealarm: config enables subsystems this facade does not run: %s",
+				strings.Join(unsupported, ", "))
+		}
+		opts.Logger.Warn(
+			"smokealarm: config enables subsystems this facade does not run; they will be inactive (set Options.Strict to make this an error)",
+			"subsystems", strings.Join(unsupported, ", "))
+	}
+
+	eng, err := engine.New(cfg, engineOptions(cfg, opts.Logger)...)
 	if err != nil {
 		return nil, fmt.Errorf("smokealarm: build engine: %w", err)
 	}
 
-	in := &Instance{cfg: cfg, opts: opts, logger: opts.Logger, eng: eng}
+	in := &Instance{
+		cfg:         cfg,
+		opts:        opts,
+		logger:      opts.Logger,
+		eng:         eng,
+		unsupported: unsupported,
+	}
 	if cfg.Health.Enabled {
 		hs := health.NewServer(health.Options{
 			ServiceName:     cfg.Service.Name,
@@ -94,11 +158,88 @@ func New(cfg Config, opts Options) (*Instance, error) {
 			ShutdownTimeout: durationOrDefault(cfg.Runtime.GracefulShutdownTimeout, 10*time.Second),
 		})
 		hs.SetSelfDescription(health.NewSelfDescriptionFactory(cfg, opts.Version, time.Now().UTC(), hs))
+		if opts.FeaturesDir != "" {
+			health.RegisterFeaturesFromDir(hs, opts.FeaturesDir)
+		}
 		hs.SetComponent("engine", false, "waiting for initial target checks")
 		hs.SetReady(false, "engine not ready")
 		in.hs = hs
 	}
 	return in, nil
+}
+
+// engineOptions mirrors the options cmd/ocd-smoke-alarm passes to engine.New.
+//
+// It matters: the known-state store, the notifier, and the telemetry exporter
+// are reachable only through options, so passing none (as a bare
+// engine.New(cfg) does) leaves known_state.enabled, runtime.baseline_file, and
+// the alerts sinks parsed, validated, and silently inert.
+func engineOptions(cfg Config, logger *slog.Logger) []engine.Option {
+	var opts []engine.Option
+
+	// The engine guards on store != nil, so without this there is no baseline
+	// and therefore no regression detection.
+	if cfg.KnownState.Enabled {
+		opts = append(opts, engine.WithStore(knownstate.NewStore(
+			cfg.Runtime.BaselineFile,
+			knownstate.WithAutoPersist(cfg.KnownState.Persist),
+			knownstate.WithSustainSuccess(cfg.KnownState.SustainSuccessBeforeMarkHealthy),
+		)))
+	}
+
+	if notifier := alerts.NotifierFromConfig(cfg, logger); notifier != nil {
+		opts = append(opts, engine.WithNotifier(notifier))
+	}
+
+	if cfg.Telemetry.Enabled && cfg.Telemetry.Endpoint != "" {
+		telem, err := telemetry.NewExporter(cfg.Telemetry.Endpoint, cfg.Telemetry.ServiceName)
+		if err != nil {
+			// Telemetry must not stop an instance from running; warn and carry
+			// on, as the CLI does.
+			logger.Warn("smokealarm: telemetry disabled", "endpoint", cfg.Telemetry.Endpoint, "error", err)
+		} else if telem != nil {
+			opts = append(opts, engine.WithTelemetry(telem))
+		}
+	}
+
+	return opts
+}
+
+// unsupportedEnabled names the config's enabled-but-unimplemented subsystems, so
+// the omission is reported rather than silent. Sorted, so logs and tests are
+// deterministic.
+func unsupportedEnabled(cfg Config) []string {
+	var out []string
+	if cfg.Hosted.Enabled {
+		out = append(out, "hosted validation server (hosted.enabled)")
+	}
+	if cfg.Discovery.Enabled {
+		out = append(out, "discovery (discovery.enabled)")
+	}
+	if cfg.DynamicConfig.Enabled {
+		out = append(out, "dynamic config persistence (dynamic_config.enabled)")
+	}
+	if cfg.Federation.Enabled {
+		out = append(out, "federation (federation.enabled)")
+	}
+	if cfg.Auth.OAuth.MockRedirect.Enabled {
+		out = append(out, "oauth mock redirect server (auth.oauth.mock_redirect.enabled)")
+	}
+	if cfg.RemoteAgent.ManagedUpdates {
+		out = append(out, "remote agent managed updates (remote_agent.managed_updates)")
+	}
+	if strings.EqualFold(strings.TrimSpace(cfg.Service.Mode), config.ModeForeground) {
+		out = append(out, "foreground TUI (service.mode)")
+	}
+	sort.Strings(out)
+	return out
+}
+
+// Unsupported returns the subsystems this instance's config enabled that the
+// facade does not run, in a stable order. Empty when everything requested is
+// active.
+func (in *Instance) Unsupported() []string {
+	return append([]string(nil), in.unsupported...)
 }
 
 // withSelfCheck mirrors cmd/ocd-smoke-alarm: when health.self_check is enabled,
