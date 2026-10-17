@@ -852,9 +852,9 @@ func capabilityNames(advertised map[string]any) []string {
 // `expected.min_capabilities` field was always for — the target *declares* what
 // must be there, the surface *advertises* what it can serve, and a surface that
 // answers while not advertising it is **degraded**: not healthy, and not down.
-func capabilityGap(min []string, advertised map[string]any) []string {
+func capabilityGap(declared []string, advertised map[string]any) []string {
 	var gap []string
-	for _, want := range min {
+	for _, want := range declared {
 		family := strings.TrimSpace(want)
 		if base, _, ok := strings.Cut(family, "/"); ok {
 			family = base
