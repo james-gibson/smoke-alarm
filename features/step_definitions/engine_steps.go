@@ -434,6 +434,16 @@ func engUnhealthyResult(id string) targets.CheckResult {
 	}
 }
 
+// engDegradedResult is "answering, but not as declared" — the middle rung, which
+// a partial handshake or an unadvertised min_capability produces.
+func engDegradedResult(id string) targets.CheckResult {
+	return targets.CheckResult{
+		TargetID: id, State: targets.StateDegraded,
+		Severity: targets.SeverityWarn, FailureClass: targets.FailureProtocol,
+		Message: "mock: degraded",
+	}
+}
+
 func engOutageResult(id string) targets.CheckResult {
 	return targets.CheckResult{
 		TargetID: id, State: targets.StateOutage,
@@ -484,6 +494,7 @@ func InitializeEngineSteps(ctx *godog.ScenarioContext) {
 	// ── state classification ───────────────────────────────────────────────
 	ctx.Step(`^the prober returns a healthy result for "([^"]*)"$`, theProberReturnsHealthyResult)
 	ctx.Step(`^the prober returns an unhealthy result for "([^"]*)"$`, theProberReturnsUnhealthyResult)
+	ctx.Step(`^the prober returns a degraded result for "([^"]*)"$`, theProberReturnsDegradedResult)
 	ctx.Step(`^the status for "([^"]*)" is "([^"]*)"$`, theStatusForTargetIs)
 	ctx.Step(`^the engine is running with target "([^"]*)" and known-state enabled$`, theEngineIsRunningWithTargetAndKnownState)
 	ctx.Step(`^the result has regression flag set$`, theResultHasRegressionFlagSet)
@@ -757,6 +768,20 @@ func theProberReturnsUnhealthyResult(id string) error {
 	engState.prober.setResult(id, engUnhealthyResult(id))
 	engState.currentTargetID = id
 	// Wait for a new probe to fire and the status map to update.
+	prevCount := engState.prober.callCount(id)
+	if err := waitForCallCount(id, prevCount+1); err != nil {
+		return err
+	}
+	time.Sleep(10 * time.Millisecond)
+	return nil
+}
+
+func theProberReturnsDegradedResult(id string) error {
+	if err := ensureEngineRunning(id); err != nil {
+		return err
+	}
+	engState.prober.setResult(id, engDegradedResult(id))
+	engState.currentTargetID = id
 	prevCount := engState.prober.callCount(id)
 	if err := waitForCallCount(id, prevCount+1); err != nil {
 		return err
