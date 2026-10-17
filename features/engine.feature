@@ -67,6 +67,14 @@ Feature: Probe Engine
     Then the status for "t1" is "regression"
     And the result has regression flag set
 
+  Scenario: Engine keeps a degraded result degraded after a healthy baseline
+    Given the engine is running with target "t1" and known-state enabled
+    And the prober returns a healthy result for "t1"
+    When the prober returns a degraded result for "t1"
+    Then the status for "t1" is "degraded"
+    When the prober returns a degraded result for "t1"
+    Then the status for "t1" is "degraded"
+
   Scenario: Engine classifies consecutive failures past threshold as outage
     Given a target "t1" is configured with outage threshold 3
     And the prober returns a healthy result for "t1"

@@ -358,7 +358,16 @@ func (e *Engine) classifyWithPolicy(ctx context.Context, t targets.Target, resul
 		})
 		if err == nil {
 			result.PreviouslyOK = up.Previous.EverHealthy
-			if up.IsRegression || (up.Current.EverHealthy && knownstate.IsFailure(ksStatus)) {
+
+			// A degraded result is a *departure*, not a failure: it is neither
+			// rewritten as a regression nor escalated to an outage. The known-state
+			// streak still counts it (features/known-state.feature specifies that,
+			// and UpdateResult.IsRegression is still reported) — but the *rendered*
+			// state must stay its own rung. Without this, "answering, but not as
+			// declared" collapses into red and the middle rung has no producer.
+			departure := result.State == targets.StateDegraded
+
+			if !departure && (up.IsRegression || (up.Current.EverHealthy && knownstate.IsFailure(ksStatus))) {
 				result.State = targets.StateRegression
 				result.Regression = true
 				result.Severity = targets.SeverityCritical
@@ -370,7 +379,8 @@ func (e *Engine) classifyWithPolicy(ctx context.Context, t targets.Target, resul
 			// Policy:
 			// - Suppress bootstrap outages for auth/config failures before baseline healthy.
 			// - Allow pre-baseline outages for transport/protocol classes (network/timeout/tls/protocol/rate-limited/unknown).
-			if knownstate.IsFailure(ksStatus) &&
+			if !departure &&
+				knownstate.IsFailure(ksStatus) &&
 				up.Current.ConsecutiveFailures >= e.cfg.KnownState.OutageThresholdConsecutiveFailures &&
 				result.State != targets.StateRegression &&
 				(up.Current.EverHealthy ||
@@ -681,7 +691,14 @@ func (p *HTTPProber) probeSimpleHTTP(ctx context.Context, target targets.Target,
 func (p *HTTPProber) probeJSONRPCHandshakeHTTP(ctx context.Context, target targets.Target, headers map[string]string) (targets.CheckResult, error) {
 	methods := httpHandshakeMethods(target)
 	start := time.Now()
+
 	exercised := make([]string, 0, len(methods))
+	failed := make([]string, 0, len(methods))
+	var (
+		firstFailure string
+		failureCode  int
+		advertised   map[string]any
+	)
 
 	for i, method := range methods {
 		reqBody, err := json.Marshal(rpcRequest{
@@ -705,70 +722,151 @@ func (p *HTTPProber) probeJSONRPCHandshakeHTTP(ctx context.Context, target targe
 
 		resp, err := p.client.Do(req)
 		if err != nil {
+			// The endpoint is not reachable at all — that is an outage, not a
+			// partial handshake. Return the transport error unchanged.
 			return targets.CheckResult{}, err
 		}
 
+		// A failure is *recorded* and the handshake continues: what a surface
+		// answers and what it does not is the whole classification (below). It
+		// used to return on the first failure, which collapsed "answered some of
+		// it" into the same outcome as "answered none of it".
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 			_ = resp.Body.Close()
-			return targets.CheckResult{
-				TargetID:     target.ID,
-				Protocol:     target.Protocol,
-				State:        targets.StateUnhealthy,
-				Severity:     targets.SeverityWarn,
-				FailureClass: targets.FailureProtocol,
-				Message:      fmt.Sprintf("handshake method %q failed with status %d", method, resp.StatusCode),
-				StatusCode:   resp.StatusCode,
-				Latency:      time.Since(start),
-				CheckedAt:    time.Now(),
-			}, nil
+			if firstFailure == "" {
+				firstFailure = fmt.Sprintf("handshake method %q failed with status %d", method, resp.StatusCode)
+				failureCode = resp.StatusCode
+			}
+			failed = append(failed, method)
+			continue
 		}
 
 		var rpcResp rpcResponse
 		decErr := json.NewDecoder(resp.Body).Decode(&rpcResp)
 		_ = resp.Body.Close()
 		if decErr != nil {
-			return targets.CheckResult{
-				TargetID:     target.ID,
-				Protocol:     target.Protocol,
-				State:        targets.StateUnhealthy,
-				Severity:     targets.SeverityWarn,
-				FailureClass: targets.FailureProtocol,
-				Message:      fmt.Sprintf("handshake method %q returned invalid JSON-RPC body: %v", method, decErr),
-				Latency:      time.Since(start),
-				CheckedAt:    time.Now(),
-			}, nil
+			if firstFailure == "" {
+				firstFailure = fmt.Sprintf("handshake method %q returned invalid JSON-RPC body: %v", method, decErr)
+			}
+			failed = append(failed, method)
+			continue
 		}
 		if rpcResp.Error != nil {
-			return targets.CheckResult{ //nolint:nilerr
-				TargetID:     target.ID,
-				Protocol:     target.Protocol,
-				State:        targets.StateUnhealthy,
-				Severity:     targets.SeverityWarn,
-				FailureClass: targets.FailureProtocol,
-				Message:      fmt.Sprintf("handshake method %q rejected: %s", method, rpcResp.Error.Error()),
-				Latency:      time.Since(start),
-				CheckedAt:    time.Now(),
-			}, nil
+			if firstFailure == "" {
+				firstFailure = fmt.Sprintf("handshake method %q rejected: %s", method, rpcResp.Error.Error())
+			}
+			failed = append(failed, method)
+			continue
 		}
 
 		exercised = append(exercised, method)
+		if method == "initialize" {
+			advertised = advertisedCapabilities(rpcResp.Result)
+		}
 	}
 
-	return targets.CheckResult{
+	gap := capabilityGap(target.Expected.MinCapabilities, advertised)
+
+	result := targets.CheckResult{
 		TargetID:     target.ID,
 		Protocol:     target.Protocol,
 		State:        targets.StateHealthy,
 		Severity:     targets.SeverityInfo,
 		FailureClass: targets.FailureNone,
-		Message:      fmt.Sprintf("http(s) handshake passed: %s", strings.Join(exercised, ", ")),
 		Latency:      time.Since(start),
 		CheckedAt:    time.Now(),
+		Capabilities: capabilityNames(advertised),
 		Details: map[string]any{
 			"transport":         "http",
 			"profile":           target.Check.HandshakeProfile,
 			"exercised_methods": exercised,
+			"failed_methods":    failed,
 		},
-	}, nil
+	}
+
+	switch {
+	case len(exercised) == 0:
+		// Nothing answered at all: the handshake failed outright.
+		result.State = targets.StateUnhealthy
+		result.Severity = targets.SeverityWarn
+		result.FailureClass = targets.FailureProtocol
+		result.Message = firstFailure
+		result.StatusCode = failureCode
+
+	case len(failed) > 0:
+		// Answering, but not everything that was required.
+		result.State = targets.StateDegraded
+		result.Severity = targets.SeverityWarn
+		result.FailureClass = targets.FailureProtocol
+		result.Message = fmt.Sprintf("http(s) handshake partial: %d of %d methods answered (%s failed) — %s",
+			len(exercised), len(methods), strings.Join(failed, ", "), firstFailure)
+
+	case len(gap) > 0:
+		// Answering, but not what the target declared it must advertise.
+		result.State = targets.StateDegraded
+		result.Severity = targets.SeverityWarn
+		result.FailureClass = targets.FailureProtocol
+		result.Message = fmt.Sprintf("http(s) handshake passed, but the surface does not advertise %s (advertised: %s)",
+			strings.Join(gap, ", "), strings.Join(result.Capabilities, ", "))
+		result.Details["capability_gap"] = gap
+
+	default:
+		result.Message = fmt.Sprintf("http(s) handshake passed: %s", strings.Join(exercised, ", "))
+	}
+
+	return result, nil
+}
+
+// advertisedCapabilities returns the capability families a surface declared in
+// its `initialize` result — the canonical MCP shape, `{"tools": {}, ...}`.
+func advertisedCapabilities(result any) map[string]any {
+	m, ok := result.(map[string]any)
+	if !ok {
+		return nil
+	}
+	caps, ok := m["capabilities"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	return caps
+}
+
+// capabilityNames lists the advertised families, sorted. A family advertised as
+// null counts as not advertised: it is a name, not a promise.
+func capabilityNames(advertised map[string]any) []string {
+	names := make([]string, 0, len(advertised))
+	for name, v := range advertised {
+		if v != nil {
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
+	return names
+}
+
+// capabilityGap returns the declared `min_capabilities` a surface did not
+// advertise.
+//
+// A min_capability is a method name ("tools/list"); the family is the part before
+// "/", which is how an MCP surface advertises it. This is the check the
+// `expected.min_capabilities` field was always for — the target *declares* what
+// must be there, the surface *advertises* what it can serve, and a surface that
+// answers while not advertising it is **degraded**: not healthy, and not down.
+func capabilityGap(declared []string, advertised map[string]any) []string {
+	var gap []string
+	for _, want := range declared {
+		family := strings.TrimSpace(want)
+		if base, _, ok := strings.Cut(family, "/"); ok {
+			family = base
+		}
+		if family == "" {
+			continue
+		}
+		if v, ok := advertised[family]; !ok || v == nil {
+			gap = append(gap, want)
+		}
+	}
+	return gap
 }
 
 func shouldRunHTTPHandshake(target targets.Target) bool {
