@@ -245,8 +245,9 @@ func cmdServe(args []string) error {
 		engineOpts = append(engineOpts, engine.WithStore(store))
 	}
 
-	groupNotifier := buildNotifiers(cfg, logger, *jsonLogs)
-	if groupNotifier != nil {
+	// Sink selection is shared with pkg/smokealarm so an embedded instance alerts
+	// exactly like the CLI does for the same config.
+	if groupNotifier := alerts.NotifierFromConfig(cfg, logger); groupNotifier != nil {
 		engineOpts = append(engineOpts, engine.WithNotifier(groupNotifier))
 	}
 
@@ -1684,28 +1685,6 @@ func buildLogger(level string, enableJSON bool) *slog.Logger {
 	}
 	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: l})
 	return slog.New(handler)
-}
-
-func buildNotifiers(cfg config.Config, logger *slog.Logger, enableJSON bool) engine.Notifier { //nolint:unparam
-	var sinks []engine.Notifier
-	dedupe := mustDuration(cfg.Alerts.DedupeWindow, 2*time.Minute)
-
-	if cfg.Alerts.Sinks.Log.Enabled {
-		if logger != nil {
-			sinks = append(sinks, alerts.NewLogNotifier(logger, "info", dedupe))
-		}
-	}
-	if cfg.Alerts.Sinks.OSNotification.Enabled {
-		sinks = append(sinks, alerts.NewDesktopNotifier(
-			cfg.Alerts.Sinks.OSNotification.TitlePrefix,
-			"warn",
-			dedupe,
-		))
-	}
-	if len(sinks) == 0 {
-		return nil
-	}
-	return alerts.NewNotifierGroup(sinks...)
 }
 
 func acquireLock(path string) (*os.File, error) {
