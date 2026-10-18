@@ -55,6 +55,10 @@ type SlotOptions struct {
 	StateDir string
 	// ServiceName is used when deriving stable instance IDs.
 	ServiceName string
+	// BindAddr is the host the federation listener binds. Defaults to
+	// "localhost". A non-loopback value makes the introducer reachable from
+	// other hosts, which requires a shared secret (see RequireSharedSecret).
+	BindAddr string
 }
 
 // Identity captures the elected slot and leader/follower role.
@@ -114,7 +118,7 @@ func ClaimSlot(opts SlotOptions) (*SlotClaim, error) {
 	var chosenRole Role
 
 	for _, port := range candidates {
-		addr := fmt.Sprintf("localhost:%d", port)
+		addr := net.JoinHostPort(opts.BindAddr, strconv.Itoa(port))
 		var lc net.ListenConfig
 		ln, listenErr := lc.Listen(context.Background(), "tcp", addr)
 		if listenErr != nil {
@@ -169,6 +173,9 @@ func normalizeOptions(opts SlotOptions) SlotOptions {
 	}
 	if opts.ServiceName == "" {
 		opts.ServiceName = "ocd-smoke-alarm"
+	}
+	if opts.BindAddr == "" {
+		opts.BindAddr = "localhost"
 	}
 	return opts
 }

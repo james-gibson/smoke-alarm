@@ -452,11 +452,21 @@ func cmdServe(args []string) error {
 
 	// Start deterministic federation orchestration if enabled.
 	if cfg.Federation.Enabled {
+		statusTimeout := mustDuration(cfg.Federation.HeartbeatTimeout, 45*time.Second)
+
+		// A peer's status is rendered under this node's own view, so an alert on
+		// another alarm shows up here without polling it.
+		var peerSink *federation.PeerStatusSink
+		if hs != nil {
+			peerSink = federation.NewPeerStatusSink(hs)
+		}
+
 		slot, err := federation.ClaimSlot(federation.SlotOptions{
 			BasePort:    cfg.Federation.BasePort,
 			MaxPort:     cfg.Federation.MaxPort,
 			StateDir:    cfg.Runtime.StateDir,
 			ServiceName: cfg.Service.Name,
+			BindAddr:    cfg.Federation.BindAddr,
 		})
 		if err != nil {
 			return fmt.Errorf("claim federation slot: %w", err)
@@ -466,6 +476,7 @@ func cmdServe(args []string) error {
 		announceInterval := mustDuration(cfg.Federation.AnnounceInterval, 10*time.Second)
 		heartbeatInterval := mustDuration(cfg.Federation.HeartbeatInterval, 15*time.Second)
 		heartbeatTimeout := mustDuration(cfg.Federation.HeartbeatTimeout, 45*time.Second)
+		reportInterval := mustDuration(cfg.Federation.ReportInterval, heartbeatInterval)
 
 		var registry *federation.Registry
 		registryOpts := federation.RegistryOptions{
@@ -484,6 +495,17 @@ func cmdServe(args []string) error {
 			// are trusted by construction, and their isotope is dropped when the
 			// peer ages out.
 			federation.MirrorMember(hs, registry.Self(), ev)
+		}
+		if peerSink != nil {
+			previous := registryOpts.OnChange
+			registryOpts.OnChange = func(ev federation.Event) {
+				if ev.Type == federation.EventRemoved {
+					// A departed peer must not keep contributing status, or its
+					// last known alert would linger as if it were still present.
+					peerSink.Remove(ev.Record.ID)
+				}
+				previous(ev)
+			}
 		}
 		registry, err = federation.NewRegistry(slot.Identity, registryOpts)
 		if err != nil {
@@ -510,11 +532,22 @@ func cmdServe(args []string) error {
 		switch slot.Identity.Role {
 		case federation.RoleIntroducer:
 			cfg.Federation.Rank = slot.Identity.Port
-			server, err := federation.NewServer(federation.ServerOptions{
-				Listener: slot.Listener,
-				Registry: registry,
-				Logger:   logger,
-			})
+			serverOpts := federation.ServerOptions{
+				Listener:          slot.Listener,
+				Registry:          registry,
+				Logger:            logger,
+				SharedSecret:      cfg.Federation.SharedSecret,
+				PeerStatusTimeout: statusTimeout,
+			}
+			if hs != nil {
+				serverOpts.SelfStatus = hs.Snapshot
+			}
+			if peerSink != nil {
+				serverOpts.OnStatus = func(statuses federation.PeerStatuses) {
+					peerSink.ApplyAll(statuses, time.Now().UTC(), statusTimeout)
+				}
+			}
+			server, err := federation.NewServer(serverOpts)
 			if err != nil {
 				return fmt.Errorf("federation server: %w", err)
 			}
@@ -524,19 +557,32 @@ func cmdServe(args []string) error {
 				}
 			}()
 		default:
-			introducerURL := fmt.Sprintf("http://localhost:%d", cfg.Federation.BasePort)
-			if logger != nil {
-				logger.Info("federation follower using default introducer url",
-					"introducer_url", introducerURL,
-				)
+			// A configured introducer wins; otherwise fall back to the
+			// introducer slot on this host, which is the single-host default.
+			introducerURL := cfg.Federation.Introducer
+			if introducerURL == "" {
+				introducerURL = fmt.Sprintf("http://localhost:%d", cfg.Federation.BasePort)
+				if logger != nil {
+					logger.Info("federation follower using default introducer url",
+						"introducer_url", introducerURL,
+					)
+				}
 			}
-			client, err := federation.NewClient(federation.ClientOptions{
+			clientOpts := federation.ClientOptions{
 				IntroducerURL:     introducerURL,
 				Registry:          registry,
 				Logger:            logger,
 				AnnounceInterval:  announceInterval,
 				HeartbeatInterval: heartbeatInterval,
-			})
+				SharedSecret:      cfg.Federation.SharedSecret,
+				ReportInterval:    reportInterval,
+				PeerStatusTimeout: statusTimeout,
+				StatusSink:        peerSink,
+			}
+			if hs != nil {
+				clientOpts.StatusFunc = hs.Snapshot
+			}
+			client, err := federation.NewClient(clientOpts)
 			if err != nil {
 				return fmt.Errorf("federation client: %w", err)
 			}
@@ -2030,21 +2076,19 @@ func printRemoteStatusTable(statuses []health.TargetStatus) {
 
 func parseFederationFlag(flagVal string, cfg *config.Config) {
 	parts := strings.Split(flagVal, ",")
-	fmt.Printf("[MAIN] federation flag parse: parts=%v\n", parts)
 	for _, part := range parts {
-		kv := strings.Split(part, ":")
+		kv := strings.SplitN(part, ":", 2)
 		if len(kv) != 2 {
 			continue
 		}
 		switch kv[0] {
-		case "upstream":
+		case "upstream", "introducer":
+			cfg.Federation.Introducer = kv[1]
 			cfg.Federation.Upstream = kv[1]
-		case "downstream":
-			cfg.Federation.Downstream = strings.Split(kv[1], ",")
 		}
 	}
 	cfg.Federation.Enabled = true
 	cfg.Federation.Rank = federation.DetectRank(cfg.Health.ListenAddr)
-	cfg.Federation.PollInterval = "30s"
-	fmt.Printf("[MAIN] federation enabled: downstream=%v, rank=%d\n", cfg.Federation.Downstream, cfg.Federation.Rank)
+	fmt.Printf("[MAIN] federation enabled: introducer=%q, bind=%s, rank=%d\n",
+		cfg.Federation.Introducer, cfg.Federation.BindAddr, cfg.Federation.Rank)
 }

@@ -74,15 +74,28 @@ type Config struct {
 type FederationConfig struct {
 	Enabled           bool     `yaml:"enabled"`
 	ClusterID         string   `yaml:"cluster_id"`         // shared identity; same-cluster peers are trusted by construction
-	Upstream          string   `yaml:"upstream"`           // upstream endpoint to report to
-	Downstream        []string `yaml:"downstream"`         // downstream endpoints to poll
+	Upstream          string   `yaml:"upstream"`           // deprecated alias for introducer
+	Downstream        []string `yaml:"downstream"`         // rejected: status now arrives via the introducer
 	Rank              int      `yaml:"rank"`               // rank based on port (lower = upstream)
-	PollInterval      string   `yaml:"poll_interval"`      // how often to poll downstream
+	PollInterval      string   `yaml:"poll_interval"`      // legacy name; supplies ReportInterval when unset
 	BasePort          int      `yaml:"base_port"`          // lowest local port considered for slot claiming
 	MaxPort           int      `yaml:"max_port"`           // highest local port considered for slot claiming
 	AnnounceInterval  string   `yaml:"announce_interval"`  // how often to send introductions/announcements
 	HeartbeatInterval string   `yaml:"heartbeat_interval"` // cadence for heartbeats to introducer/upstream
 	HeartbeatTimeout  string   `yaml:"heartbeat_timeout"`  // grace period before peers are considered stale
+	// Introducer is the base URL of the introducer a follower reports to.
+	// Defaults to http://localhost:<base_port>. A non-loopback value requires
+	// SharedSecret.
+	Introducer string `yaml:"introducer"`
+	// BindAddr is the host the federation listener binds. Defaults to localhost;
+	// a non-loopback value requires SharedSecret because cluster membership is a
+	// trust grant.
+	BindAddr string `yaml:"bind_addr"`
+	// SharedSecret authenticates federation requests between cluster members.
+	SharedSecret string `yaml:"shared_secret"`
+	// ReportInterval is how often a follower reports its local status to the
+	// introducer. Defaults to PollInterval.
+	ReportInterval string `yaml:"report_interval"`
 }
 
 type TelemetryConfig struct {
@@ -722,6 +735,18 @@ func (c *Config) ApplyDefaults() {
 	if c.Federation.HeartbeatTimeout == "" {
 		c.Federation.HeartbeatTimeout = "45s"
 	}
+	if c.Federation.BindAddr == "" {
+		c.Federation.BindAddr = "localhost"
+	}
+	// `upstream` was the legacy name for the node this instance reports to. It
+	// now means the introducer, so existing configs keep working and keep
+	// meaning what they say.
+	if c.Federation.Introducer == "" && c.Federation.Upstream != "" {
+		c.Federation.Introducer = normalizeEndpointURL(c.Federation.Upstream)
+	}
+	if c.Federation.ReportInterval == "" {
+		c.Federation.ReportInterval = c.Federation.PollInterval
+	}
 
 	for i := range c.Targets {
 		t := &c.Targets[i]
@@ -1037,6 +1062,18 @@ func (c Config) Validate() error {
 		if _, err := parsePositiveDuration(c.Federation.PollInterval); err != nil {
 			add("federation.poll_interval invalid: %v", err)
 		}
+		if _, err := parsePositiveDuration(c.Federation.ReportInterval); err != nil {
+			add("federation.report_interval invalid: %v", err)
+		}
+		// Downstream polling was removed with the legacy Poller: status now
+		// arrives via the introducer, which aggregates every follower's report
+		// and returns the whole set on each membership response. Accepting a
+		// non-empty `downstream:` silently would promise a behavior this binary
+		// does not implement.
+		if len(c.Federation.Downstream) > 0 {
+			add("federation.downstream is no longer supported: status is aggregated by the introducer " +
+				"and returned to every follower; remove downstream, or use a `verify` target to poll a peer directly")
+		}
 		if _, err := parsePositiveDuration(c.Federation.AnnounceInterval); err != nil {
 			add("federation.announce_interval invalid: %v", err)
 		}
@@ -1280,6 +1317,20 @@ func inferTransport(endpoint string) string {
 	default:
 		return TransportHTTP
 	}
+}
+
+// normalizeEndpointURL accepts the shapes federation endpoints are written in
+// ("host:port", "//host:port", "http://host:port") and returns a URL a client
+// can join paths onto. A value that already carries a scheme is trimmed only.
+func normalizeEndpointURL(raw string) string {
+	ep := strings.TrimSpace(raw)
+	if ep == "" {
+		return ""
+	}
+	if strings.Contains(ep, "://") {
+		return strings.TrimSuffix(ep, "/")
+	}
+	return "http://" + strings.TrimPrefix(strings.TrimSuffix(ep, "/"), "//")
 }
 
 func parsePositiveDuration(raw string) (time.Duration, error) {
