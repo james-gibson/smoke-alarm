@@ -338,3 +338,104 @@ func containsProblem(problems []string, want string) bool {
 	}
 	return false
 }
+
+// TestFederationUpstreamAliasesIntroducer pins that the legacy `upstream` key
+// still means what it says: the node this instance reports to. It previously
+// configured a code path with no caller, so the value was silently inert.
+func TestFederationUpstreamAliasesIntroducer(t *testing.T) {
+	raw := `
+version: "1"
+federation:
+  enabled: true
+  cluster_id: "lab"
+  upstream: "192.168.7.205:50970"
+`
+	cfg, err := LoadBytes([]byte(raw))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.Federation.Introducer != "http://192.168.7.205:50970" {
+		t.Fatalf("federation.introducer = %q, want the upstream value with a scheme",
+			cfg.Federation.Introducer)
+	}
+	// The report cadence falls back to poll_interval so existing configs keep a
+	// meaningful repo interval instead of silently adopting a new default.
+	if cfg.Federation.ReportInterval != cfg.Federation.PollInterval {
+		t.Fatalf("report_interval = %q, want it to follow poll_interval (%q)",
+			cfg.Federation.ReportInterval, cfg.Federation.PollInterval)
+	}
+}
+
+func TestFederationIntroducerDefaultsToLoopback(t *testing.T) {
+	raw := `
+version: "1"
+federation:
+  enabled: true
+`
+	cfg, err := LoadBytes([]byte(raw))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.Federation.BindAddr != "localhost" {
+		t.Fatalf("bind_addr = %q, want localhost by default", cfg.Federation.BindAddr)
+	}
+	// No introducer configured means single-host: the follower finds the
+	// introducer slot on loopback.
+	if cfg.Federation.Introducer != "" {
+		t.Fatalf("introducer = %q, want empty so the loopback default applies", cfg.Federation.Introducer)
+	}
+	if cfg.Federation.SharedSecret != "" {
+		t.Fatalf("shared_secret = %q, want empty by default", cfg.Federation.SharedSecret)
+	}
+}
+
+// TestFederationDownstreamRejected pins the fail-closed rule for the one legacy
+// knob with no honest mapping. Accepting it silently would advertise a poll that
+// this binary does not perform.
+func TestFederationDownstreamRejected(t *testing.T) {
+	raw := `
+version: "1"
+federation:
+  enabled: true
+  cluster_id: "lab"
+  downstream:
+    - "192.168.7.205:50970"
+`
+	_, err := LoadBytes([]byte(raw))
+	if err == nil {
+		t.Fatal("expected a non-empty federation.downstream to be rejected")
+	}
+	if !strings.Contains(err.Error(), "downstream") {
+		t.Fatalf("error should name the offending key, got: %v", err)
+	}
+}
+
+// TestFederationEmptyDownstreamAccepted keeps the shipped sample configs
+// loadable: they set `downstream: []`, which states no intent and is harmless.
+func TestFederationEmptyDownstreamAccepted(t *testing.T) {
+	raw := `
+version: "1"
+federation:
+  enabled: true
+  cluster_id: "lab"
+  upstream: ""
+  downstream: []
+  poll_interval: "5s"
+`
+	if _, err := LoadBytes([]byte(raw)); err != nil {
+		t.Fatalf("empty upstream/downstream should load, got: %v", err)
+	}
+}
+
+func TestFederationReportIntervalValidated(t *testing.T) {
+	raw := `
+version: "1"
+federation:
+  enabled: true
+  cluster_id: "lab"
+  report_interval: "not-a-duration"
+`
+	if _, err := LoadBytes([]byte(raw)); err == nil {
+		t.Fatal("expected an invalid federation.report_interval to be rejected")
+	}
+}
