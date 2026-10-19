@@ -281,6 +281,80 @@ func TestNewReportsUnsupportedSubsystems(t *testing.T) {
 	}
 }
 
+// localTarget builds a target on a closed port, so its probe fails fast and
+// deterministically while still producing a /status row.
+func localTarget(id string) config.TargetConfig {
+	return config.TargetConfig{
+		ID:        id,
+		Name:      id,
+		Enabled:   true,
+		Protocol:  config.ProtocolHTTP,
+		Transport: config.TransportHTTP,
+		Endpoint:  "http://127.0.0.1:1/status",
+		Check:     config.TargetCheckConfig{Interval: "200ms", Timeout: "100ms", Retries: 0},
+	}
+}
+
+// statusContains polls /status until it holds (want=true) or drops (want=false)
+// the given target id, returning whether the condition was met in time.
+func statusContains(client *http.Client, statusURL, needle string, want bool) bool {
+	deadline := time.Now().Add(4 * time.Second)
+	for time.Now().Before(deadline) {
+		resp, err := client.Get(statusURL)
+		if err == nil {
+			body, _ := io.ReadAll(resp.Body)
+			_ = resp.Body.Close()
+			if bytes.Contains(body, []byte(needle)) == want {
+				return true
+			}
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	return false
+}
+
+// TestInstanceReloadSwapsTargets pins the SDK parity with the CLI's SIGHUP path:
+// Reload swaps the target set in place, a new target surfaces on /status, and a
+// target the reload dropped is withdrawn.
+func TestInstanceReloadSwapsTargets(t *testing.T) {
+	port := freePort(t)
+	cfg := testConfig(t, port)
+	cfg.Targets = []config.TargetConfig{localTarget("first-target")}
+
+	in, err := New(cfg, Options{Logger: discardLogger()})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if err := in.Start(ctx); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	defer func() {
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer shutdownCancel()
+		_ = in.Shutdown(shutdownCtx)
+	}()
+
+	client := &http.Client{Timeout: 2 * time.Second}
+	if !statusContains(client, in.StatusURL(), "first-target", true) {
+		t.Fatal("first-target never appeared on /status")
+	}
+
+	reloaded := testConfig(t, port)
+	reloaded.Targets = []config.TargetConfig{localTarget("second-target")}
+	if err := in.Reload(reloaded); err != nil {
+		t.Fatalf("Reload: %v", err)
+	}
+
+	if !statusContains(client, in.StatusURL(), "second-target", true) {
+		t.Fatal("second-target never appeared on /status after Reload")
+	}
+	if !statusContains(client, in.StatusURL(), "first-target", false) {
+		t.Fatal("first-target should have been withdrawn after Reload")
+	}
+}
+
 // TestNewStrictRejectsUnsupportedSubsystems checks the opt-in escalation from
 // warning to error.
 func TestNewStrictRejectsUnsupportedSubsystems(t *testing.T) {

@@ -346,6 +346,35 @@ func (in *Instance) Shutdown(ctx context.Context) error {
 	return nil
 }
 
+// Reload applies a new configuration in place, mirroring the CLI's SIGHUP path:
+// the engine's target set is swapped without restarting, and targets the reload
+// dropped are withdrawn from the health server (which only ever upserts).
+//
+// The config is normalized the way New normalizes one — defaults plus the
+// self-check target — so a reload cannot silently lose the self-check probe.
+// Listeners bound at Start (health, mDNS) are left untouched.
+func (in *Instance) Reload(cfg Config) error {
+	cfg.ApplyDefaults()
+	cfg = withSelfCheck(cfg)
+
+	removed, err := in.eng.ReloadConfig(cfg)
+	if err != nil {
+		return err
+	}
+
+	in.mu.Lock()
+	in.cfg = cfg
+	hs := in.hs
+	in.mu.Unlock()
+
+	if hs != nil {
+		for _, id := range removed {
+			hs.RemoveTarget(id)
+		}
+	}
+	return nil
+}
+
 // Addr returns the bound health listen address (for example "0.0.0.0:19101"),
 // or "" before Start.
 func (in *Instance) Addr() string {
@@ -369,17 +398,26 @@ func (in *Instance) StatusURL() string {
 }
 
 // syncHealthLoop mirrors engine status onto the health server. It mirrors the
-// loop used by cmd/ocd-smoke-alarm.
+// loop used by cmd/ocd-smoke-alarm, including the ownership-based withdrawal of
+// targets that a Reload dropped: the health server only ever upserts, and
+// federated peer targets are never owned here, so pruning leaves them alone.
 func syncHealthLoop(ctx context.Context, hs *health.Server, eng *engine.Engine, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
+
+	owned := make(map[string]struct{})
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			current := make(map[string]struct{})
+			for _, id := range eng.TargetIDs() {
+				current[id] = struct{}{}
+			}
 			for _, st := range eng.SnapshotStatuses() {
+				current[st.TargetID] = struct{}{}
 				hs.UpsertTargetStatus(health.TargetStatus{
 					ID:         st.TargetID,
 					Protocol:   string(st.Protocol),
@@ -392,6 +430,13 @@ func syncHealthLoop(ctx context.Context, hs *health.Server, eng *engine.Engine, 
 					LatencyMS:  st.Latency.Milliseconds(),
 				})
 			}
+			for id := range owned {
+				if _, ok := current[id]; !ok {
+					hs.RemoveTarget(id)
+				}
+			}
+			owned = current
+
 			if eng.IsReady() {
 				hs.SetComponent("engine", true, "checks active")
 				hs.SetReady(true, "")

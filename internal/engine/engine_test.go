@@ -356,3 +356,78 @@ func waitForStatus(t *testing.T, eng *Engine, targetID string, timeout time.Dura
 	t.Fatalf("condition not met for target %s within %s", targetID, timeout)
 	return TargetRuntimeStatus{}
 }
+
+// reloadedTarget builds the standard test target under a new id, so a reload
+// test can assert the loop lifecycle follows the config rather than the old set.
+func reloadedTarget(id string) config.TargetConfig {
+	return config.TargetConfig{
+		ID:        id,
+		Enabled:   true,
+		Protocol:  string(targets.ProtocolMCP),
+		Name:      "Reloaded Target",
+		Endpoint:  "https://example.com/mcp",
+		Transport: string(targets.TransportHTTP),
+		Expected:  config.ExpectedConfig{HealthyStatusCodes: []int{200}},
+		Auth:      config.TargetAuthConfig{Type: string(targets.AuthNone)},
+		Check: config.TargetCheckConfig{
+			Interval:        "30ms",
+			Timeout:         "150ms",
+			Retries:         0,
+			RequiredMethods: []string{"initialize"},
+		},
+	}
+}
+
+func TestEngineReloadConfigReplacesTargets(t *testing.T) {
+	h := newEngineHarness(t)
+	defer h.stop(t)
+
+	h.prober.Push(newCheckResult(targets.StateHealthy, targets.SeverityInfo, false, "t1 healthy"))
+	waitForStatus(t, h.engine, "t1", time.Second, func(st TargetRuntimeStatus) bool {
+		return st.State == targets.StateHealthy
+	})
+
+	newCfg := newTestConfig(t, t.TempDir())
+	newCfg.Targets = []config.TargetConfig{reloadedTarget("t2")}
+
+	removed, err := h.engine.ReloadConfig(newCfg)
+	if err != nil {
+		t.Fatalf("ReloadConfig: %v", err)
+	}
+	if len(removed) != 1 || removed[0] != "t1" {
+		t.Fatalf("ReloadConfig removed = %v, want [t1]", removed)
+	}
+	if ids := h.engine.TargetIDs(); len(ids) != 1 || ids[0] != "t2" {
+		t.Fatalf("engine TargetIDs() = %v, want [t2]", ids)
+	}
+
+	// The reloaded loop set must probe the new target.
+	h.prober.Push(newCheckResult(targets.StateHealthy, targets.SeverityInfo, false, "t2 healthy"))
+	waitForStatus(t, h.engine, "t2", time.Second, func(st TargetRuntimeStatus) bool {
+		return st.State == targets.StateHealthy
+	})
+
+	for _, st := range h.engine.SnapshotStatuses() {
+		if st.TargetID == "t1" {
+			t.Fatalf("stale target t1 still reported after reload")
+		}
+	}
+}
+
+func TestEngineReloadConfigRejectsInvalidTarget(t *testing.T) {
+	h := newEngineHarness(t)
+	defer h.stop(t)
+
+	bad := newTestConfig(t, t.TempDir())
+	bad.Targets[0].Check.Interval = "not-a-duration"
+
+	if _, err := h.engine.ReloadConfig(bad); err == nil {
+		t.Fatal("ReloadConfig(invalid) = nil, want error")
+	}
+
+	// A rejected reload leaves the running target set untouched.
+	h.prober.Push(newCheckResult(targets.StateHealthy, targets.SeverityInfo, false, "t1 healthy"))
+	waitForStatus(t, h.engine, "t1", time.Second, func(st TargetRuntimeStatus) bool {
+		return st.State == targets.StateHealthy
+	})
+}

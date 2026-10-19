@@ -168,12 +168,47 @@ func cmdServe(args []string) error {
 		return err
 	}
 
-	cfg, err := config.Load(*configPath)
+	// loadConfig centralizes config loading plus the flag overrides so the
+	// SIGHUP reload path applies exactly the same normalization as startup.
+	loadConfig := func() (config.Config, error) {
+		cfg, loadErr := config.Load(*configPath)
+		if loadErr != nil {
+			return config.Config{}, loadErr
+		}
+		if *modeOverride != "" {
+			cfg.Service.Mode = *modeOverride
+		}
+		if *healthAddrOverride != "" {
+			cfg.Health.ListenAddr = *healthAddrOverride
+		}
+		if *telemetryOverride != "" {
+			cfg.Telemetry.Enabled = true
+			cfg.Telemetry.Endpoint = *telemetryOverride
+		}
+		if *federationOverride != "" {
+			parseFederationFlag(*federationOverride, &cfg)
+		}
+		if *nameOverride != "" {
+			cfg.Service.Name = *nameOverride
+		}
+		if *stateDir != "" {
+			cfg.Runtime.StateDir = *stateDir
+		}
+		if *lockFile != "" {
+			cfg.Runtime.LockFile = *lockFile
+		}
+		cfg.ApplyDefaults()
+		applyDemoOverrides(&cfg)
+		ensureDockerLLMSTxt(&cfg)
+		if validateErr := cfg.Validate(); validateErr != nil {
+			return config.Config{}, validateErr
+		}
+		return withSelfCheckTarget(cfg), nil
+	}
+
+	cfg, err := loadConfig()
 	if err != nil {
 		return err
-	}
-	if *modeOverride != "" {
-		cfg.Service.Mode = *modeOverride
 	}
 	validModes := map[string]bool{
 		config.ModeForeground: true,
@@ -182,31 +217,6 @@ func cmdServe(args []string) error {
 	}
 	if !validModes[strings.ToLower(cfg.Service.Mode)] {
 		return fmt.Errorf("invalid mode %q: must be one of: foreground, background, headless (or use 'tui' command for remote TUI)", cfg.Service.Mode)
-	}
-	if *healthAddrOverride != "" {
-		cfg.Health.ListenAddr = *healthAddrOverride
-	}
-	if *telemetryOverride != "" {
-		cfg.Telemetry.Enabled = true
-		cfg.Telemetry.Endpoint = *telemetryOverride
-	}
-	if *federationOverride != "" {
-		parseFederationFlag(*federationOverride, &cfg)
-	}
-	if *nameOverride != "" {
-		cfg.Service.Name = *nameOverride
-	}
-	if *stateDir != "" {
-		cfg.Runtime.StateDir = *stateDir
-	}
-	if *lockFile != "" {
-		cfg.Runtime.LockFile = *lockFile
-	}
-	cfg.ApplyDefaults()
-	applyDemoOverrides(&cfg)
-	ensureDockerLLMSTxt(&cfg)
-	if validateErr := cfg.Validate(); validateErr != nil {
-		return validateErr
 	}
 
 	logger := buildLogger(cfg.Service.LogLevel, *jsonLogs)
@@ -261,23 +271,6 @@ func cmdServe(args []string) error {
 				logger.Info("telemetry enabled", "endpoint", cfg.Telemetry.Endpoint)
 			}
 		}
-	}
-
-	if cfg.Health.Enabled && cfg.Health.SelfCheck {
-		selfCheckTarget := config.TargetConfig{
-			ID:        "self-health-check",
-			Name:      "Self Health Check",
-			Enabled:   true,
-			Protocol:  config.ProtocolHTTP,
-			Transport: config.TransportHTTP,
-			Endpoint:  fmt.Sprintf("http://%s%s", cfg.Health.ListenAddr, cfg.Health.Endpoints.Status),
-			Check: config.TargetCheckConfig{
-				Interval: "30s",
-				Timeout:  "5s",
-				Retries:  3,
-			},
-		}
-		cfg.Targets = append(cfg.Targets, selfCheckTarget)
 	}
 
 	eng, err := engine.New(cfg, engineOpts...)
@@ -447,6 +440,50 @@ func cmdServe(args []string) error {
 	go func() {
 		if err := eng.Start(ctx); err != nil && !errors.Is(err, context.Canceled) {
 			errCh <- fmt.Errorf("engine: %w", err)
+		}
+	}()
+
+	// SIGHUP reloads the config file in place: the target set (and other
+	// engine-wide knobs) is swapped without restarting the process, and
+	// listeners already bound at startup are left as they are. `ops reload`
+	// reaches this path by signaling the pid file.
+	hupCh := make(chan os.Signal, 1)
+	signal.Notify(hupCh, syscall.SIGHUP)
+	defer signal.Stop(hupCh)
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-hupCh:
+				reloaded, loadErr := loadConfig()
+				if loadErr != nil {
+					if logger != nil {
+						logger.Error("config reload failed; keeping current configuration", "error", loadErr.Error())
+					}
+					continue
+				}
+				removed, reloadErr := eng.ReloadConfig(reloaded)
+				if reloadErr != nil {
+					if logger != nil {
+						logger.Error("config reload rejected; keeping current configuration", "error", reloadErr.Error())
+					}
+					continue
+				}
+				// The health server only ever upserts; withdraw targets the reload
+				// dropped so a stale row cannot linger in /status.
+				for _, id := range removed {
+					if hs != nil {
+						hs.RemoveTarget(id)
+					}
+				}
+				if logger != nil {
+					logger.Info("configuration reloaded",
+						"targets", len(reloaded.EnabledTargets()),
+						"removed", len(removed),
+					)
+				}
+			}
 		}
 	}()
 
@@ -638,6 +675,29 @@ func cmdServe(args []string) error {
 	return nil
 }
 
+// withSelfCheckTarget mirrors pkg/smokealarm: when health.self_check is enabled,
+// a target is added that probes this instance's own /status endpoint. It is
+// applied on every config load so a SIGHUP reload keeps the self-check target.
+func withSelfCheckTarget(cfg config.Config) config.Config {
+	if !cfg.Health.Enabled || !cfg.Health.SelfCheck {
+		return cfg
+	}
+	cfg.Targets = append(cfg.Targets, config.TargetConfig{
+		ID:        "self-health-check",
+		Name:      "Self Health Check",
+		Enabled:   true,
+		Protocol:  config.ProtocolHTTP,
+		Transport: config.TransportHTTP,
+		Endpoint:  fmt.Sprintf("http://%s%s", cfg.Health.ListenAddr, cfg.Health.Endpoints.Status),
+		Check: config.TargetCheckConfig{
+			Interval: "30s",
+			Timeout:  "5s",
+			Retries:  3,
+		},
+	})
+	return cfg
+}
+
 func applyDemoOverrides(cfg *config.Config) {
 	if cfg == nil || !demoMode {
 		return
@@ -729,13 +789,23 @@ func syncHealthLoop(ctx context.Context, hs *health.Server, eng *engine.Engine) 
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
+	// owned is the set of local target ids this loop has published. The health
+	// server only ever upserts, so a target that leaves the config (e.g. after a
+	// SIGHUP reload) would linger in /status unless withdrawn here. Federated
+	// peer targets are never owned by this loop, so pruning leaves them alone.
+	owned := make(map[string]struct{})
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			statuses := eng.SnapshotStatuses()
-			for _, st := range statuses {
+			current := make(map[string]struct{})
+			for _, id := range eng.TargetIDs() {
+				current[id] = struct{}{}
+			}
+			for _, st := range eng.SnapshotStatuses() {
+				current[st.TargetID] = struct{}{}
 				hs.UpsertTargetStatus(health.TargetStatus{
 					ID:         st.TargetID,
 					Protocol:   string(st.Protocol),
@@ -748,6 +818,12 @@ func syncHealthLoop(ctx context.Context, hs *health.Server, eng *engine.Engine) 
 					LatencyMS:  st.Latency.Milliseconds(),
 				})
 			}
+			for id := range owned {
+				if _, ok := current[id]; !ok {
+					hs.RemoveTarget(id)
+				}
+			}
+			owned = current
 
 			if eng.IsReady() {
 				hs.SetComponent("engine", true, "checks active")
@@ -1289,17 +1365,52 @@ func printOpsUsage() {
 Usage:
   %s ops stop       [--pid-file=path] [--wait=15s]
   %s ops status     [--pid-file=path] [--health-url=url]
-  %s ops reload     --config=...
+  %s ops reload     [--pid-file=path] [--config=path]
   %s ops self-check --config=... [--json]
 
+Notes:
+  ops reload signals the running instance (SIGHUP) to re-read its config and swap
+  its target set in place. With --config whose remote_agent.managed_updates is true
+  it instead runs the managed-update workflow. The serve process reloads on SIGHUP.
+
 `, appName, version(), appName, appName, appName, appName)
+}
+
+func printOpsReloadUsage() {
+	fmt.Printf(`%s ops reload
+
+Reload a running instance in place.
+
+Without --config, or when the config does not enable remote_agent.managed_updates,
+this signals the running instance (SIGHUP) to re-read its config and swap its target
+set in place — the same reload that the serve process performs on SIGHUP.
+
+With --config pointing at a config whose remote_agent.managed_updates is true, it
+instead runs the managed-update workflow: stop_command, then start_command, then
+verify_command.
+
+Usage:
+  %s ops reload [--pid-file=path]
+  %s ops reload --config=path
+
+Flags:
+  --pid-file=path  PID file of the running instance (default: the config's
+                   runtime.state_dir, else ./state/%s.pid)
+  --config=path    Config file; enables the managed-update workflow when
+                   remote_agent.managed_updates is true
+
+`, appName, appName, appName, appName)
 }
 
 func cmdOpsStop(args []string) error {
 	fs := flag.NewFlagSet("ops stop", flag.ContinueOnError)
 	pidFile := fs.String("pid-file", "./state/"+appName+".pid", "PID file path")
 	wait := fs.Duration("wait", 15*time.Second, "Graceful wait timeout")
+	fs.Usage = printOpsUsage
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return nil
+		}
 		return err
 	}
 
@@ -1341,7 +1452,11 @@ func cmdOpsStatus(args []string) error {
 	fs := flag.NewFlagSet("ops status", flag.ContinueOnError)
 	pidFile := fs.String("pid-file", "./state/"+appName+".pid", "PID file path")
 	healthURL := fs.String("health-url", "http://localhost:8088/healthz", "Health URL")
+	fs.Usage = printOpsUsage
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return nil
+		}
 		return err
 	}
 
@@ -1373,19 +1488,55 @@ func cmdOpsStatus(args []string) error {
 
 func cmdOpsReload(args []string) error {
 	fs := flag.NewFlagSet("ops reload", flag.ContinueOnError)
-	configPath := fs.String("config", "configs/sample.yaml", "Path to config file")
+	configPath := fs.String("config", "", "Optional config file; enables the managed-update workflow when remote_agent.managed_updates is true")
+	pidFile := fs.String("pid-file", "", "PID file of the running instance to signal (default: <config state_dir>/"+appName+".pid, else ./state/"+appName+".pid)")
+	fs.Usage = printOpsReloadUsage
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return nil
+		}
 		return err
 	}
 
-	cfg, err := config.Load(*configPath)
-	if err != nil {
-		return err
-	}
-	if !cfg.RemoteAgent.ManagedUpdates {
-		return fmt.Errorf("remote_agent.managed_updates is false")
+	pidExplicit := false
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == "pid-file" {
+			pidExplicit = true
+		}
+	})
+
+	// A config that opts into managed updates keeps the original stop/start/verify
+	// workflow. Anything else reloads the running instance in place over SIGHUP,
+	// which needs no remote_agent configuration.
+	var loaded config.Config
+	haveCfg := false
+	if strings.TrimSpace(*configPath) != "" {
+		cfg, err := config.Load(*configPath)
+		if err != nil {
+			return err
+		}
+		loaded = cfg
+		haveCfg = true
+		if cfg.RemoteAgent.ManagedUpdates {
+			return runManagedUpdate(cfg)
+		}
 	}
 
+	resolvedPid := strings.TrimSpace(*pidFile)
+	if !pidExplicit {
+		if haveCfg {
+			resolvedPid = filepath.Join(loaded.Runtime.StateDir, appName+".pid")
+		} else {
+			resolvedPid = filepath.Join("state", appName+".pid")
+		}
+	}
+
+	return signalReload(resolvedPid)
+}
+
+// runManagedUpdate runs the configured remote_agent stop/start/verify commands in
+// order, skipping any that are unset.
+func runManagedUpdate(cfg config.Config) error {
 	steps := []struct {
 		name string
 		cmd  string
@@ -1408,11 +1559,38 @@ func cmdOpsReload(args []string) error {
 	return nil
 }
 
+// signalReload asks a running instance to reload its config in place via SIGHUP.
+// The reload happens asynchronously in the target process; confirm the resulting
+// target set with `ops status` or the /status endpoint.
+func signalReload(pidFile string) error {
+	pid, err := readPID(pidFile)
+	if err != nil {
+		return fmt.Errorf("read pid file %s (is the daemon running? use --pid-file): %w", pidFile, err)
+	}
+	if !isProcessRunning(pid) {
+		return fmt.Errorf("pid %d from %s is not running", pid, pidFile)
+	}
+
+	proc, err := os.FindProcess(pid)
+	if err != nil {
+		return err
+	}
+	if err := proc.Signal(syscall.SIGHUP); err != nil {
+		return fmt.Errorf("signal SIGHUP pid=%d: %w", pid, err)
+	}
+	fmt.Printf("reload signaled (SIGHUP pid=%d)\n", pid)
+	return nil
+}
+
 func cmdOpsSelfCheck(args []string) error {
 	fs := flag.NewFlagSet("ops self-check", flag.ContinueOnError)
 	configPath := fs.String("config", "configs/sample.yaml", "Path to config file")
 	jsonOut := fs.Bool("json", false, "Output JSON")
+	fs.Usage = printOpsUsage
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return nil
+		}
 		return err
 	}
 
