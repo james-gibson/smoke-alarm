@@ -87,6 +87,13 @@ type Engine struct {
 	startOnce sync.Once
 	stopOnce  sync.Once
 	wg        sync.WaitGroup
+
+	// runMu guards the running monitor loops and their lifecycle fields so a
+	// config reload can stop the current generation of loops, swap the target
+	// set, and relaunch without racing Start's shutdown path.
+	runMu         sync.Mutex
+	runCtx        context.Context
+	targetsCancel context.CancelFunc
 }
 
 // Option customizes Engine creation.
@@ -186,15 +193,7 @@ func (e *Engine) Start(ctx context.Context) error {
 				return
 			}
 		}
-
-		for _, t := range e.targets {
-			targetCopy := t
-			e.wg.Add(1)
-			go func() {
-				defer e.wg.Done()
-				e.runTargetLoop(ctx, targetCopy)
-			}()
-		}
+		e.startTargets(ctx)
 	})
 
 	if startErr != nil {
@@ -203,12 +202,144 @@ func (e *Engine) Start(ctx context.Context) error {
 
 	<-ctx.Done()
 	e.stopOnce.Do(func() {
-		e.wg.Wait()
+		e.stopTargets()
 		if e.store != nil {
 			_ = e.store.Save(context.Background())
 		}
 	})
 	return nil
+}
+
+// startTargets launches one monitor loop per enabled target against a child of
+// ctx, recording the cancel func so a later reload can stop this generation.
+func (e *Engine) startTargets(ctx context.Context) {
+	e.runMu.Lock()
+	defer e.runMu.Unlock()
+
+	e.runCtx = ctx
+	enabled := e.snapshotTargets()
+	e.launchTargetsLocked(enabled)
+}
+
+// launchTargetsLocked starts loops for the given target list. The caller must
+// hold runMu.
+func (e *Engine) launchTargetsLocked(list []targets.Target) {
+	tctx, cancel := context.WithCancel(e.runCtx)
+	e.targetsCancel = cancel
+
+	for _, t := range list {
+		targetCopy := t
+		e.wg.Add(1)
+		go func() {
+			defer e.wg.Done()
+			e.runTargetLoop(tctx, targetCopy)
+		}()
+	}
+}
+
+// stopTargets cancels the running monitor loops and waits for them to exit.
+func (e *Engine) stopTargets() {
+	e.runMu.Lock()
+	defer e.runMu.Unlock()
+
+	if e.targetsCancel != nil {
+		e.targetsCancel()
+		e.targetsCancel = nil
+	}
+	e.wg.Wait()
+}
+
+func (e *Engine) snapshotTargets() []targets.Target {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	return append([]targets.Target(nil), e.targets...)
+}
+
+// TargetIDs returns the ids of the currently configured targets, in config
+// order. It reflects the target set after any ReloadConfig call.
+func (e *Engine) TargetIDs() []string {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	out := make([]string, 0, len(e.targets))
+	for _, t := range e.targets {
+		out = append(out, t.ID)
+	}
+	return out
+}
+
+// ReloadConfig applies a new configuration in place. It stops the current
+// monitor loops, swaps the compiled target set and engine-wide knobs, then
+// restarts the loops against the run context captured by Start. Reload is a
+// no-op for loop lifecycle when the engine has not been started yet — the next
+// Start picks up the new config.
+//
+// It returns the ids of targets that were present before the reload and are
+// absent afterwards, so a caller can withdraw them from a health server that
+// only ever upserts.
+//
+// Listeners (health, hosted, mDNS) are bound at Start and are intentionally
+// left untouched: only the probed target set and its scheduling change.
+func (e *Engine) ReloadConfig(cfg config.Config) ([]string, error) {
+	compiled, err := compileTargets(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	maxWorkers := cfg.Service.MaxWorkers
+	if maxWorkers < 1 {
+		maxWorkers = 1
+	}
+
+	eventCap := cfg.Runtime.EventHistorySize
+	if eventCap <= 0 {
+		eventCap = 500
+	}
+
+	e.runMu.Lock()
+	defer e.runMu.Unlock()
+
+	// Stop the running generation before mutating state its loops read.
+	if e.targetsCancel != nil {
+		e.targetsCancel()
+		e.targetsCancel = nil
+		e.wg.Wait()
+	}
+
+	e.mu.Lock()
+	removed := removedTargetIDs(e.targets, compiled)
+	e.cfg = cfg
+	e.targets = compiled
+	e.sem = semaphore.NewWeighted(int64(maxWorkers))
+	e.eventCap = eventCap
+	if eventCap > cap(e.events) {
+		grown := make([]AlertEvent, len(e.events), eventCap)
+		copy(grown, e.events)
+		e.events = grown
+	}
+	// Statuses belong to the previous target set; clear them so readiness and
+	// the next checks recompute from scratch.
+	e.statuses = make(map[string]TargetRuntimeStatus, len(compiled))
+	e.mu.Unlock()
+
+	if e.runCtx != nil {
+		e.launchTargetsLocked(compiled)
+	}
+	return removed, nil
+}
+
+// removedTargetIDs returns ids present in before that are absent from after.
+func removedTargetIDs(before, after []targets.Target) []string {
+	keep := make(map[string]struct{}, len(after))
+	for _, t := range after {
+		keep[t.ID] = struct{}{}
+	}
+	var removed []string
+	for _, t := range before {
+		if _, ok := keep[t.ID]; !ok {
+			removed = append(removed, t.ID)
+		}
+	}
+	return removed
 }
 
 func (e *Engine) runTargetLoop(ctx context.Context, t targets.Target) {
