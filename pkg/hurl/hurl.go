@@ -33,6 +33,7 @@ import (
 // Outcome is the result of one test.
 type Outcome string
 
+// Outcomes, in the only three states a test can end in.
 const (
 	OutcomePass Outcome = "pass"
 	OutcomeFail Outcome = "fail"
@@ -45,6 +46,7 @@ const (
 // this package stays free of internal/ imports.
 type FailureClass string
 
+// Failure classes, mirroring smoke-alarm's target-facing vocabulary.
 const (
 	FailureNone        FailureClass = "none"
 	FailureNetwork     FailureClass = "network"
@@ -115,6 +117,9 @@ type CommandRunner interface {
 type execRunner struct{}
 
 func (execRunner) Run(ctx context.Context, name string, args ...string) (string, string, error) {
+	//nolint:gosec // G204: the binary is fixed by the Executor ("hurl" by
+	// default) and argv is built from the test file and declared variables.
+	// There is no shell and no caller-supplied command.
 	cmd := exec.CommandContext(ctx, name, args...)
 	var outB bytes.Buffer
 	var errB bytes.Buffer

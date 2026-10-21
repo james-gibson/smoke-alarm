@@ -50,8 +50,14 @@ func TestFileBackedPass(t *testing.T) {
 	if got := report.Results[0].FailureClass; got != FailureNone {
 		t.Errorf("failure_class: got %q, want %q", got, FailureNone)
 	}
-	if report.Results[0].Duration <= 0 {
-		t.Error("duration: got zero, want a measured duration")
+	// A fake runner finishes inside one clock tick, so Duration is legitimately
+	// zero. The invariant is that both timestamps are recorded and the interval
+	// is not negative.
+	if report.Results[0].StartedAt.IsZero() || report.Results[0].FinishedAt.IsZero() {
+		t.Error("timestamps: got a zero value, want start and finish recorded")
+	}
+	if report.Results[0].Duration < 0 {
+		t.Errorf("duration: got %v, want non-negative", report.Results[0].Duration)
 	}
 }
 
@@ -216,7 +222,7 @@ func TestZeroTestsFailsClosedFromRun(t *testing.T) {
 
 // A monitored target with no registered tests is legitimately "nothing to
 // check", so Executor.Run must not apply the blocking policy. This is the
-// split that lets internal/safety keep its current behaviour.
+// split that lets internal/safety keep its current behavior.
 func TestExecutorRunDoesNotApplyNothingRanPolicy(t *testing.T) {
 	report, err := New().Run(context.Background(), "t1", nil, nil)
 	if err != nil {
