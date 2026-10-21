@@ -13,15 +13,17 @@ import (
 	"time"
 
 	"github.com/james-gibson/smoke-alarm/internal/targets"
+	"github.com/james-gibson/smoke-alarm/pkg/hurl"
 )
 
-// Outcome represents the result of a stop-gap safety test.
-type Outcome string
+// Outcome is the runner's outcome vocabulary, re-exported so existing callers
+// keep spelling it safety.Outcome.
+type Outcome = hurl.Outcome
 
 const (
-	OutcomePass Outcome = "pass"
-	OutcomeFail Outcome = "fail"
-	OutcomeSkip Outcome = "skip"
+	OutcomePass = hurl.OutcomePass
+	OutcomeFail = hurl.OutcomeFail
+	OutcomeSkip = hurl.OutcomeSkip
 )
 
 // Stage identifies the validation stage for this scanner.
@@ -54,10 +56,9 @@ type Report struct {
 	AnyTestsSeen bool      `json:"any_tests_seen"`
 }
 
-// CommandRunner allows command execution to be mocked in tests.
-type CommandRunner interface {
-	Run(ctx context.Context, name string, args ...string) (stdout string, stderr string, err error)
-}
+// CommandRunner is the runner the scanner injects into the shared pkg/hurl
+// executor. The interface lives there because the execution core does.
+type CommandRunner = hurl.CommandRunner
 
 type execRunner struct{}
 
@@ -250,6 +251,9 @@ func (s *Scanner) runSingle(ctx context.Context, t targets.Target, ht targets.HU
 	return res
 }
 
+// runHURLFile delegates to the shared runner. The scanner keeps ownership of
+// what a file-backed test means for a monitored target — the stage, the target
+// id, the target-facing failure class — while pkg/hurl owns the invocation.
 func (s *Scanner) runHURLFile(ctx context.Context, t targets.Target, ht targets.HURLTest) Result {
 	if s.runner == nil {
 		return Result{
@@ -262,38 +266,45 @@ func (s *Scanner) runHURLFile(ctx context.Context, t targets.Target, ht targets.
 		}
 	}
 
-	args := []string{"--test", ht.File}
-	// Optional variable injection: ENDPOINT defaults to target endpoint.
-	if strings.TrimSpace(t.Endpoint) != "" {
-		args = append(args, "--variable", "ENDPOINT="+t.Endpoint)
-	}
-	if strings.TrimSpace(ht.Endpoint) != "" {
-		args = append(args, "--variable", "TEST_ENDPOINT="+ht.Endpoint)
+	vars := map[string]string{}
+	// ENDPOINT keeps its historical meaning: the endpoint being checked.
+	if endpoint := strings.TrimSpace(t.Endpoint); endpoint != "" {
+		vars["ENDPOINT"] = endpoint
 	}
 
-	stdout, stderr, err := s.runner.Run(ctx, s.hurlBin, args...)
-	if err != nil {
-		msg := compactCmdOutput(stdout, stderr)
-		if msg == "" {
-			msg = err.Error()
+	report, err := hurl.New(
+		hurl.WithBinary(s.hurlBin),
+		hurl.WithCommandRunner(s.runner),
+	).Run(ctx, t.ID, []hurl.Test{{
+		Name:     ht.Name,
+		File:     ht.File,
+		Endpoint: ht.Endpoint,
+	}}, vars)
+	if err != nil || len(report.Results) == 0 {
+		// Executor.Run turns a test it could not attempt into a Result, so this
+		// branch is defensive — but it must not read as a pass.
+		msg := "hurl file test could not be run"
+		if err != nil {
+			msg += ": " + err.Error()
 		}
 		return Result{
 			TargetID:     t.ID,
 			TestName:     ht.Name,
 			Stage:        Stage,
 			Outcome:      OutcomeFail,
-			FailureClass: classifyCmdFailure(err, msg),
-			Message:      "hurl file test failed: " + msg,
+			FailureClass: targets.FailureConfig,
+			Message:      msg,
 		}
 	}
 
+	r := report.Results[0]
 	return Result{
 		TargetID:     t.ID,
 		TestName:     ht.Name,
 		Stage:        Stage,
-		Outcome:      OutcomePass,
-		FailureClass: targets.FailureNone,
-		Message:      "hurl file test passed",
+		Outcome:      r.Outcome,
+		FailureClass: targets.FailureClass(r.FailureClass),
+		Message:      r.Message,
 	}
 }
 
@@ -429,27 +440,6 @@ func cloneHURLTests(in []targets.HURLTest) []targets.HURLTest {
 	return out
 }
 
-func classifyCmdFailure(err error, msg string) targets.FailureClass {
-	if err == nil {
-		return targets.FailureNone
-	}
-	lmsg := strings.ToLower(msg)
-	switch {
-	case strings.Contains(lmsg, "not found"), strings.Contains(lmsg, "executable file not found"):
-		return targets.FailureConfig
-	case strings.Contains(lmsg, "timed out"), strings.Contains(lmsg, "timeout"):
-		return targets.FailureTimeout
-	case strings.Contains(lmsg, "tls"), strings.Contains(lmsg, "x509"):
-		return targets.FailureTLS
-	case strings.Contains(lmsg, "unauthorized"), strings.Contains(lmsg, "forbidden"):
-		return targets.FailureAuth
-	case strings.Contains(lmsg, "connection refused"), strings.Contains(lmsg, "network"):
-		return targets.FailureNetwork
-	default:
-		return targets.FailureUnknown
-	}
-}
-
 func classifyHTTPError(err error) targets.FailureClass {
 	if err == nil {
 		return targets.FailureNone
@@ -465,15 +455,4 @@ func classifyHTTPError(err error) targets.FailureClass {
 	default:
 		return targets.FailureUnknown
 	}
-}
-
-func compactCmdOutput(stdout, stderr string) string {
-	parts := []string{}
-	if strings.TrimSpace(stdout) != "" {
-		parts = append(parts, strings.TrimSpace(stdout))
-	}
-	if strings.TrimSpace(stderr) != "" {
-		parts = append(parts, strings.TrimSpace(stderr))
-	}
-	return strings.Join(parts, " | ")
 }
