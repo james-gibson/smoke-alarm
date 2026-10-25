@@ -18,6 +18,9 @@ health:
     healthz: "/healthz"
     readyz: "/readyz"
     status: "/status"
+  # A self-registered isotope is a heartbeat: re-register to renew, or the
+  # name is swept from /isotope/list after this window.
+  isotope_ttl: "5m"
 
 runtime:
   lock_file: "/tmp/ocd-smoke-alarm.lock"

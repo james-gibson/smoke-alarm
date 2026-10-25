@@ -321,6 +321,7 @@ func cmdServe(args []string) error {
 			ReadyzPath:      cfg.Health.Endpoints.Readyz,
 			StatusPath:      cfg.Health.Endpoints.Status,
 			ShutdownTimeout: mustDuration(cfg.Runtime.GracefulShutdownTimeout, 10*time.Second),
+			IsotopeTTL:      mustDuration(cfg.Health.IsotopeTTL, health.DefaultIsotopeTTL),
 		})
 		// Wire self-description after server creation so the factory can read runtime state.
 		hs.SetSelfDescription(health.NewSelfDescriptionFactory(cfg, version(), startedAt, hs))
