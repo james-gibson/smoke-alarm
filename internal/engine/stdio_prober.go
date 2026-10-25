@@ -10,7 +10,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -337,21 +336,37 @@ func normalizeMethods(in []string) []string {
 	return out
 }
 
+// maxRPCFrameBytes caps a single newline-delimited JSON-RPC message read from
+// a stdio server. Real MCP/ACP messages are a few KiB; the cap only exists so a
+// misbehaving or hostile peer cannot drive unbounded allocation in the probe.
+const maxRPCFrameBytes = 8 << 20 // 8 MiB
+
+// writeRPCFrame writes one JSON-RPC message framed the way both stdio
+// transports define it: the JSON object followed by a single newline.
+//
+//	MCP  § transports/stdio (2025-06-18): "Messages are delimited by newlines,
+//	      and MUST NOT contain embedded newlines."
+//	ACP  § transports/stdio: "Messages are delimited by newlines (\n), and
+//	      MUST NOT contain embedded newlines."
+//
+// LSP-style `Content-Length: N\r\n\r\n` headers belong to neither protocol, so
+// they are not written. json.Marshal escapes newlines inside strings, which is
+// what keeps the "no embedded newlines" half true.
 func writeRPCFrame(w io.Writer, req rpcRequest) error {
 	body, err := json.Marshal(req)
 	if err != nil {
 		return err
 	}
-	header := fmt.Sprintf("Content-Length: %d\r\n\r\n", len(body))
-	if _, writeErr := io.WriteString(w, header); writeErr != nil {
-		return writeErr
-	}
+	body = append(body, '\n')
 	_, err = w.Write(body)
 	return err
 }
 
 func readRPCResponseByID(ctx context.Context, r *bufio.Reader, id int) (rpcResponse, error) {
 	// Skip unrelated notifications/messages and only return matching response ID.
+	// The first unparsable line is kept so a silent timeout-less EOF still says
+	// something useful about what the peer actually wrote.
+	var noise string
 	for {
 		select {
 		case <-ctx.Done():
@@ -361,12 +376,18 @@ func readRPCResponseByID(ctx context.Context, r *bufio.Reader, id int) (rpcRespo
 
 		payload, err := readRPCFrame(r)
 		if err != nil {
+			if noise != "" {
+				return rpcResponse{}, fmt.Errorf("%w (unparsable stdout: %q)", err, noise)
+			}
 			return rpcResponse{}, err
 		}
 
 		var resp rpcResponse
 		if err := json.Unmarshal(payload, &resp); err != nil {
 			// Ignore malformed frames and continue looking for valid response.
+			if noise == "" {
+				noise = compact(string(payload), 120)
+			}
 			continue
 		}
 		if resp.ID == nil {
@@ -380,39 +401,56 @@ func readRPCResponseByID(ctx context.Context, r *bufio.Reader, id int) (rpcRespo
 	}
 }
 
+// readRPCFrame reads one newline-delimited JSON-RPC message. Blank lines are
+// skipped. Content-Length framing is rejected by name instead of being handed
+// to the JSON decoder, so a peer speaking the wrong transport is reported as a
+// framing mismatch rather than as an unmarshal error or a bare EOF.
 func readRPCFrame(r *bufio.Reader) ([]byte, error) {
-	// Parse headers.
-	contentLen := -1
 	for {
-		line, err := r.ReadString('\n')
+		line, err := readBoundedLine(r, maxRPCFrameBytes)
 		if err != nil {
 			return nil, err
 		}
-		line = strings.TrimRight(line, "\r\n")
-		if line == "" {
-			break
+		line = bytes.TrimRight(line, "\r\n")
+		if len(bytes.TrimSpace(line)) == 0 {
+			continue
 		}
-
-		lower := strings.ToLower(line)
-		if strings.HasPrefix(lower, "content-length:") {
-			raw := strings.TrimSpace(line[len("Content-Length:"):])
-			n, err := strconv.Atoi(raw)
-			if err != nil || n < 0 {
-				return nil, fmt.Errorf("invalid content-length %q", raw)
-			}
-			contentLen = n
+		if hasContentLengthPrefix(line) {
+			return nil, errors.New(
+				"peer used LSP Content-Length framing; MCP and ACP stdio require newline-delimited JSON",
+			)
 		}
+		return line, nil
 	}
+}
 
-	if contentLen < 0 {
-		return nil, errors.New("missing content-length header")
-	}
-
-	payload := make([]byte, contentLen)
-	if _, err := io.ReadFull(r, payload); err != nil {
+// readBoundedLine reads up to and including the next '\n', failing if the line
+// would exceed maxBytes. Unlike bufio.Reader.ReadString it cannot grow without
+// bound while it waits for a delimiter.
+func readBoundedLine(r *bufio.Reader, maxBytes int) ([]byte, error) {
+	var line []byte
+	for {
+		chunk, err := r.ReadSlice('\n')
+		if len(line)+len(chunk) > maxBytes {
+			return nil, fmt.Errorf("rpc frame exceeds %d bytes without a newline", maxBytes)
+		}
+		line = append(line, chunk...)
+		if err == nil {
+			return line, nil
+		}
+		if errors.Is(err, bufio.ErrBufferFull) {
+			continue
+		}
+		if len(line) > 0 {
+			return nil, fmt.Errorf("truncated rpc frame (%d bytes, no trailing newline): %w", len(line), io.ErrUnexpectedEOF)
+		}
 		return nil, err
 	}
-	return payload, nil
+}
+
+func hasContentLengthPrefix(line []byte) bool {
+	const prefix = "content-length:"
+	return len(line) >= len(prefix) && strings.EqualFold(string(line[:len(prefix)]), prefix)
 }
 
 func classifyStdioError(err error) targets.FailureClass {
@@ -429,6 +467,8 @@ func classifyStdioError(err error) targets.FailureClass {
 		strings.Contains(msg, "rpc"),
 		strings.Contains(msg, "json"),
 		strings.Contains(msg, "content-length"),
+		strings.Contains(msg, "newline-delimited"),
+		strings.Contains(msg, "unparsable stdout"),
 		strings.Contains(msg, "handshake"):
 		return targets.FailureProtocol
 	case strings.Contains(msg, "timeout"),

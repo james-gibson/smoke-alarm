@@ -4,6 +4,14 @@
 # Config reference: configs/samples/stdio-mcp-strict.yaml
 # Step definitions: features/step_definitions/stdio_mcp_steps.go
 # see: features/config-validation.feature (schema), features/dynamic-config.feature (state output)
+#
+# Wire format (issue #43): MCP and ACP both define stdio framing as one JSON-RPC
+# message per line, delimited by newlines and containing no embedded newlines —
+# never LSP-style `Content-Length: N\r\n\r\n` headers. The scenarios below state
+# that; the executable pin lives in internal/engine/stdio_prober_test.go and
+# tests/integration/protocol_safety_test.go (newline-framed mock passes,
+# Content-Length-framed mock is rejected), because this feature's steps are
+# stubs (see THESIS-FINDING in stdio_mcp_steps.go).
 
 @stdio-mcp @core
 Feature: Stdio MCP Probe
@@ -34,6 +42,20 @@ Feature: Stdio MCP Probe
     Given the target "mcp-stdio-filesystem-strict" responds to all required methods
     When the probe for target "mcp-stdio-filesystem-strict" completes
     Then the target "mcp-stdio-filesystem-strict" is classified as "HEALTHY"
+
+  # ── wire format ───────────────────────────────────────────────────────────
+
+  Scenario: probe frames JSON-RPC as newline-delimited JSON on stdin
+    Given the target "mcp-stdio-filesystem-strict" is enabled in config "configs/samples/stdio-mcp-strict.yaml"
+    When the probe for target "mcp-stdio-filesystem-strict" runs
+    Then each request written to stdin is one JSON object terminated by a newline
+    And no "Content-Length" header is written to stdin
+
+  Scenario: probe rejects a server that replies with Content-Length framing
+    Given the target "mcp-stdio-filesystem-strict" replies with LSP "Content-Length" framing
+    When the probe for target "mcp-stdio-filesystem-strict" runs
+    Then the target "mcp-stdio-filesystem-strict" is classified as "DEGRADED"
+    And the probe result contains "newline-delimited"
 
   # ── strict handshake profile ──────────────────────────────────────────────
 

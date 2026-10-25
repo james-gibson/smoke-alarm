@@ -506,7 +506,10 @@ All sample configs live in `configs/samples/` and are intended for editor-side i
 > **Full catalog:** all 33 samples are documented in [`configs/samples/README.md`](configs/samples/README.md), grouped by theme — transports, federation, warroom, auth/secrets, deployment/ops, discovery, and the dev/QA harness.
 
 - `configs/samples/stdio-mcp-strict.yaml`
-  - strict stdio MCP handshake path (`initialize`, `tools/list`, `resources/list`).
+  - strict stdio MCP handshake path (`initialize`, `tools/list`, `resources/list`) against
+    `npx @modelcontextprotocol/server-filesystem`, framed as newline-delimited JSON-RPC
+    (the MCP and ACP stdio transports define no other framing). Needs Node.js on `PATH`;
+    the network-gated CI job runs this exact command weekly.
 - `configs/samples/sse-remote-mixed.yaml`
   - SSE-first remote profile with mixed MCP/ACP targets.
 - `configs/samples/hosted-mcp-acp.yaml`
