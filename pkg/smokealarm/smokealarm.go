@@ -156,6 +156,7 @@ func New(cfg Config, opts Options) (*Instance, error) {
 			ReadyzPath:      cfg.Health.Endpoints.Readyz,
 			StatusPath:      cfg.Health.Endpoints.Status,
 			ShutdownTimeout: durationOrDefault(cfg.Runtime.GracefulShutdownTimeout, 10*time.Second),
+			IsotopeTTL:      durationOrDefault(cfg.Health.IsotopeTTL, health.DefaultIsotopeTTL),
 		})
 		hs.SetSelfDescription(health.NewSelfDescriptionFactory(cfg, opts.Version, time.Now().UTC(), hs))
 		if opts.FeaturesDir != "" {

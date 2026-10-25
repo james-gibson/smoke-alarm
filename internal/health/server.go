@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -32,7 +33,32 @@ type Options struct {
 	SelfDescriptionPath string
 	SelfDescriptionFunc SelfDescriptionFunc
 	ShutdownTimeout     time.Duration
+	// IsotopeTTL is how long a self-registered isotope stays live without
+	// re-registering. A registration is a heartbeat, not a name: a record the
+	// registrant stopped renewing is swept from the registry. Zero uses
+	// DefaultIsotopeTTL.
+	IsotopeTTL time.Duration
+	// VerifyTrust resolves the initial trust rung for a registering endpoint.
+	// Defaults to isotope.VerifyTrust; tests inject a stub.
+	VerifyTrust func(ctx context.Context, endpoint string) int
 }
+
+// DefaultIsotopeTTL is how long a registration lasts without renewal. Short
+// enough that a node that dies without deregistering stops resolving, long
+// enough that a client renewing on a one-minute cadence can miss several
+// heartbeats before its name expires (smoke-alarm#35).
+const DefaultIsotopeTTL = 5 * time.Minute
+
+// Registry status values reported by GET /isotope/list.
+const (
+	// IsotopeStatusLive is a self-registered record whose heartbeat is current.
+	IsotopeStatusLive = "live"
+	// IsotopeStatusRegistered is a record the alarm mirrors from a trusted
+	// source (federation membership). Its lifecycle belongs to that source, not
+	// to a heartbeat, so the registry reports the registration without claiming
+	// the name is live.
+	IsotopeStatusRegistered = "registered"
+)
 
 // ComponentStatus tracks readiness contributors (scheduler, discovery, probe engine, etc).
 type ComponentStatus struct {
@@ -94,6 +120,28 @@ type Feature struct {
 	FailedAt    time.Time `json:"failed_at,omitempty"`
 }
 
+// IsotopeView is a registered isotope plus what only the registry knows about
+// the name. isotope.Record is the wire shape shared with isotope.Client; the
+// view adds the heartbeat, so a consumer that resolves by name can tell a live
+// registration from one the registry has not heard from.
+type IsotopeView struct {
+	isotope.Record
+	LastSeen  time.Time  `json:"last_seen"`
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	// Status is IsotopeStatusLive for a self-registered record within its TTL,
+	// or IsotopeStatusRegistered for a record mirrored from a trusted source.
+	Status string `json:"status"`
+}
+
+// isotopeEntry is a record plus its heartbeat. A zero expiresAt means the
+// record is durable: the alarm mirrors it from federation membership, whose
+// lifecycle removes it, rather than from a registration that must renew.
+type isotopeEntry struct {
+	record    isotope.Record
+	lastSeen  time.Time
+	expiresAt time.Time
+}
+
 // Server provides liveness, readiness, and status endpoints.
 type Server struct {
 	opts            Options
@@ -101,6 +149,7 @@ type Server struct {
 	startedAt       time.Time
 	selfDescFactory SelfDescriptionFunc
 	listener        net.Listener // set by BindWithRetry; nil means use ListenAndServe
+	verifyTrust     func(ctx context.Context, endpoint string) int
 
 	live  atomic.Bool
 	ready atomic.Bool
@@ -109,7 +158,7 @@ type Server struct {
 	readyError     string
 	components     map[string]ComponentStatus
 	targets        map[string]TargetStatus
-	isotopes       map[string]isotope.Record
+	isotopes       map[string]isotopeEntry
 	features       map[string]Feature // keyed by Feature.ID
 	shutdownSignal chan struct{}
 }
@@ -137,14 +186,21 @@ func NewServer(opts Options) *Server {
 	if opts.ShutdownTimeout <= 0 {
 		opts.ShutdownTimeout = 10 * time.Second
 	}
+	if opts.IsotopeTTL <= 0 {
+		opts.IsotopeTTL = DefaultIsotopeTTL
+	}
+	if opts.VerifyTrust == nil {
+		opts.VerifyTrust = isotope.VerifyTrust
+	}
 
 	s := &Server{
 		opts:            opts,
 		startedAt:       time.Now().UTC(),
 		selfDescFactory: opts.SelfDescriptionFunc,
+		verifyTrust:     opts.VerifyTrust,
 		components:      make(map[string]ComponentStatus),
 		targets:         make(map[string]TargetStatus),
-		isotopes:        make(map[string]isotope.Record),
+		isotopes:        make(map[string]isotopeEntry),
 		features:        make(map[string]Feature),
 		shutdownSignal:  make(chan struct{}),
 	}
@@ -157,8 +213,7 @@ func NewServer(opts Options) *Server {
 	mux.HandleFunc(opts.StatusPath, s.handleStatus)
 	mux.HandleFunc(opts.SelfDescriptionPath, s.handleSelfDescription)
 	mux.HandleFunc("/federation/report", s.handleFederationReport)
-	mux.HandleFunc("/isotope/register", s.handleIsotopeRegister)
-	mux.HandleFunc("/isotope/list", s.handleIsotopeList)
+	mux.HandleFunc("/isotope/", s.handleIsotopeRoute)
 	mux.HandleFunc("/features", s.handleFeaturesList)
 	mux.HandleFunc("/features/certify", s.handleFeatureCertify)
 
@@ -451,17 +506,27 @@ func (s *Server) handleFederationReport(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, map[string]any{"status": "accepted"})
 }
 
+// isotopeRegistration is the request body for POST /isotope/register: the wire
+// shape shared with isotope.Client plus an optional heartbeat override.
+type isotopeRegistration struct {
+	isotope.Registration
+	// TTL overrides the server's isotope TTL for this registration, as a Go
+	// duration ("90s"). Re-registering renews it.
+	TTL string `json:"ttl,omitempty"`
+}
+
 func (s *Server) handleIsotopeRegister(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
 		return
 	}
 
-	var reg isotope.Registration
-	if err := json.NewDecoder(r.Body).Decode(&reg); err != nil {
+	var body isotopeRegistration
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid JSON"})
 		return
 	}
+	reg := body.Registration
 	reg.Name = strings.TrimSpace(reg.Name)
 	reg.Endpoint = strings.TrimSpace(reg.Endpoint)
 	if reg.Name == "" || reg.Endpoint == "" {
@@ -469,30 +534,54 @@ func (s *Server) handleIsotopeRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rung := isotope.VerifyTrust(r.Context(), reg.Endpoint)
-	rungName := ""
-	for _, rt := range isotope.DefaultRungThresholds {
-		if rt.Rung == rung {
-			rungName = rt.Name
-			break
-		}
+	ttl, err := s.isotopeTTL(body.TTL)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+		return
 	}
 
-	record := isotope.Record{
-		Name:         reg.Name,
-		Role:         reg.Role,
-		Endpoint:     reg.Endpoint,
-		Protocol:     reg.Protocol,
-		TrustRung:    rung,
-		RungName:     rungName,
-		RegisteredAt: time.Now().UTC(),
+	now := time.Now().UTC()
+
+	// Re-registration is a heartbeat, not a new claim. Re-verifying an unchanged
+	// endpoint on every beat would run the trust probe (up to 4s) for an answer
+	// that cannot have changed; a changed endpoint is a new claim and is
+	// verified again.
+	s.mu.RLock()
+	existing, found := s.isotopes[reg.Name]
+	s.mu.RUnlock()
+
+	rung, rungName := 0, ""
+	if found && existing.record.Endpoint == reg.Endpoint {
+		rung, rungName = existing.record.TrustRung, existing.record.RungName
+	} else {
+		rung = s.verifyTrust(r.Context(), reg.Endpoint)
+		rungName = rungNameFor(rung)
+	}
+
+	registeredAt := now
+	if found {
+		registeredAt = existing.record.RegisteredAt
+	}
+
+	entry := isotopeEntry{
+		record: isotope.Record{
+			Name:         reg.Name,
+			Role:         reg.Role,
+			Endpoint:     reg.Endpoint,
+			Protocol:     reg.Protocol,
+			TrustRung:    rung,
+			RungName:     rungName,
+			RegisteredAt: registeredAt,
+		},
+		lastSeen:  now,
+		expiresAt: now.Add(ttl),
 	}
 
 	s.mu.Lock()
-	s.isotopes[reg.Name] = record
+	s.isotopes[reg.Name] = entry
 	s.mu.Unlock()
 
-	writeJSON(w, http.StatusOK, record)
+	writeJSON(w, http.StatusOK, viewOf(entry))
 }
 
 func (s *Server) handleIsotopeList(w http.ResponseWriter, r *http.Request) {
@@ -501,30 +590,182 @@ func (s *Server) handleIsotopeList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.mu.RLock()
-	records := make([]isotope.Record, 0, len(s.isotopes))
-	for _, rec := range s.isotopes {
-		records = append(records, rec)
+	s.mu.Lock()
+	s.sweepIsotopesLocked(time.Now().UTC())
+	views := make([]IsotopeView, 0, len(s.isotopes))
+	for _, entry := range s.isotopes {
+		views = append(views, viewOf(entry))
 	}
-	s.mu.RUnlock()
+	s.mu.Unlock()
 
-	sort.Slice(records, func(i, j int) bool { return records[i].Name < records[j].Name })
-	writeJSON(w, http.StatusOK, records)
+	sort.Slice(views, func(i, j int) bool { return views[i].Name < views[j].Name })
+	writeJSON(w, http.StatusOK, views)
+}
+
+// handleIsotopeRoute dispatches the isotope registry:
+//
+//	POST   /isotope/register     register or renew a name
+//	GET    /isotope/list         live records
+//	GET    /isotope/<name>       resolve one name (404 when expired)
+//	DELETE /isotope/<name>       deregister now
+//
+// It is one handler rather than ServeMux method patterns because the literal
+// /isotope/register route and a /isotope/{name} pattern overlap in a way the
+// mux rejects.
+func (s *Server) handleIsotopeRoute(w http.ResponseWriter, r *http.Request) {
+	item := strings.TrimPrefix(r.URL.Path, "/isotope/")
+
+	switch item {
+	case "register":
+		s.handleIsotopeRegister(w, r)
+		return
+	case "list":
+		s.handleIsotopeList(w, r)
+		return
+	case "":
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": "isotope not found"})
+		return
+	}
+
+	name := item
+	if unescaped, err := url.PathUnescape(item); err == nil {
+		name = unescaped
+	}
+	name = strings.TrimSpace(name)
+
+	switch r.Method {
+	case http.MethodGet:
+		s.handleIsotopeGet(w, name)
+	case http.MethodDelete:
+		s.handleIsotopeDelete(w, name)
+	default:
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+	}
+}
+
+// handleIsotopeGet resolves one name. An expired registration is gone, so this
+// answers 404 rather than handing a consumer a dead endpoint.
+func (s *Server) handleIsotopeGet(w http.ResponseWriter, name string) {
+	if name == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "name is required"})
+		return
+	}
+
+	s.mu.Lock()
+	s.sweepIsotopesLocked(time.Now().UTC())
+	entry, found := s.isotopes[name]
+	s.mu.Unlock()
+
+	if !found {
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": "isotope not found"})
+		return
+	}
+	writeJSON(w, http.StatusOK, viewOf(entry))
+}
+
+// handleIsotopeDelete removes a registration explicitly, for a node that gets
+// the chance to say goodbye.
+func (s *Server) handleIsotopeDelete(w http.ResponseWriter, name string) {
+	if name == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "name is required"})
+		return
+	}
+
+	s.mu.Lock()
+	_, found := s.isotopes[name]
+	delete(s.isotopes, name)
+	s.mu.Unlock()
+
+	if !found {
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": "isotope not found"})
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// sweepIsotopesLocked drops heartbeat-managed records whose expiry has passed.
+// Durable records (federation-mirrored) have no expiry and are removed by the
+// membership feed instead. Callers must hold s.mu.
+func (s *Server) sweepIsotopesLocked(now time.Time) {
+	for name, entry := range s.isotopes {
+		if !entry.expiresAt.IsZero() && !now.Before(entry.expiresAt) {
+			delete(s.isotopes, name)
+		}
+	}
+}
+
+// rungNameFor renders a rung with the name the isotope module assigns it.
+func rungNameFor(rung int) string {
+	for _, rt := range isotope.DefaultRungThresholds {
+		if rt.Rung == rung {
+			return rt.Name
+		}
+	}
+	return ""
+}
+
+// isotopeTTL resolves the heartbeat window for one registration.
+func (s *Server) isotopeTTL(raw string) (time.Duration, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return s.opts.IsotopeTTL, nil
+	}
+	ttl, err := time.ParseDuration(raw)
+	if err != nil || ttl <= 0 {
+		return 0, fmt.Errorf("ttl must be a positive duration, e.g. \"90s\"")
+	}
+	return ttl, nil
+}
+
+// viewOf renders a stored entry as the liveness-bearing wire view.
+func viewOf(entry isotopeEntry) IsotopeView {
+	view := IsotopeView{
+		Record:   entry.record,
+		LastSeen: entry.lastSeen,
+		Status:   IsotopeStatusRegistered,
+	}
+	if !entry.expiresAt.IsZero() {
+		expires := entry.expiresAt
+		view.ExpiresAt = &expires
+		view.Status = IsotopeStatusLive
+	}
+	return view
 }
 
 // UpsertIsotope adds or replaces an isotope record. Modules (for example the
 // federation mesh) use it to register internal isotopes for members they trust
 // by construction, without a network round-trip through /isotope/register.
+//
+// A record added this way is durable: the membership feed owns its lifecycle
+// and removes it when the member leaves, so it is not subject to the heartbeat
+// sweep. Updating a self-registered record preserves that record's heartbeat,
+// because a membership event says the peer is a member, not that its own
+// registration is current.
 func (s *Server) UpsertIsotope(rec isotope.Record) {
 	if strings.TrimSpace(rec.Name) == "" {
 		return
 	}
-	if rec.RegisteredAt.IsZero() {
-		rec.RegisteredAt = time.Now().UTC()
-	}
+	now := time.Now().UTC()
+
 	s.mu.Lock()
-	s.isotopes[rec.Name] = rec
-	s.mu.Unlock()
+	defer s.mu.Unlock()
+
+	entry, found := s.isotopes[rec.Name]
+	if found && rec.RegisteredAt.IsZero() {
+		rec.RegisteredAt = entry.record.RegisteredAt
+	}
+	if rec.RegisteredAt.IsZero() {
+		rec.RegisteredAt = now
+	}
+	if !found {
+		s.isotopes[rec.Name] = isotopeEntry{record: rec, lastSeen: now}
+		return
+	}
+	entry.record = rec
+	if entry.expiresAt.IsZero() {
+		entry.lastSeen = now
+	}
+	s.isotopes[rec.Name] = entry
 }
 
 // RemoveIsotope deletes a previously registered isotope by name. Unknown names

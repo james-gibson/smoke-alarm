@@ -33,7 +33,7 @@ ocd-smoke-alarm is part of a cluster of tools that share a common lab environmen
 
 Key integrations:
 - **lezz.go** — starts and manages ocd-smoke-alarm as a LaunchAgent; `lezz demo` runs two instances that monitor each other
-- **adhd** — polls ocd-smoke-alarm `/status` and SSE streams; registers with `/isotope/register` on startup
+- **adhd** — polls ocd-smoke-alarm `/status` and SSE streams; registers with `/isotope/register` and renews the registration
 - **isotope** — shared library used for `VerifyTrust`, wire types (`Registration`, `Record`), and the 42i capability lattice
 
 ### Isotope Endpoints
@@ -42,10 +42,16 @@ ocd-smoke-alarm is the isotope registry for the cluster:
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/isotope/register` | POST | Register an agent; returns a `Record` with a trust rung |
-| `/isotope/list` | GET | List all registered isotopes and their trust rungs |
+| `/isotope/register` | POST | Register an agent (and renew a registration); returns a `Record` with a trust rung |
+| `/isotope/list` | GET | List live isotopes with their trust rungs and heartbeat state |
+| `/isotope/<name>` | GET | Resolve one name; 404 when it is not registered or has expired |
+| `/isotope/<name>` | DELETE | Deregister now, for a node that gets to shut down cleanly |
 
 Trust rungs are assigned by `VerifyTrust`: rung 6 if both the lezz cluster registry (`:19100/cluster`) and mDNS (`_lezz-demo._tcp`) confirm the registrant, rung 4 if registry only, rung 2 if self-registered.
+
+**A name is a heartbeat, not a label.** A registration made through `POST /isotope/register` lives for `health.isotope_ttl` (default `5m`) unless it is renewed; `/isotope/list` sweeps expired names, so a node that dies without deregistering stops resolving. Re-registering the same name and endpoint extends the window and keeps the assigned rung (the trust probe is not re-run); a changed endpoint is a new claim and is verified again. Records mirrored from federation membership have no heartbeat and report `"status": "registered"` — their lifecycle belongs to the membership feed.
+
+The list view adds `last_seen`, `expires_at`, and `status` (`live` for a current heartbeat, `registered` for a mirrored record) to the shared `isotope.Record`.
 
 ### Other Endpoints
 

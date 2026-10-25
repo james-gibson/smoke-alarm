@@ -18,6 +18,7 @@ service:
 health:
   enabled: boolean
   listen_addr: string # e.g., "localhost:18088"
+  isotope_ttl: duration # heartbeat window for a self-registered isotope, default "5m"
   endpoints:
     healthz: string # path, default "/healthz"
     readyz: string # path, default "/readyz"

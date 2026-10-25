@@ -200,6 +200,10 @@ type HealthConfig struct {
 	ListenAddr string       `yaml:"listen_addr"`
 	Endpoints  HealthRoutes `yaml:"endpoints"`
 	SelfCheck  bool         `yaml:"self_check"`
+	// IsotopeTTL is how long a self-registered isotope stays in the registry
+	// without re-registering. A name is a heartbeat, not a label: a record the
+	// registrant stopped renewing is swept. Defaults to 5m.
+	IsotopeTTL string `yaml:"isotope_ttl"`
 }
 
 type HealthRoutes struct {
@@ -559,6 +563,9 @@ func (c *Config) ApplyDefaults() {
 	if c.Health.Endpoints.Status == "" {
 		c.Health.Endpoints.Status = "/status"
 	}
+	if c.Health.IsotopeTTL == "" {
+		c.Health.IsotopeTTL = "5m"
+	}
 	// Default to enabled unless explicitly disabled.
 	if !c.Health.Enabled && c.Health.ListenAddr == "localhost:8088" {
 		c.Health.Enabled = true
@@ -855,6 +862,9 @@ func (c Config) Validate() error {
 			if !strings.HasPrefix(ep, "/") {
 				add("health.endpoints.%s must start with /", name)
 			}
+		}
+		if _, err := parsePositiveDuration(c.Health.IsotopeTTL); err != nil {
+			add("health.isotope_ttl invalid: %v", err)
 		}
 	}
 
