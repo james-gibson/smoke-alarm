@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -23,7 +22,7 @@ import (
 func TestStdioProber_InitializeHandshakePass(t *testing.T) {
 	t.Parallel()
 
-	serverFile := writeMockStdioServer(t)
+	serverFile := mockStdioServer(t)
 
 	prober := engine.NewStdioProber()
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
@@ -65,7 +64,7 @@ func TestStdioProber_InitializeHandshakePass(t *testing.T) {
 func TestStdioProber_StrictHandshakeFailsWhenRequiredMethodsMissing(t *testing.T) {
 	t.Parallel()
 
-	serverFile := writeMockStdioServer(t)
+	serverFile := mockStdioServer(t)
 
 	prober := engine.NewStdioProber()
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
@@ -87,7 +86,10 @@ func TestStdioProber_StrictHandshakeFailsWhenRequiredMethodsMissing(t *testing.T
 			Timeout:          5 * time.Second,
 			Retries:          0,
 			HandshakeProfile: "strict",
-			RequiredMethods:  []string{"initialize", "tools/list", "resources/list"},
+			// The spec-framed mock implements initialize/tools/list/resources/list
+			// but not prompts/list, so the strict profile fails on a genuinely
+			// missing method rather than on broken framing.
+			RequiredMethods: []string{"initialize", "tools/list", "prompts/list"},
 		},
 	}
 
@@ -104,6 +106,84 @@ func TestStdioProber_StrictHandshakeFailsWhenRequiredMethodsMissing(t *testing.T
 	if !strings.Contains(strings.ToLower(res.Message), "rejected") &&
 		!strings.Contains(strings.ToLower(res.Message), "method") {
 		t.Fatalf("expected method rejection message, got %q", res.Message)
+	}
+}
+
+// TestStdioProber_StrictHandshakePassesAgainstNewlineFramedServer pins the MCP
+// stdio framing requirement from the outside: the mock only accepts
+// newline-delimited JSON, so a strict handshake can only pass if the prober
+// writes the spec framing and reads it back.
+func TestStdioProber_StrictHandshakePassesAgainstNewlineFramedServer(t *testing.T) {
+	t.Parallel()
+
+	prober := engine.NewStdioProber()
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	target := stdioMockTarget("mcp-stdio-newline-strict", mockStdioServer(t))
+	target.Check.HandshakeProfile = "strict"
+	target.Check.Timeout = 15 * time.Second
+	target.Check.RequiredMethods = []string{"initialize", "tools/list", "resources/list"}
+
+	res, err := prober.Probe(ctx, target, nil)
+	if err != nil {
+		t.Fatalf("stdio strict probe returned error: %v", err)
+	}
+	if res.State != targets.StateHealthy {
+		t.Fatalf("expected healthy state against a newline-framed server, got %s (%s)", res.State, res.Message)
+	}
+	methods, _ := res.Details["exercised_methods"].([]string)
+	if len(methods) != 3 {
+		t.Fatalf("expected all three strict methods exercised, got %v (%s)", res.Details["exercised_methods"], res.Message)
+	}
+}
+
+// TestStdioProber_ClassifiesContentLengthFramedServerAsProtocolFailure pins the
+// other direction: a server that answers with LSP Content-Length headers is not
+// an MCP stdio server, and the prober must say so instead of hanging until the
+// timeout or misreading the header as a JSON frame.
+func TestStdioProber_ClassifiesContentLengthFramedServerAsProtocolFailure(t *testing.T) {
+	t.Parallel()
+
+	prober := engine.NewStdioProber()
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	target := stdioMockTarget("mcp-stdio-contentlength", mockLSPStdioServer(t))
+	target.Check.Timeout = 15 * time.Second
+
+	res, err := prober.Probe(ctx, target, nil)
+	if err != nil {
+		t.Fatalf("stdio probe returned error: %v", err)
+	}
+	if res.State == targets.StateHealthy {
+		t.Fatalf("expected header-framed server to be unhealthy, got healthy (%s)", res.Message)
+	}
+	if res.FailureClass != targets.FailureProtocol {
+		t.Fatalf("expected protocol failure class, got %s (%s)", res.FailureClass, res.Message)
+	}
+	msg := strings.ToLower(res.Message)
+	if !strings.Contains(msg, "content-length") || !strings.Contains(msg, "newline") {
+		t.Fatalf("expected a framing mismatch message naming Content-Length and newline framing, got %q", res.Message)
+	}
+}
+
+func stdioMockTarget(id, serverPath string) targets.Target {
+	return targets.Target{
+		ID:        id,
+		Enabled:   true,
+		Protocol:  targets.ProtocolMCP,
+		Name:      id,
+		Transport: targets.TransportStdio,
+		Endpoint:  "stdio://local",
+		Stdio: targets.StdioCommand{
+			Command: "go",
+			Args:    []string{"run", serverPath},
+		},
+		Check: targets.CheckPolicy{
+			Interval: 5 * time.Second,
+			Timeout:  15 * time.Second,
+		},
 	}
 }
 
@@ -386,155 +466,30 @@ func contains(xs []string, want string) bool {
 	return false
 }
 
-func writeMockStdioServer(t *testing.T) string {
+// mockStdioServer returns the path to the shared stdio mock, which speaks the
+// spec framing: one newline-delimited JSON-RPC message per line and no headers.
+// tests/testdata/mock_stdio_server refuses Content-Length frames outright, so a
+// prober that regressed to LSP framing fails here instead of proving itself
+// correct against its own wire format (issue #43).
+func mockStdioServer(t *testing.T) string {
 	t.Helper()
-
-	dir := t.TempDir()
-	file := filepath.Join(dir, "main.go")
-
-	const src = `package main
-
-import (
-	"bufio"
-	"encoding/json"
-	"fmt"
-	"io"
-	"os"
-	"strconv"
-	"strings"
-)
-
-type req struct {
-	JSONRPC string          ` + "`json:\"jsonrpc\"`" + `
-	ID      int             ` + "`json:\"id\"`" + `
-	Method  string          ` + "`json:\"method\"`" + `
-	Params  json.RawMessage ` + "`json:\"params,omitempty\"`" + `
+	return mockServerPath(t, "mock_stdio_server")
 }
 
-type rpcErr struct {
-	Code    int    ` + "`json:\"code\"`" + `
-	Message string ` + "`json:\"message\"`" + `
+// mockLSPStdioServer returns the path to the negative twin, which replies with
+// LSP Content-Length framing. Nothing may complete a handshake against it.
+func mockLSPStdioServer(t *testing.T) string {
+	t.Helper()
+	return mockServerPath(t, "mock_lsp_stdio_server")
 }
 
-type resp struct {
-	JSONRPC string   ` + "`json:\"jsonrpc\"`" + `
-	ID      int      ` + "`json:\"id\"`" + `
-	Result  any      ` + "`json:\"result,omitempty\"`" + `
-	Error   *rpcErr  ` + "`json:\"error,omitempty\"`" + `
-}
-
-func main() {
-	r := bufio.NewReader(os.Stdin)
-	w := bufio.NewWriter(os.Stdout)
-	defer w.Flush()
-
-	for {
-		body, err := readFrame(r)
-		if err != nil {
-			if err == io.EOF {
-				return
-			}
-			return
-		}
-
-		var in req
-		if err := json.Unmarshal(body, &in); err != nil {
-			_ = writeFrame(w, resp{
-				JSONRPC: "2.0",
-				ID:      0,
-				Error: &rpcErr{
-					Code:    -32700,
-					Message: "parse error",
-				},
-			})
-			continue
-		}
-
-		switch in.Method {
-		case "initialize", "session/setup":
-			_ = writeFrame(w, resp{
-				JSONRPC: "2.0",
-				ID:      in.ID,
-				Result: map[string]any{
-					"protocolVersion": "2024-11-05",
-					"capabilities":    map[string]any{},
-					"serverInfo": map[string]any{
-						"name":    "mock-stdio-server",
-						"version": "0.0.1",
-					},
-				},
-			})
-		default:
-			_ = writeFrame(w, resp{
-				JSONRPC: "2.0",
-				ID:      in.ID,
-				Error: &rpcErr{
-					Code:    -32601,
-					Message: "method not found",
-				},
-			})
-		}
+func mockServerPath(t *testing.T, name string) string {
+	t.Helper()
+	dir := filepath.Join("..", "testdata", name)
+	if _, err := os.Stat(filepath.Join(dir, "main.go")); err != nil {
+		t.Fatalf("mock stdio server %q not found: %v", name, err)
 	}
-}
-
-func readFrame(r *bufio.Reader) ([]byte, error) {
-	contentLen := -1
-	for {
-		line, err := r.ReadString('\n')
-		if err != nil {
-			return nil, err
-		}
-		line = strings.TrimRight(line, "\r\n")
-		if line == "" {
-			break
-		}
-		lower := strings.ToLower(line)
-		if strings.HasPrefix(lower, "content-length:") {
-			raw := strings.TrimSpace(line[len("Content-Length:"):])
-			n, err := strconv.Atoi(raw)
-			if err != nil {
-				return nil, err
-			}
-			contentLen = n
-		}
-	}
-	if contentLen < 0 {
-		return nil, fmt.Errorf("missing content-length")
-	}
-	buf := make([]byte, contentLen)
-	_, err := io.ReadFull(r, buf)
-	return buf, err
-}
-
-func writeFrame(w *bufio.Writer, out resp) error {
-	b, err := json.Marshal(out)
-	if err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(w, "Content-Length: %d\r\n\r\n", len(b)); err != nil {
-		return err
-	}
-	if _, err := w.Write(b); err != nil {
-		return err
-	}
-	return w.Flush()
-}
-`
-
-	if err := os.WriteFile(file, []byte(src), 0o644); err != nil {
-		t.Fatalf("write mock stdio server: %v", err)
-	}
-
-	// quick compile sanity for clearer failures
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, "go", "test", file)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("mock stdio server source invalid: %v (%s)", err, strings.TrimSpace(string(out)))
-	}
-
-	return file
+	return dir
 }
 
 // compile-time guards for API drift.

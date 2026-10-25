@@ -29,6 +29,9 @@ package stepdefinitions
 //   "the child process environment contains {string}"
 //   "the target {string} has cwd {string}"
 //   "the child process working directory is the project root"
+//   "each request written to stdin is one JSON object terminated by a newline"
+//   "no {string} header is written to stdin"
+//   "the target {string} replies with LSP {string} framing"
 
 import (
 	"github.com/cucumber/godog"
@@ -65,6 +68,11 @@ func InitializeStdioMCPSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^the child process environment contains "([^"]*)"$`, theChildProcessEnvironmentContains)
 	ctx.Step(`^the target "([^"]*)" has cwd "([^"]*)"$`, theTargetHasCwd)
 	ctx.Step(`^the child process working directory is the project root$`, theChildProcessCwdIsProjectRoot)
+
+	// ── wire format (issue #43) ────────────────────────────────────────────
+	ctx.Step(`^each request written to stdin is one JSON object terminated by a newline$`, eachStdinRequestIsNewlineDelimited)
+	ctx.Step(`^no "([^"]*)" header is written to stdin$`, noHeaderIsWrittenToStdin)
+	ctx.Step(`^the target "([^"]*)" replies with LSP "([^"]*)" framing$`, theTargetRepliesWithLSPFraming)
 }
 
 // ── stub implementations ───────────────────────────────────────────────────
@@ -92,3 +100,13 @@ func theProbeForTargetSpawnsProcess(id string) error          { return godog.Err
 func theChildProcessEnvironmentContains(entry string) error   { return godog.ErrPending }
 func theTargetHasCwd(id, cwd string) error                    { return godog.ErrPending }
 func theChildProcessCwdIsProjectRoot() error                  { return godog.ErrPending }
+
+// ── wire format (issue #43) ────────────────────────────────────────────────
+// Executable coverage for newline framing lives in
+// internal/engine/stdio_prober_test.go and
+// tests/integration/protocol_safety_test.go, which spawn the spec-framed mock
+// (tests/testdata/mock_stdio_server) and its Content-Length-framed twin
+// (tests/testdata/mock_lsp_stdio_server).
+func eachStdinRequestIsNewlineDelimited() error         { return godog.ErrPending }
+func noHeaderIsWrittenToStdin(header string) error      { return godog.ErrPending }
+func theTargetRepliesWithLSPFraming(id, h string) error { return godog.ErrPending }

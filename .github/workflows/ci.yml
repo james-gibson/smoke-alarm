@@ -6,6 +6,11 @@ on:
       - main
       - master
   pull_request:
+  # The real-server stdio job below is network-dependent, so it is not a PR
+  # gate. Dispatch it by hand or let the weekly schedule catch spec drift.
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC
 
 permissions:
   contents: read
@@ -64,3 +69,39 @@ jobs:
 
       - name: Build binary
         run: go build ./cmd/ocd-smoke-alarm
+
+  # Issue #43: the mock proves the prober agrees with itself; this job proves it
+  # agrees with a real, spec-compliant MCP stdio server. It shells out to `npx`,
+  # which fetches @modelcontextprotocol/server-filesystem from the npm registry,
+  # so it runs only on dispatch or on the weekly schedule — never as a PR gate.
+  stdio-real-mcp:
+    name: Real stdio MCP handshake (network)
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.26.x"
+          cache: true
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.x"
+
+      # The sample's 5s probe timeout starts when the child is spawned, so a
+      # cold `npx -y` install would blow it. Warm the cache first: whatever exit
+      # path this takes, the package is on disk by the time the probe runs.
+      - name: Warm the npx cache
+        run: timeout 180 npx -y @modelcontextprotocol/server-filesystem --help || true
+
+      # This is the command the README advertises. Non-zero exit means the
+      # advertised stdio strict smoke does not work against a real server.
+      - name: Stdio MCP strict smoke (real server)
+        run: go run ./cmd/ocd-smoke-alarm check --config=configs/samples/stdio-mcp-strict.yaml
+

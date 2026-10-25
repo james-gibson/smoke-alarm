@@ -1,3 +1,12 @@
+// mock_stdio_server speaks the MCP stdio transport as the specification
+// defines it: one JSON-RPC message per line, no framing headers.
+//
+// MCP § transports/stdio (2025-06-18): "Messages are delimited by newlines, and
+// MUST NOT contain embedded newlines."
+//
+// It deliberately refuses LSP-style Content-Length frames rather than tolerating
+// them, so a prober that regresses to header framing fails the suite instead of
+// agreeing with its own mock (issue #43).
 package main
 
 import (
@@ -7,7 +16,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -109,6 +117,24 @@ func handle(req rpcRequest) rpcResponse {
 			},
 		}
 
+	case "tools/list":
+		return rpcResponse{
+			JSONRPC: "2.0",
+			ID:      req.ID,
+			Result: map[string]any{
+				"tools": []any{},
+			},
+		}
+
+	case "resources/list":
+		return rpcResponse{
+			JSONRPC: "2.0",
+			ID:      req.ID,
+			Result: map[string]any{
+				"resources": []any{},
+			},
+		}
+
 	case "ping":
 		return rpcResponse{
 			JSONRPC: "2.0",
@@ -150,58 +176,31 @@ func writeRPCError(w io.Writer, id json.RawMessage, code int, msg string) error 
 	return writeRPCResponse(w, resp)
 }
 
+// writeRPCResponse writes one newline-delimited JSON object. No Content-Length
+// header: MCP and ACP stdio transports are line-delimited.
 func writeRPCResponse(w io.Writer, resp rpcResponse) error {
 	b, err := json.Marshal(resp)
 	if err != nil {
 		return err
 	}
-	header := fmt.Sprintf("Content-Length: %d\r\n\r\n", len(b))
-	if _, err := io.WriteString(w, header); err != nil {
-		return err
-	}
+	b = append(b, '\n')
 	_, err = w.Write(b)
 	return err
 }
 
+// readFrame reads one newline-delimited JSON-RPC message and rejects header
+// framing, which is what a Content-Length-speaking client would send.
 func readFrame(r *bufio.Reader) ([]byte, error) {
-	contentLength := -1
-
-	for {
-		line, err := r.ReadString('\n')
-		if err != nil {
-			return nil, err
-		}
-		line = strings.TrimRight(line, "\r\n")
-
-		// End of headers
-		if line == "" {
-			break
-		}
-
-		parts := strings.SplitN(line, ":", 2)
-		if len(parts) != 2 {
-			continue
-		}
-
-		key := strings.ToLower(strings.TrimSpace(parts[0]))
-		val := strings.TrimSpace(parts[1])
-
-		if key == "content-length" {
-			n, err := strconv.Atoi(val)
-			if err != nil || n < 0 {
-				return nil, fmt.Errorf("invalid Content-Length: %q", val)
-			}
-			contentLength = n
-		}
-	}
-
-	if contentLength < 0 {
-		return nil, errors.New("missing Content-Length header")
-	}
-
-	payload := make([]byte, contentLength)
-	if _, err := io.ReadFull(r, payload); err != nil {
+	line, err := r.ReadString('\n')
+	if err != nil {
 		return nil, err
 	}
-	return payload, nil
+	line = strings.TrimRight(line, "\r\n")
+	if strings.HasPrefix(strings.ToLower(line), "content-length:") {
+		return nil, errors.New("received LSP Content-Length framing; MCP stdio is newline-delimited")
+	}
+	if !strings.HasPrefix(strings.TrimSpace(line), "{") {
+		return nil, fmt.Errorf("expected a newline-delimited JSON object, got %q", line)
+	}
+	return []byte(line), nil
 }
