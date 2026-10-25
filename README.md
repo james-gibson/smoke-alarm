@@ -46,12 +46,16 @@ ocd-smoke-alarm is the isotope registry for the cluster:
 | `/isotope/list` | GET | List live isotopes with their trust rungs and heartbeat state |
 | `/isotope/<name>` | GET | Resolve one name; 404 when it is not registered or has expired |
 | `/isotope/<name>` | DELETE | Deregister now, for a node that gets to shut down cleanly |
+| `/isotope/by-route/<route>` | GET | Resolve a project route to its live instances |
+| `/isotope/by-contract/<id>` | GET | Resolve a pinned contract id to what implements or depends on it |
 
 Trust rungs are assigned by `VerifyTrust`: rung 6 if both the lezz cluster registry (`:19100/cluster`) and mDNS (`_lezz-demo._tcp`) confirm the registrant, rung 4 if registry only, rung 2 if self-registered.
 
 **A name is a heartbeat, not a label.** A registration made through `POST /isotope/register` lives for `health.isotope_ttl` (default `5m`) unless it is renewed; `/isotope/list` sweeps expired names, so a node that dies without deregistering stops resolving. Re-registering the same name and endpoint extends the window and keeps the assigned rung (the trust probe is not re-run); a changed endpoint is a new claim and is verified again. Records mirrored from federation membership have no heartbeat and report `"status": "registered"` — their lifecycle belongs to the membership feed.
 
-The list view adds `last_seen`, `expires_at`, and `status` (`live` for a current heartbeat, `registered` for a mirrored record) to the shared `isotope.Record`.
+**A project is not one process.** A registration may carry its `project_route` (the lezz `seed.json` route), the `contract` it implements, and `depends_on` references to other projects (each a route plus a pinned contract). A dependent resolves the non-moving identity — the route — and pins the contract id it was built against; neither is a trust claim, and the rung stays the registry's judgement. The registry's own contract is `features/isotope-registry.feature`, canonicalised as `smoke-alarm-isotope-registry-v1:bb021b6028b247ed` (key `seed-42`).
+
+The list view adds `last_seen`, `expires_at`, `status` (`live` or `registered`), `project_route`, `contract`, and `depends_on` to the shared `isotope.Record`.
 
 ### Other Endpoints
 

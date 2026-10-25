@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -120,26 +121,42 @@ type Feature struct {
 	FailedAt    time.Time `json:"failed_at,omitempty"`
 }
 
+// IsotopeDependency names another project this registration depends on: the
+// route says where that project is (lezz `seed.json` project.route), and the
+// contract pins the signed spec the dependency was built against. Neither is a
+// trust claim; the rung remains the registry's judgement.
+type IsotopeDependency struct {
+	ProjectRoute string `json:"project_route"`
+	Contract     string `json:"contract,omitempty"`
+}
+
 // IsotopeView is a registered isotope plus what only the registry knows about
 // the name. isotope.Record is the wire shape shared with isotope.Client; the
-// view adds the heartbeat, so a consumer that resolves by name can tell a live
-// registration from one the registry has not heard from.
+// view adds the heartbeat and the project identity, so a consumer that resolves
+// by name can tell a live registration from one the registry has not heard from,
+// and a dependency can be resolved by project rather than by URL.
 type IsotopeView struct {
 	isotope.Record
-	LastSeen  time.Time  `json:"last_seen"`
-	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	LastSeen     time.Time           `json:"last_seen"`
+	ExpiresAt    *time.Time          `json:"expires_at,omitempty"`
+	ProjectRoute string              `json:"project_route,omitempty"`
+	Contract     string              `json:"contract,omitempty"`
+	DependsOn    []IsotopeDependency `json:"depends_on,omitempty"`
 	// Status is IsotopeStatusLive for a self-registered record within its TTL,
 	// or IsotopeStatusRegistered for a record mirrored from a trusted source.
 	Status string `json:"status"`
 }
 
-// isotopeEntry is a record plus its heartbeat. A zero expiresAt means the
-// record is durable: the alarm mirrors it from federation membership, whose
-// lifecycle removes it, rather than from a registration that must renew.
+// isotopeEntry is a record plus its heartbeat and identity. A zero expiresAt
+// means the record is durable: the alarm mirrors it from federation membership,
+// whose lifecycle removes it, rather than from a registration that must renew.
 type isotopeEntry struct {
-	record    isotope.Record
-	lastSeen  time.Time
-	expiresAt time.Time
+	record       isotope.Record
+	lastSeen     time.Time
+	expiresAt    time.Time
+	projectRoute string
+	contract     string
+	dependsOn    []IsotopeDependency
 }
 
 // Server provides liveness, readiness, and status endpoints.
@@ -507,12 +524,22 @@ func (s *Server) handleFederationReport(w http.ResponseWriter, r *http.Request) 
 }
 
 // isotopeRegistration is the request body for POST /isotope/register: the wire
-// shape shared with isotope.Client plus an optional heartbeat override.
+// shape shared with isotope.Client plus the heartbeat override and the project
+// identity a dependency needs to resolve this registration.
 type isotopeRegistration struct {
 	isotope.Registration
 	// TTL overrides the server's isotope TTL for this registration, as a Go
 	// duration ("90s"). Re-registering renews it.
 	TTL string `json:"ttl,omitempty"`
+	// ProjectRoute is the project this instance belongs to (lezz `seed.json`
+	// project.route). An instance name identifies one process; the route
+	// identifies the project a dependent is trying to reach.
+	ProjectRoute string `json:"project_route,omitempty"`
+	// Contract is the signed spec id this instance implements.
+	Contract string `json:"contract,omitempty"`
+	// DependsOn references the projects this instance depends on, by route and
+	// pinned contract.
+	DependsOn []IsotopeDependency `json:"depends_on,omitempty"`
 }
 
 func (s *Server) handleIsotopeRegister(w http.ResponseWriter, r *http.Request) {
@@ -573,8 +600,28 @@ func (s *Server) handleIsotopeRegister(w http.ResponseWriter, r *http.Request) {
 			RungName:     rungName,
 			RegisteredAt: registeredAt,
 		},
-		lastSeen:  now,
-		expiresAt: now.Add(ttl),
+		lastSeen:     now,
+		expiresAt:    now.Add(ttl),
+		projectRoute: strings.TrimSpace(body.ProjectRoute),
+		contract:     strings.TrimSpace(body.Contract),
+		dependsOn:    normalizeDependencies(body.DependsOn),
+	}
+	if entry.projectRoute != "" && !isoRoutePattern.MatchString(entry.projectRoute) {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "project_route must use letters, digits, _ . -"})
+		return
+	}
+	if found {
+		// A renewal may be minimal. Do not let a heartbeat erase the identity a
+		// dependent resolved.
+		if entry.projectRoute == "" {
+			entry.projectRoute = existing.projectRoute
+		}
+		if entry.contract == "" {
+			entry.contract = existing.contract
+		}
+		if len(entry.dependsOn) == 0 {
+			entry.dependsOn = existing.dependsOn
+		}
 	}
 
 	s.mu.Lock()
@@ -590,16 +637,7 @@ func (s *Server) handleIsotopeList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.mu.Lock()
-	s.sweepIsotopesLocked(time.Now().UTC())
-	views := make([]IsotopeView, 0, len(s.isotopes))
-	for _, entry := range s.isotopes {
-		views = append(views, viewOf(entry))
-	}
-	s.mu.Unlock()
-
-	sort.Slice(views, func(i, j int) bool { return views[i].Name < views[j].Name })
-	writeJSON(w, http.StatusOK, views)
+	writeJSON(w, http.StatusOK, s.liveIsotopeViews(func(isotopeEntry) bool { return true }))
 }
 
 // handleIsotopeRoute dispatches the isotope registry:
@@ -614,6 +652,9 @@ func (s *Server) handleIsotopeList(w http.ResponseWriter, r *http.Request) {
 // mux rejects.
 func (s *Server) handleIsotopeRoute(w http.ResponseWriter, r *http.Request) {
 	item := strings.TrimPrefix(r.URL.Path, "/isotope/")
+	if unescaped, err := url.PathUnescape(item); err == nil {
+		item = unescaped
+	}
 
 	switch item {
 	case "register":
@@ -627,12 +668,16 @@ func (s *Server) handleIsotopeRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	name := item
-	if unescaped, err := url.PathUnescape(item); err == nil {
-		name = unescaped
+	switch {
+	case strings.HasPrefix(item, "by-route/"):
+		s.handleIsotopeByRoute(w, r, strings.TrimPrefix(item, "by-route/"))
+		return
+	case strings.HasPrefix(item, "by-contract/"):
+		s.handleIsotopeByContract(w, r, strings.TrimPrefix(item, "by-contract/"))
+		return
 	}
-	name = strings.TrimSpace(name)
 
+	name := strings.TrimSpace(item)
 	switch r.Method {
 	case http.MethodGet:
 		s.handleIsotopeGet(w, name)
@@ -641,6 +686,79 @@ func (s *Server) handleIsotopeRoute(w http.ResponseWriter, r *http.Request) {
 	default:
 		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
 	}
+}
+
+// handleIsotopeByRoute resolves a project route to the instances registered
+// under it. A route names the project, not one process: a restarted or
+// additional instance shares it.
+func (s *Server) handleIsotopeByRoute(w http.ResponseWriter, r *http.Request, route string) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	route = strings.TrimSpace(route)
+	if route == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "project route is required"})
+		return
+	}
+
+	views := s.liveIsotopeViews(func(entry isotopeEntry) bool {
+		return entry.projectRoute == route
+	})
+	if len(views) == 0 {
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": "no isotope registered for that project route"})
+		return
+	}
+	writeJSON(w, http.StatusOK, views)
+}
+
+// handleIsotopeByContract resolves a pinned contract id to what implements or
+// depends on it. A dependent pins the contract it was built against; this is
+// how it finds the project that still offers it.
+func (s *Server) handleIsotopeByContract(w http.ResponseWriter, r *http.Request, contract string) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	contract = strings.TrimSpace(contract)
+	if contract == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "contract is required"})
+		return
+	}
+
+	views := s.liveIsotopeViews(func(entry isotopeEntry) bool {
+		if entry.contract == contract {
+			return true
+		}
+		for _, dep := range entry.dependsOn {
+			if dep.Contract == contract {
+				return true
+			}
+		}
+		return false
+	})
+	if len(views) == 0 {
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": "no isotope registered for that contract"})
+		return
+	}
+	writeJSON(w, http.StatusOK, views)
+}
+
+// liveIsotopeViews sweeps expired names and returns the matching views, ordered
+// by name so responses are stable.
+func (s *Server) liveIsotopeViews(match func(isotopeEntry) bool) []IsotopeView {
+	s.mu.Lock()
+	s.sweepIsotopesLocked(time.Now().UTC())
+	views := make([]IsotopeView, 0, len(s.isotopes))
+	for _, entry := range s.isotopes {
+		if match(entry) {
+			views = append(views, viewOf(entry))
+		}
+	}
+	s.mu.Unlock()
+
+	sort.Slice(views, func(i, j int) bool { return views[i].Name < views[j].Name })
+	return views
 }
 
 // handleIsotopeGet resolves one name. An expired registration is gone, so this
@@ -717,12 +835,15 @@ func (s *Server) isotopeTTL(raw string) (time.Duration, error) {
 	return ttl, nil
 }
 
-// viewOf renders a stored entry as the liveness-bearing wire view.
+// viewOf renders a stored entry as the liveness- and identity-bearing wire view.
 func viewOf(entry isotopeEntry) IsotopeView {
 	view := IsotopeView{
-		Record:   entry.record,
-		LastSeen: entry.lastSeen,
-		Status:   IsotopeStatusRegistered,
+		Record:       entry.record,
+		LastSeen:     entry.lastSeen,
+		ProjectRoute: entry.projectRoute,
+		Contract:     entry.contract,
+		DependsOn:    append([]IsotopeDependency(nil), entry.dependsOn...),
+		Status:       IsotopeStatusRegistered,
 	}
 	if !entry.expiresAt.IsZero() {
 		expires := entry.expiresAt
@@ -730,6 +851,32 @@ func viewOf(entry isotopeEntry) IsotopeView {
 		view.Status = IsotopeStatusLive
 	}
 	return view
+}
+
+// isoRoutePattern is lezz's project-id shape: letters, digits, and _ . - only.
+var isoRoutePattern = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
+
+// normalizeDependencies trims a dependency list and drops entries that name no
+// project. An empty list means "no dependencies", not "keep whatever was there".
+func normalizeDependencies(in []IsotopeDependency) []IsotopeDependency {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]IsotopeDependency, 0, len(in))
+	for _, dep := range in {
+		route := strings.TrimSpace(dep.ProjectRoute)
+		if route == "" {
+			continue
+		}
+		out = append(out, IsotopeDependency{
+			ProjectRoute: route,
+			Contract:     strings.TrimSpace(dep.Contract),
+		})
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 // UpsertIsotope adds or replaces an isotope record. Modules (for example the

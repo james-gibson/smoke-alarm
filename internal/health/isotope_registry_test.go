@@ -289,3 +289,110 @@ func TestUpsertKeepsSelfRegistrationHeartbeat(t *testing.T) {
 		t.Fatalf("upsert changed registered_at: %s -> %s", registered.RegisteredAt, view.RegisteredAt)
 	}
 }
+
+// getIsotopeViews resolves a collection endpoint (by-route, by-contract).
+func getIsotopeViews(t *testing.T, url string) (int, []IsotopeView) {
+	t.Helper()
+
+	resp, err := http.Get(url)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return resp.StatusCode, nil
+	}
+	var views []IsotopeView
+	if err := json.NewDecoder(resp.Body).Decode(&views); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	return resp.StatusCode, views
+}
+
+// A registration carries the project identity a dependent needs: the route says
+// where the project is, the contract says what it implements.
+func TestIsotopeRegistrationCarriesProjectIdentity(t *testing.T) {
+	_, srv := isotopeTestServer(t, time.Minute, nil)
+	defer srv.Close()
+
+	const contract = "smoke-alarm-isotope-registry-v1:bb021b6028b247ed"
+	registerIsotope(t, srv.URL, `{
+		"name":"workspace-42",
+		"endpoint":"127.0.0.1:59200",
+		"project_route":"01JABCDEF",
+		"contract":"workspace-vfs-v1:abc123",
+		"depends_on":[{"project_route":"01JSMOKE","contract":"`+contract+`"}]
+	}`)
+
+	views := listIsotopeViews(t, srv.URL)
+	if len(views) != 1 {
+		t.Fatalf("listed %d isotopes, want 1", len(views))
+	}
+	got := views[0]
+	if got.ProjectRoute != "01JABCDEF" {
+		t.Fatalf("project_route = %q, want 01JABCDEF", got.ProjectRoute)
+	}
+	if got.Contract != "workspace-vfs-v1:abc123" {
+		t.Fatalf("contract = %q", got.Contract)
+	}
+	if len(got.DependsOn) != 1 || got.DependsOn[0].ProjectRoute != "01JSMOKE" || got.DependsOn[0].Contract != contract {
+		t.Fatalf("depends_on = %+v", got.DependsOn)
+	}
+
+	// An instance is resolved by project route, not by its process name.
+	code, byRoute := getIsotopeViews(t, srv.URL+"/isotope/by-route/01JABCDEF")
+	if code != http.StatusOK || len(byRoute) != 1 || byRoute[0].Name != "workspace-42" {
+		t.Fatalf("by-route = %d %+v", code, byRoute)
+	}
+
+	// A dependency is found by the contract it pins, as well as by its own.
+	code, byContract := getIsotopeViews(t, srv.URL+"/isotope/by-contract/"+contract)
+	if code != http.StatusOK || len(byContract) != 1 || byContract[0].Name != "workspace-42" {
+		t.Fatalf("by-contract = %d %+v", code, byContract)
+	}
+
+	if code, _ := getIsotopeViews(t, srv.URL+"/isotope/by-route/no-such-project"); code != http.StatusNotFound {
+		t.Fatalf("unknown route = %d, want 404", code)
+	}
+	if code, _ := getIsotopeViews(t, srv.URL+"/isotope/by-contract/no-such-contract"); code != http.StatusNotFound {
+		t.Fatalf("unknown contract = %d, want 404", code)
+	}
+}
+
+// A heartbeat may be minimal; it must not erase the identity a dependent
+// resolved.
+func TestIsotopeRenewalPreservesProjectIdentity(t *testing.T) {
+	_, srv := isotopeTestServer(t, time.Minute, nil)
+	defer srv.Close()
+
+	registerIsotope(t, srv.URL, `{
+		"name":"workspace-42","endpoint":"127.0.0.1:59200",
+		"project_route":"01JABCDEF","contract":"workspace-vfs-v1:abc123",
+		"depends_on":[{"project_route":"01JSMOKE","contract":"iso-v1:def456"}]
+	}`)
+	registerIsotope(t, srv.URL, `{"name":"workspace-42","endpoint":"127.0.0.1:59200"}`)
+
+	_, view := getIsotope(t, srv.URL, "workspace-42")
+	if view.ProjectRoute != "01JABCDEF" || view.Contract != "workspace-vfs-v1:abc123" {
+		t.Fatalf("renewal erased identity: %+v", view)
+	}
+	if len(view.DependsOn) != 1 || view.DependsOn[0].Contract != "iso-v1:def456" {
+		t.Fatalf("renewal erased dependencies: %+v", view.DependsOn)
+	}
+}
+
+func TestIsotopeRegisterRejectsBadProjectRoute(t *testing.T) {
+	_, srv := isotopeTestServer(t, time.Minute, nil)
+	defer srv.Close()
+
+	resp, err := http.Post(srv.URL+"/isotope/register", "application/json",
+		strings.NewReader(`{"name":"x","endpoint":"127.0.0.1:1","project_route":"has space"}`))
+	if err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", resp.StatusCode)
+	}
+}
