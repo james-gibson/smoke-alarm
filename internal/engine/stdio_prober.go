@@ -171,12 +171,21 @@ func (p *StdioProber) Probe(ctx context.Context, target targets.Target, _ map[st
 	}, nil
 }
 
-func (p *StdioProber) performHandshake(ctx context.Context, target targets.Target) (string, []string, error) {
+func (p *StdioProber) performHandshake(ctx context.Context, target targets.Target) (stderrText string, exercised []string, err error) {
 	cmd := exec.CommandContext(ctx, target.Stdio.Command, target.Stdio.Args...)
 	if target.Stdio.Cwd != "" {
 		cmd.Dir = target.Stdio.Cwd
 	}
 	cmd.Env = mergeEnv(target.Stdio.Env)
+	// The configured command is often a wrapper (`uvx`, `npx`) that forks or
+	// execs the real server. Put it in its own process group so teardown can
+	// signal the whole tree, and route context cancellation through that group
+	// instead of exec's default "kill the direct child" (issue #44).
+	cmd.SysProcAttr = stdioSysProcAttr()
+	cmd.Cancel = func() error { return terminateStdioProcess(cmd) }
+	// Bound the post-cancel wait: a process outside the group can still hold a
+	// pipe, and Probe must not outlive its own deadline waiting for it.
+	cmd.WaitDelay = stdioTeardownTimeout
 
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
@@ -194,35 +203,30 @@ func (p *StdioProber) performHandshake(ctx context.Context, target targets.Targe
 	if err := cmd.Start(); err != nil {
 		return "", nil, fmt.Errorf("start stdio server: %w", err)
 	}
-	defer func() {
-		_ = stdin.Close()
-		if cmd.Process != nil {
-			_ = cmd.Process.Kill()
-		}
-		_ = cmd.Wait()
-	}()
 
 	maxErr := p.MaxStderrBytes
 	if maxErr <= 0 {
 		maxErr = 8192
 	}
 	stderrBuf := newLimitedBuffer(maxErr)
-	var stderrWG sync.WaitGroup
-	stderrWG.Add(1)
+	stderrDone := make(chan struct{})
 	go func() {
-		defer stderrWG.Done()
+		defer close(stderrDone)
 		_, _ = io.Copy(stderrBuf, stderr)
 	}()
+
+	// Every exit path — success, protocol failure, write failure, timeout —
+	// tears the child down the same way and reports whatever stderr was
+	// captured before it died.
+	defer func() { stderrText = teardownStdioServer(cmd, stdin, stderrBuf, stderrDone) }()
 
 	reader := bufio.NewReader(stdout)
 	methods := p.handshakeMethods(target)
 	if len(methods) == 0 {
-		_ = stdin.Close()
-		stderrWG.Wait()
-		return stderrBuf.String(), nil, errors.New("no handshake methods configured")
+		return "", nil, errors.New("no handshake methods configured")
 	}
 
-	exercised := make([]string, 0, len(methods))
+	exercised = make([]string, 0, len(methods))
 	for i, method := range methods {
 		req := rpcRequest{
 			JSONRPC: "2.0",
@@ -231,28 +235,57 @@ func (p *StdioProber) performHandshake(ctx context.Context, target targets.Targe
 			Params:  p.requestParamsForMethod(target.Protocol, method),
 		}
 		if err := writeRPCFrame(stdin, req); err != nil {
-			_ = stdin.Close()
-			stderrWG.Wait()
-			return stderrBuf.String(), exercised, fmt.Errorf("write rpc request %q: %w", method, err)
+			return "", exercised, fmt.Errorf("write rpc request %q: %w", method, err)
 		}
 
 		resp, err := readRPCResponseByID(ctx, reader, req.ID)
 		if err != nil {
-			_ = stdin.Close()
-			stderrWG.Wait()
-			return stderrBuf.String(), exercised, fmt.Errorf("read rpc response for %q: %w", method, err)
+			// A deadline that fires while waiting on stdout is a timeout, not a
+			// protocol error: say so, and keep the peer detail for the message.
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				// errorlint: keep %w for the cause and render the peer detail as
+				// text, so the class is unambiguous and the message keeps both.
+				return "", exercised, fmt.Errorf("read rpc response for %q: %w (peer: %s)", method, ctxErr, err.Error())
+			}
+			return "", exercised, fmt.Errorf("read rpc response for %q: %w", method, err)
 		}
 		if resp.Error != nil {
-			_ = stdin.Close()
-			stderrWG.Wait()
-			return stderrBuf.String(), exercised, fmt.Errorf("handshake method %q rejected: %s", method, resp.Error.Error())
+			return "", exercised, fmt.Errorf("handshake method %q rejected: %s", method, resp.Error.Error())
 		}
 		exercised = append(exercised, method)
 	}
 
+	return "", exercised, nil
+}
+
+// teardownStdioServer stops the server and returns the stderr it produced.
+//
+// Closing stdin is the shutdown signal MCP defines for stdio, so a well-behaved
+// server exits on its own and its stderr is complete. Whatever is still alive
+// when the grace window expires is killed by process group — a wrapper's
+// grandchild would otherwise be reparented to PID 1 and keep the pipes open,
+// which is the hang in issue #44. Both waits are bounded for the same reason:
+// diagnostics must not be able to outlive the probe.
+func teardownStdioServer(cmd *exec.Cmd, stdin io.Closer, stderrBuf *limitedBuffer, stderrDone <-chan struct{}) string {
 	_ = stdin.Close()
-	stderrWG.Wait()
-	return stderrBuf.String(), exercised, nil
+
+	select {
+	case <-stderrDone:
+	case <-time.After(stdioTeardownGrace):
+	}
+
+	_ = terminateStdioProcess(cmd)
+
+	select {
+	case <-stderrDone:
+	case <-time.After(stdioTeardownTimeout):
+	}
+
+	// Wait releases the pipes and reaps the direct child. WaitDelay, set in
+	// performHandshake, bounds it even when the pipes are still held open.
+	_ = cmd.Wait()
+
+	return stderrBuf.String()
 }
 
 func (p *StdioProber) defaultParams(proto targets.Protocol) map[string]any {
@@ -340,6 +373,15 @@ func normalizeMethods(in []string) []string {
 // a stdio server. Real MCP/ACP messages are a few KiB; the cap only exists so a
 // misbehaving or hostile peer cannot drive unbounded allocation in the probe.
 const maxRPCFrameBytes = 8 << 20 // 8 MiB
+
+const (
+	// stdioTeardownGrace lets a server that honors the stdin-EOF shutdown
+	// signal exit on its own before the process group is killed.
+	stdioTeardownGrace = 250 * time.Millisecond
+	// stdioTeardownTimeout bounds every wait in teardown. It is also the
+	// exec.Cmd.WaitDelay.
+	stdioTeardownTimeout = 2 * time.Second
+)
 
 // writeRPCFrame writes one JSON-RPC message framed the way both stdio
 // transports define it: the JSON object followed by a single newline.
@@ -517,7 +559,11 @@ func mergeEnv(extra map[string]string) []string {
 	return out
 }
 
+// limitedBuffer keeps the first max bytes written to it. It is written by the
+// stderr copier goroutine while teardown may already be reading it, so access is
+// synchronized: an orphan that outlives the timeout must not race the read.
 type limitedBuffer struct {
+	mu  sync.Mutex
 	max int
 	buf bytes.Buffer
 }
@@ -527,6 +573,9 @@ func newLimitedBuffer(maxBytes int) *limitedBuffer {
 }
 
 func (l *limitedBuffer) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
 	if l.max <= 0 {
 		return len(p), nil
 	}
@@ -543,6 +592,8 @@ func (l *limitedBuffer) Write(p []byte) (int, error) {
 }
 
 func (l *limitedBuffer) String() string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	return l.buf.String()
 }
 

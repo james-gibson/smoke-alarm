@@ -12,6 +12,12 @@
 # tests/integration/protocol_safety_test.go (newline-framed mock passes,
 # Content-Length-framed mock is rejected), because this feature's steps are
 # stubs (see THESIS-FINDING in stdio_mcp_steps.go).
+#
+# Teardown (issue #44): the configured command is usually a wrapper (`uvx`, `npx`,
+# a shell) that forks or execs the real server. Killing the direct child leaves
+# that server reparented, holding the pipes — the probe then blocks past its own
+# deadline. Teardown therefore signals the whole process group and bounds every
+# wait. Executable pin: tests/integration/stdio_teardown_test.go.
 
 @stdio-mcp @core
 Feature: Stdio MCP Probe
@@ -37,6 +43,19 @@ Feature: Stdio MCP Probe
     Given the target "mcp-stdio-filesystem-strict" is enabled in config "configs/samples/stdio-mcp-strict.yaml"
     When the probe for target "mcp-stdio-filesystem-strict" completes
     Then no orphan child processes remain for target "mcp-stdio-filesystem-strict"
+
+  Scenario: probe tears down a wrapper command's whole process tree
+    Given the target "mcp-stdio-filesystem-strict" is launched through a wrapper that forks the server
+    When the probe for target "mcp-stdio-filesystem-strict" completes
+    Then the probe returns within its configured timeout
+    And no descendant of the wrapper remains
+
+  Scenario: probe still returns when the server ignores stdin EOF after the handshake
+    Given the target "mcp-stdio-filesystem-strict" completes the handshake and then ignores stdin EOF
+    When the probe for target "mcp-stdio-filesystem-strict" completes
+    Then the probe returns within its configured timeout
+    And the target "mcp-stdio-filesystem-strict" is classified as "HEALTHY"
+    And no descendant of the wrapper remains
 
   Scenario: probe classifies target as HEALTHY after a successful strict handshake
     Given the target "mcp-stdio-filesystem-strict" responds to all required methods
