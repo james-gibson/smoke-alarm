@@ -65,11 +65,15 @@ Feature: Stdio MCP Probe
     Then the target "mcp-stdio-filesystem-strict" is classified as "DEGRADED"
     And the probe result contains "missing required method"
 
+    # `@modelcontextprotocol/server-filesystem` advertises only the `tools`
+    # family, so the sample no longer declares `resources/list` (issue #43: the
+    # real-server CI job caught that the package returns -32601 for it). The
+    # three-method strict profile is still exercised against the spec-framed
+    # mock in tests/integration/protocol_safety_test.go.
     Examples:
-      | method         |
-      | initialize     |
-      | tools/list     |
-      | resources/list |
+      | method     |
+      | initialize |
+      | tools/list |
 
   # ── failure classification ────────────────────────────────────────────────
 

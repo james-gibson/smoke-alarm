@@ -104,9 +104,12 @@ targets:
       cwd: "."
     expected:
       healthy_status_codes: [200]
+      # @modelcontextprotocol/server-filesystem (1.0.0) advertises only the
+      # `tools` family, so `tools/list` is the method name to assert. Keep this
+      # in step with the package the README points at — a declared capability
+      # the surface does not advertise makes the target degraded by design.
       min_capabilities:
         - "tools/list"
-        - "resources/list"
       known_agent_count_min: 0
       expected_version: ""
     auth:
@@ -124,10 +127,14 @@ targets:
       timeout: "5s"
       retries: 0
       handshake_profile: "strict"
+      # The current package answers initialize and tools/list and returns
+      # -32601 for resources/list (it advertises no `resources` capability), so
+      # requiring it would make the README's smoke command fail against the
+      # real server. The three-method strict profile is still covered against
+      # the spec-framed mock in tests/integration/protocol_safety_test.go.
       required_methods:
         - "initialize"
         - "tools/list"
-        - "resources/list"
       hurl_tests: []
 
 known_state:
