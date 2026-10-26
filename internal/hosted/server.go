@@ -7,11 +7,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/james-gibson/smoke-alarm/internal/netbind"
 )
 
 // Options configures the embedded hosted service server.
@@ -58,7 +61,9 @@ type Server struct {
 	opts    Options
 	httpSrv *http.Server
 
-	started atomic.Bool
+	started   atomic.Bool
+	listener  net.Listener // set by BindWithRetry; nil means use ListenAndServe
+	boundAddr string       // address actually bound, "" until BindWithRetry
 
 	totalReq atomic.Int64
 	mcpReq   atomic.Int64
@@ -155,6 +160,9 @@ func NewServer(opts Options) *Server {
 }
 
 // Start runs the hosted server until context cancellation or fatal listen error.
+//
+// If BindWithRetry was called first, Start serves on the pre-bound listener;
+// otherwise it falls back to ListenAndServe on the configured address.
 func (s *Server) Start(ctx context.Context) error {
 	if s.started.Load() {
 		return nil
@@ -163,7 +171,12 @@ func (s *Server) Start(ctx context.Context) error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		err := s.httpSrv.ListenAndServe()
+		var err error
+		if s.listener != nil {
+			err = s.httpSrv.Serve(s.listener)
+		} else {
+			err = s.httpSrv.ListenAndServe()
+		}
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 			return
@@ -177,6 +190,34 @@ func (s *Server) Start(ctx context.Context) error {
 	case err := <-errCh:
 		return err
 	}
+}
+
+// BindWithRetry pre-binds the hosted server's listen address, scanning up to
+// maxRetries higher ports on EADDRINUSE, and returns the address actually
+// bound. Must be called before Start.
+//
+// The hosted surface is what the process's own MCP/ACP targets probe, so a port
+// that silently moved must be reported rather than discovered as an outage
+// (smoke-alarm#53): callers record the returned address in /status and rewrite
+// self-referencing targets to it.
+func (s *Server) BindWithRetry(maxRetries int) (string, error) {
+	ln, boundAddr, err := netbind.Listen(s.opts.ListenAddr, maxRetries)
+	if err != nil {
+		return "", fmt.Errorf("hosted server: %w", err)
+	}
+	s.listener = ln
+	s.boundAddr = boundAddr
+	s.httpSrv.Addr = boundAddr
+	return boundAddr, nil
+}
+
+// Addr returns the address the hosted server actually serves on: the bound
+// address once BindWithRetry has run, otherwise the configured one.
+func (s *Server) Addr() string {
+	if s.boundAddr != "" {
+		return s.boundAddr
+	}
+	return s.opts.ListenAddr
 }
 
 // Shutdown gracefully stops the hosted server.
@@ -195,7 +236,7 @@ func (s *Server) handleHostedStatus(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"service": s.opts.ServiceName,
 		"version": s.opts.Version,
-		"listen":  s.opts.ListenAddr,
+		"listen":  s.Addr(),
 		"transports": map[string]bool{
 			"http": s.opts.EnableHTTP,
 			"sse":  s.opts.EnableSSE,

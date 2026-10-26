@@ -289,6 +289,28 @@ func (in *Instance) Start(ctx context.Context) error {
 		in.addr = boundAddr
 		in.mu.Unlock()
 
+		// A self-check target names the configured health address. When the health
+		// listener yields to the next free port, the probe must follow it or the
+		// instance reports its own /status as an outage (smoke-alarm#53).
+		in.mu.Lock()
+		configuredAddr := in.cfg.Health.ListenAddr
+		in.mu.Unlock()
+		if boundAddr != configuredAddr {
+			in.mu.Lock()
+			rewritten := config.RewriteSelfReferences(in.cfg, map[string]string{configuredAddr: boundAddr})
+			in.mu.Unlock()
+			if _, reloadErr := in.eng.ReloadConfig(rewritten); reloadErr != nil {
+				in.logger.Warn("smokealarm: could not point self-check target at the bound health port",
+					"bound", boundAddr, "error", reloadErr)
+			} else {
+				in.mu.Lock()
+				in.cfg = rewritten
+				in.mu.Unlock()
+				in.logger.Warn("smokealarm: health port in use, using next available",
+					"preferred", configuredAddr, "actual", boundAddr)
+			}
+		}
+
 		if in.cfg.Tuner.Advertise {
 			advertiser := mdns.NewAdvertiser(mdns.Options{
 				ServiceName: in.cfg.Service.Name,

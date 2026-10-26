@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -273,9 +274,30 @@ func cmdServe(args []string) error {
 		}
 	}
 
-	eng, err := engine.New(cfg, engineOpts...)
-	if err != nil {
-		return fmt.Errorf("build engine: %w", err)
+	// Every listener this process owns claims its port before the engine is
+	// built: a listener that yields to the next free port rewrites the targets
+	// that reference it, and the engine takes its target set at construction
+	// (smoke-alarm#53). Only the health and federation listeners used to
+	// negotiate ports; hosted and the OAuth mock hard-failed instead.
+	var hs *health.Server
+	healthStartedAt := time.Now().UTC()
+	if cfg.Health.Enabled {
+		hs = health.NewServer(health.Options{
+			ServiceName:     cfg.Service.Name,
+			Version:         version(),
+			ListenAddr:      cfg.Health.ListenAddr,
+			HealthzPath:     cfg.Health.Endpoints.Healthz,
+			ReadyzPath:      cfg.Health.Endpoints.Readyz,
+			StatusPath:      cfg.Health.Endpoints.Status,
+			ShutdownTimeout: mustDuration(cfg.Runtime.GracefulShutdownTimeout, 10*time.Second),
+			IsotopeTTL:      mustDuration(cfg.Health.IsotopeTTL, health.DefaultIsotopeTTL),
+		})
+		hs.SetComponent("engine", false, "waiting for first checks")
+		hs.SetReady(false, "engine not ready")
+
+		// Register this instance's own Gherkin features so ADHD dashboards can
+		// discover and display their certification status at runtime.
+		health.RegisterFeaturesFromDir(hs, "features")
 	}
 
 	var hostedSrv *hosted.Server
@@ -310,57 +332,82 @@ func cmdServe(args []string) error {
 		})
 	}
 
-	var hs *health.Server
-	if cfg.Health.Enabled {
-		startedAt := time.Now().UTC()
-		hs = health.NewServer(health.Options{
-			ServiceName:     cfg.Service.Name,
-			Version:         version(),
-			ListenAddr:      cfg.Health.ListenAddr,
-			HealthzPath:     cfg.Health.Endpoints.Healthz,
-			ReadyzPath:      cfg.Health.Endpoints.Readyz,
-			StatusPath:      cfg.Health.Endpoints.Status,
-			ShutdownTimeout: mustDuration(cfg.Runtime.GracefulShutdownTimeout, 10*time.Second),
-			IsotopeTTL:      mustDuration(cfg.Health.IsotopeTTL, health.DefaultIsotopeTTL),
-		})
-		// Wire self-description after server creation so the factory can read runtime state.
-		hs.SetSelfDescription(health.NewSelfDescriptionFactory(cfg, version(), startedAt, hs))
-		hs.SetComponent("engine", false, "waiting for first checks")
-		hs.SetReady(false, "engine not ready")
-
-		// Register this instance's own Gherkin features so ADHD dashboards can
-		// discover and display their certification status at runtime.
-		health.RegisterFeaturesFromDir(hs, "features")
-
-		// Pre-bind with port scanning so we advertise the actual bound port via mDNS.
-		boundAddr, err := hs.BindWithRetry(10)
-		if err != nil {
-			return fmt.Errorf("health server bind: %w", err)
+	// moved records configured -> bound for the listeners that had to move, so
+	// the targets that name this process can follow them.
+	moved := make(map[string]string)
+	claim := func(name, configured string, srv health.ListenerBinder) error {
+		addr, bindErr := hs.ClaimListener(name, configured, srv, logger, listenerRetries)
+		if bindErr != nil {
+			return bindErr
 		}
-		if boundAddr != cfg.Health.ListenAddr {
-			if logger != nil {
-				logger.Warn("health server port in use, using next available",
-					"preferred", cfg.Health.ListenAddr, "actual", boundAddr)
-			}
+		if addr != configured {
+			moved[configured] = addr
 		}
+		return nil
+	}
 
+	healthBoundAddr := ""
+	if hs != nil {
+		// Without the health listener there is nowhere to report a lost surface,
+		// so this one stays fatal.
+		addr, bindErr := hs.ClaimListener(health.ListenerHealth, cfg.Health.ListenAddr, hs, logger, listenerRetries)
+		if bindErr != nil {
+			return fmt.Errorf("bind health server: %w", bindErr)
+		}
+		healthBoundAddr = addr
+		if addr != cfg.Health.ListenAddr {
+			moved[cfg.Health.ListenAddr] = addr
+		}
+	}
+
+	// A lost hosted or OAuth surface is reported, not fatal: the rest of the
+	// alarm still runs and /status says which listener lost its port.
+	hostedBound := hostedSrv != nil
+	if hostedSrv != nil {
+		if bindErr := claim(health.ListenerHosted, cfg.Hosted.ListenAddr, hostedSrv); bindErr != nil {
+			hostedBound = false
+		}
+	}
+	oauthMockBound := oauthMockSrv != nil
+	if oauthMockSrv != nil {
+		if bindErr := claim(health.ListenerOAuthRedirect, cfg.Auth.OAuth.MockRedirect.ListenAddr, oauthMockSrv); bindErr != nil {
+			oauthMockBound = false
+		}
+	}
+
+	// The process's own targets follow the ports that actually bound, exactly as
+	// the mDNS advertisement does for the health listener.
+	cfg = config.RewriteSelfReferences(cfg, moved)
+	if hs != nil {
+		// Wired after binding so the document reports the addresses served, not
+		// the ones configured.
+		hs.SetSelfDescription(health.NewSelfDescriptionFactory(cfg, version(), healthStartedAt, hs))
+		if summary := boundListenerSummary(hs); summary != "" && logger != nil {
+			logger.Info("listeners bound", "addresses", summary)
+		}
+	}
+
+	eng, err := engine.New(cfg, engineOpts...)
+	if err != nil {
+		return fmt.Errorf("build engine: %w", err)
+	}
+
+	if hs != nil && cfg.Tuner.Advertise {
 		// Start mDNS advertiser if enabled for tuner discovery.
-		if cfg.Tuner.Advertise {
-			advertiser := mdns.NewAdvertiser(mdns.Options{
-				ServiceName: cfg.Service.Name,
-				ServiceType: cfg.Tuner.ServiceType,
-				Port:        mdns.ParsePort(boundAddr),
-			})
-			if err := advertiser.Start(ctx); err != nil {
-				if logger != nil {
-					logger.Warn("mdns advertiser failed to start", "err", err)
-				}
-			} else {
-				if logger != nil {
-					logger.Info("mdns advertising service", "type", cfg.Tuner.ServiceType, "addr", boundAddr)
-				}
-				defer advertiser.Shutdown()
+		advertiser := mdns.NewAdvertiser(mdns.Options{
+			ServiceName: cfg.Service.Name,
+			ServiceType: cfg.Tuner.ServiceType,
+			Port:        mdns.ParsePort(healthBoundAddr),
+		})
+		if err := advertiser.Start(ctx); err != nil {
+			if logger != nil {
+				logger.Warn("mdns advertiser failed to start", "err", err)
 			}
+		} else {
+			if logger != nil {
+				logger.Info("mdns advertising service", "type", cfg.Tuner.ServiceType, "addr", healthBoundAddr)
+			}
+			defer advertiser.Shutdown()
 		}
 	}
 
@@ -409,28 +456,22 @@ func cmdServe(args []string) error {
 		}()
 	}
 
-	if hostedSrv != nil {
-		if hs != nil {
-			hs.SetComponent("hosted", true, "running")
-		}
+	if hostedSrv != nil && hostedBound {
 		go func() {
 			if err := hostedSrv.Start(ctx); err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, http.ErrServerClosed) {
 				if hs != nil {
-					hs.SetComponent("hosted", false, err.Error())
+					hs.SetComponent(health.ListenerHosted, false, err.Error())
 				}
 				errCh <- fmt.Errorf("hosted server: %w", err)
 			}
 		}()
 	}
 
-	if oauthMockSrv != nil {
-		if hs != nil {
-			hs.SetComponent("oauth_redirect_mock", true, "running")
-		}
+	if oauthMockSrv != nil && oauthMockBound {
 		go func() {
 			if err := oauthMockSrv.Start(ctx); err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, http.ErrServerClosed) {
 				if hs != nil {
-					hs.SetComponent("oauth_redirect_mock", false, err.Error())
+					hs.SetComponent(health.ListenerOAuthRedirect, false, err.Error())
 				}
 				errCh <- fmt.Errorf("oauth redirect mock server: %w", err)
 			}
@@ -464,6 +505,10 @@ func cmdServe(args []string) error {
 					}
 					continue
 				}
+				// A reloaded config names the same fixed ports; the listeners are
+				// already bound where they are, so rewrite the reloaded targets to
+				// follow them exactly as the startup config did (smoke-alarm#53).
+				reloaded = config.RewriteSelfReferences(reloaded, moved)
 				removed, reloadErr := eng.ReloadConfig(reloaded)
 				if reloadErr != nil {
 					if logger != nil {
@@ -564,6 +609,10 @@ func cmdServe(args []string) error {
 			)
 		}
 		if hs != nil {
+			// The federation slot negotiates its own port (ClaimSlot); report it
+			// beside the other listeners so /status is a single answer to "where
+			// is this instance" (smoke-alarm#53).
+			hs.SetListener(health.ListenerFederation, net.JoinHostPort(cfg.Federation.BindAddr, strconv.Itoa(slot.Identity.Port)))
 			hs.SetComponent("federation", true, fmt.Sprintf("role=%s peers=0", slot.Identity.Role))
 		}
 

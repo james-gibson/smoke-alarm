@@ -691,6 +691,12 @@ func (c *Config) ApplyDefaults() {
 	}
 
 	// Hosted service defaults.
+	//
+	// Port 0 asks the kernel for an ephemeral port; the bound address is reported
+	// in /status and the self-description, but it cannot be known in advance, so
+	// targets that name the hosted listener cannot follow it. Give a fixed
+	// preferred port when this process's own targets point at the hosted surface
+	// (see RewriteSelfReferences).
 	if c.Hosted.ListenAddr == "" {
 		c.Hosted.ListenAddr = ":0"
 	}

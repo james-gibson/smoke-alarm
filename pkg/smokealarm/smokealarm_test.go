@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -366,5 +367,80 @@ func TestNewStrictRejectsUnsupportedSubsystems(t *testing.T) {
 		t.Fatal("expected Strict to reject a config with unimplemented subsystems")
 	} else if !bytes.Contains([]byte(err.Error()), []byte("hosted validation server")) {
 		t.Fatalf("error should name the subsystem, got: %v", err)
+	}
+}
+
+// TestSelfCheckTargetFollowsBoundHealthPort covers the facade's half of
+// smoke-alarm#53: the self-check target names the configured health address, so
+// when the health listener yields to the next free port the target has to follow
+// it instead of probing a port the instance does not serve.
+func TestSelfCheckTargetFollowsBoundHealthPort(t *testing.T) {
+	// Hold the port the config asks for, so the health listener must move.
+	var lc net.ListenConfig
+	held, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("hold a port: %v", err)
+	}
+	defer func() { _ = held.Close() }()
+	heldPort := held.Addr().(*net.TCPAddr).Port
+
+	cfg, err := ParseConfig([]byte(fmt.Sprintf(`
+version: "1"
+service:
+  name: "ocd-smoke-alarm"
+  mode: "background"
+  log_level: "warn"
+health:
+  enabled: true
+  listen_addr: "127.0.0.1:%d"
+  self_check: true
+  endpoints:
+    healthz: "/healthz"
+    readyz: "/readyz"
+    status: "/status"
+targets: []
+`, heldPort)))
+	if err != nil {
+		t.Fatalf("ParseConfig: %v", err)
+	}
+
+	in, err := New(cfg, Options{Version: "test", Logger: discardLogger()})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if startErr := in.Start(ctx); startErr != nil {
+		t.Fatalf("Start: %v", startErr)
+	}
+	defer func() {
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer shutdownCancel()
+		_ = in.Shutdown(shutdownCtx)
+	}()
+
+	bound := in.Addr()
+	if bound == "" {
+		t.Fatal("expected a bound health address after Start")
+	}
+	if bound == fmt.Sprintf("127.0.0.1:%d", heldPort) {
+		t.Fatalf("health listener bound the held address %s", bound)
+	}
+
+	in.mu.Lock()
+	var endpoint string
+	for _, target := range in.cfg.Targets {
+		if target.ID == "self-health-check" {
+			endpoint = target.Endpoint
+		}
+	}
+	in.mu.Unlock()
+
+	if endpoint == "" {
+		t.Fatal("self-health-check target missing after Start")
+	}
+	if !strings.Contains(endpoint, bound) {
+		t.Fatalf("self-check endpoint %q does not follow the bound address %q", endpoint, bound)
 	}
 }
