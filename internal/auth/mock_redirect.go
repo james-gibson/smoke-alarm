@@ -5,11 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/james-gibson/smoke-alarm/internal/netbind"
 )
 
 // MockRedirectMode controls how the mock OAuth redirect endpoint behaves.
@@ -35,8 +38,10 @@ type MockRedirectServer struct {
 	opts    MockRedirectOptions
 	httpSrv *http.Server
 
-	started atomic.Bool
-	hits    atomic.Int64
+	started   atomic.Bool
+	listener  net.Listener // set by BindWithRetry; nil means use ListenAndServe
+	boundAddr string       // address actually bound, "" until BindWithRetry
+	hits      atomic.Int64
 }
 
 // NewMockRedirectServer creates a new mock redirect server with sane defaults.
@@ -71,6 +76,9 @@ func NewMockRedirectServer(opts MockRedirectOptions) *MockRedirectServer {
 }
 
 // Start runs the server until the context is canceled or a fatal serve error occurs.
+//
+// If BindWithRetry was called first, Start serves on the pre-bound listener;
+// otherwise it falls back to ListenAndServe on the configured address.
 func (s *MockRedirectServer) Start(ctx context.Context) error {
 	if s.started.Load() {
 		return nil
@@ -79,7 +87,12 @@ func (s *MockRedirectServer) Start(ctx context.Context) error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		err := s.httpSrv.ListenAndServe()
+		var err error
+		if s.listener != nil {
+			err = s.httpSrv.Serve(s.listener)
+		} else {
+			err = s.httpSrv.ListenAndServe()
+		}
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 			return
@@ -95,6 +108,33 @@ func (s *MockRedirectServer) Start(ctx context.Context) error {
 	}
 }
 
+// BindWithRetry pre-binds the callback endpoint's listen address, scanning up
+// to maxRetries higher ports on EADDRINUSE, and returns the address actually
+// bound. Must be called before Start.
+//
+// Without this the mock either kills the process or leaves the OAuth surface
+// absent while /status still says live, with no statement of which port was
+// taken (smoke-alarm#53).
+func (s *MockRedirectServer) BindWithRetry(maxRetries int) (string, error) {
+	ln, boundAddr, err := netbind.Listen(s.opts.ListenAddr, maxRetries)
+	if err != nil {
+		return "", fmt.Errorf("oauth mock redirect: %w", err)
+	}
+	s.listener = ln
+	s.boundAddr = boundAddr
+	s.httpSrv.Addr = boundAddr
+	return boundAddr, nil
+}
+
+// Addr returns the address the callback endpoint actually serves on: the bound
+// address once BindWithRetry has run, otherwise the configured one.
+func (s *MockRedirectServer) Addr() string {
+	if s.boundAddr != "" {
+		return s.boundAddr
+	}
+	return s.opts.ListenAddr
+}
+
 // Shutdown gracefully stops the server.
 func (s *MockRedirectServer) Shutdown(ctx context.Context) error {
 	if !s.started.Load() {
@@ -107,9 +147,10 @@ func (s *MockRedirectServer) Shutdown(ctx context.Context) error {
 	return s.httpSrv.Shutdown(timeoutCtx)
 }
 
-// CallbackURL returns the full callback URL served by this mock endpoint.
+// CallbackURL returns the full callback URL served by this mock endpoint. It
+// follows the bound address, so a callback that moved ports is still reachable.
 func (s *MockRedirectServer) CallbackURL() string {
-	return fmt.Sprintf("http://%s%s", s.opts.ListenAddr, s.opts.Path)
+	return fmt.Sprintf("http://%s%s", s.Addr(), s.opts.Path)
 }
 
 // Hits returns the total number of callback requests observed.
@@ -212,7 +253,7 @@ func (s *MockRedirectServer) handleStatus(w http.ResponseWriter, _ *http.Request
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":         true,
 		"service":    "oauth-mock-redirect",
-		"listen":     s.opts.ListenAddr,
+		"listen":     s.Addr(),
 		"path":       s.opts.Path,
 		"mode":       strings.ToLower(string(s.opts.Mode)),
 		"callback":   s.CallbackURL(),

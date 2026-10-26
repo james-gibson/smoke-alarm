@@ -209,6 +209,38 @@ Feature: Health and Status Endpoints
     Then the advertiser registers the service on the actual bound port
     And the advertiser does not register on the configured port
 
+  # ── self-negotiated listeners (smoke-alarm#53) ────────────────────────────
+  #
+  # Only the health listener and the federation slot claimed a free port. The
+  # hosted server and the OAuth mock redirect bound fixed ports: with one of
+  # those held by an unrelated process the instance either failed to start or
+  # ran without that surface, and /status still said live with no statement of
+  # which port was taken.
+
+  Scenario: the OAuth mock redirect claims the next free port when its port is held
+    Given another process holds the port the OAuth mock redirect would use
+    When the OAuth mock redirect listener is claimed with retry
+    Then the OAuth mock redirect bound a port other than the held one
+    And /status reports the "oauth_redirect_mock" listener on the address it bound
+
+  Scenario: the hosted server claims the next free port when its port is held
+    Given another process holds the port the hosted server would use
+    When the hosted listener is claimed with retry
+    Then the hosted listener bound a port other than the held one
+    And /status reports the "hosted" listener on the address it bound
+
+  Scenario: a target that names a moved listener follows the bound address
+    Given another process holds the port the hosted server would use
+    And a target named "hosted-mcp-http" points at the held address
+    When the hosted listener is claimed with retry
+    Then the target endpoint names the bound hosted port
+
+  Scenario: a listener that cannot bind is named as an unhealthy component
+    Given another process holds the port the OAuth mock redirect would use
+    When the OAuth mock redirect listener is claimed with no retries
+    Then /status reports the "oauth_redirect_mock" component unhealthy
+    And the component detail names the held port
+
   # ── shutdown ───────────────────────────────────────────────────────────────
 
   Scenario: Shutdown sets liveness to false

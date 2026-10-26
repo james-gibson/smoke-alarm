@@ -15,6 +15,7 @@ func TestFeatures(t *testing.T) {
 			InitializeTargetsSteps(ctx)
 			InitializeKnownStateSteps(ctx)
 			InitializeHealthSteps(ctx)
+			InitializeListenerSteps(ctx)
 			InitializeStdioMCPSteps(ctx)
 			InitializeDiscoveryLlmstxtSteps(ctx)
 			InitializeSSETransportSteps(ctx)

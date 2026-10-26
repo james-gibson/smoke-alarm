@@ -98,6 +98,21 @@ Feature: Self-Description Endpoint
     And the document health.endpoints.readyz is "/readyz"
     And the document health.endpoints.status is "/status"
     And the document health.listen_addr is "localhost:8088"
+
+  # ── bound addresses (smoke-alarm#53) ──────────────────────────────────────
+  #
+  # A listener that yields to the next free port must be described where it is,
+  # not where the config asked: a client that reads the document follows it.
+
+  Scenario: the self-description reports the address the hosted listener bound
+    Given another process holds the port the hosted server would use
+    When the hosted listener is claimed with retry
+    Then the self-description hosted listen address is the bound hosted address
+
+  Scenario: the self-description reports the address the OAuth mock redirect bound
+    Given another process holds the port the OAuth mock redirect would use
+    When the OAuth mock redirect listener is claimed with retry
+    Then the self-description oauth mock listen address is the bound OAuth address
   # ── schema validation ─────────────────────────────────────────────────────
 
   Scenario: self-description document conforms to the JSON schema

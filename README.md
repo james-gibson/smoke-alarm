@@ -321,6 +321,29 @@ Hosted service endpoints are configured under `hosted` in config:
 
 When enabled, you can monitor these hosted endpoints as normal targets and use them as baseline controls during outages or config migrations.
 
+### Ports that are already in use
+
+Every listener the process owns claims its port rather than failing on it. If the
+configured port is held by an unrelated process, the listener binds the next free
+port and the move is reported rather than left to be inferred:
+
+- `GET /status` lists each listener under `listeners` (for example
+  `{"hosted": "localhost:18092"}`), and its component detail says
+  `listening on <addr>`.
+- `/.well-known/smoke-alarm.json` reports the bound address in
+  `health.listen_addr`, `capabilities.hosted.listen_addr` and
+  `capabilities.oauth.mock_redirect.listen_addr`.
+- targets that name one of this process's own listeners (`hosted` endpoints,
+  `auth.oauth.mock_redirect`) are rewritten to follow the bound address, so the
+  alarm does not report its own surface as an outage.
+- a listener that cannot bind at all (the whole scan range is taken) is reported
+  as an unhealthy component whose detail names the port, and the process is not
+  ready.
+
+This covers `health`, `hosted`, `auth.oauth.mock_redirect` and the federation
+slot. Give `hosted.listen_addr` a fixed preferred port (rather than the default
+`:0`) when your own targets need to follow it.
+
 ### Handshake Matrix Options
 
 Configure per target with:

@@ -10,13 +10,13 @@ import (
 	"net/url"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/james-gibson/isotope"
+	"github.com/james-gibson/smoke-alarm/internal/netbind"
 )
 
 // SelfDescriptionFunc returns the live self-description document as a
@@ -95,6 +95,10 @@ type StatusResponse struct {
 	Summary    StatusSummary     `json:"summary"`
 	Components []ComponentStatus `json:"components"`
 	Targets    []TargetStatus    `json:"targets"`
+	// Listeners maps a listener name (health, hosted, oauth_redirect_mock) to
+	// the address it actually bound. A listener whose configured port was held
+	// reports the port it moved to, not the port that was asked for.
+	Listeners map[string]string `json:"listeners,omitempty"`
 }
 
 // StatusSummary aggregates target states.
@@ -177,6 +181,7 @@ type Server struct {
 	targets        map[string]TargetStatus
 	isotopes       map[string]isotopeEntry
 	features       map[string]Feature // keyed by Feature.ID
+	listeners      map[string]string  // listener name -> address actually bound
 	shutdownSignal chan struct{}
 }
 
@@ -219,6 +224,7 @@ func NewServer(opts Options) *Server {
 		targets:         make(map[string]TargetStatus),
 		isotopes:        make(map[string]isotopeEntry),
 		features:        make(map[string]Feature),
+		listeners:       make(map[string]string),
 		shutdownSignal:  make(chan struct{}),
 	}
 	s.live.Store(true)
@@ -247,33 +253,50 @@ func NewServer(opts Options) *Server {
 // Must be called before Start. The bound port is what callers should advertise
 // (e.g. via mDNS) — it may differ from opts.ListenAddr when ports are in use.
 func (s *Server) BindWithRetry(maxRetries int) (string, error) {
-	host, portStr, err := net.SplitHostPort(s.opts.ListenAddr)
+	ln, boundAddr, err := netbind.Listen(s.opts.ListenAddr, maxRetries)
 	if err != nil {
-		return "", fmt.Errorf("health server: invalid listen addr %q: %w", s.opts.ListenAddr, err)
+		return "", fmt.Errorf("health server: %w", err)
 	}
-	port, err := strconv.Atoi(portStr)
-	if err != nil {
-		return "", fmt.Errorf("health server: invalid port in %q: %w", s.opts.ListenAddr, err)
-	}
-	for i := 0; i <= maxRetries; i++ {
-		addr := net.JoinHostPort(host, strconv.Itoa(port+i))
-		var lc net.ListenConfig
-		ln, err := lc.Listen(context.Background(), "tcp", addr)
-		if err == nil {
-			s.listener = ln
-			return addr, nil
-		}
-		if !isAddrInUse(err) {
-			return "", fmt.Errorf("health server: listen %s: %w", addr, err)
-		}
-	}
-	return "", fmt.Errorf("health server: no free port in range %s – %s:%d",
-		s.opts.ListenAddr, host, port+maxRetries)
+	s.listener = ln
+	s.SetListener(ListenerHealth, boundAddr)
+	return boundAddr, nil
 }
 
-func isAddrInUse(err error) bool {
-	return err != nil && (strings.Contains(err.Error(), "address already in use") ||
-		strings.Contains(err.Error(), "bind: can't assign requested address"))
+// SetListener records the address a named listener actually bound, so /status
+// can report a port that moved instead of the one that was configured. The
+// health listener is recorded by BindWithRetry; the process records its other
+// listeners here because they are the ones a lab notices missing (smoke-alarm#53).
+func (s *Server) SetListener(name, addr string) {
+	name = strings.TrimSpace(name)
+	addr = strings.TrimSpace(addr)
+	if name == "" || addr == "" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.listeners[name] = addr
+}
+
+// ListenerAddr returns the address a named listener actually bound, or "" when
+// the process does not run that listener.
+func (s *Server) ListenerAddr(name string) string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.listeners[strings.TrimSpace(name)]
+}
+
+// Listeners returns a copy of the bound addresses keyed by listener name.
+func (s *Server) Listeners() map[string]string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if len(s.listeners) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(s.listeners))
+	for name, addr := range s.listeners {
+		out[name] = addr
+	}
+	return out
 }
 
 // Start runs the HTTP server and blocks until ctx cancellation or a fatal serve error.
@@ -421,6 +444,11 @@ func (s *Server) Snapshot() StatusResponse {
 
 	summary := summarizeTargets(targets)
 
+	listeners := make(map[string]string, len(s.listeners))
+	for name, addr := range s.listeners {
+		listeners[name] = addr
+	}
+
 	ready := readyFlag && allComponentsHealthy(components)
 	readyErr := s.readyError
 	if !ready {
@@ -441,6 +469,7 @@ func (s *Server) Snapshot() StatusResponse {
 		Summary:    summary,
 		Components: components,
 		Targets:    targets,
+		Listeners:  listeners,
 	}
 }
 
