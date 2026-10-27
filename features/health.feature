@@ -1,5 +1,5 @@
 # features/health.feature
-# Canon record — last audited: 2026-03-26 (updated: added BindWithRetry + mDNS-on-actual-port scenarios; fixed {int} in non-Outline steps)
+# Canon record — last audited: 2026-03-26 (updated: added BindWithRetry + mDNS-on-actual-port scenarios; fixed {int} in non-Outline steps; added the / root-probe scenarios, smoke-alarm#22)
 # Step definitions: features/step_definitions/health_steps.go
 
 @health @core
@@ -171,6 +171,26 @@ Feature: Health and Status Endpoints
     When a GET request is sent to "/.well-known/smoke-alarm.json"
     Then the response status code is 200
     And the response body contains "test-service"
+
+  # ── / ─────────────────────────────────────────────────────────────────────
+  # DNS-SD hands a consumer http://host:port and nothing else, so the root is
+  # what a discovery client or an operator probes first (smoke-alarm#22).
+
+  Scenario: / answers with the self-description so a bare probe finds a live instance
+    Given a self-description factory returning service name "test-service" is registered
+    When a GET request is sent to "/"
+    Then the response status code is 200
+    And the response body contains "test-service"
+
+  Scenario: / answers even when no self-description factory is configured
+    Given no self-description factory is registered
+    When a GET request is sent to "/"
+    Then the response status code is 200
+    And the response body contains the configured service name
+
+  Scenario: an unknown path is still 404 on the health port
+    When a GET request is sent to "/no-such-path"
+    Then the response status code is 404
 
   # ── /federation/report ────────────────────────────────────────────────────
 

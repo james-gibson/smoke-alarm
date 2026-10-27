@@ -65,6 +65,7 @@ The list view adds `last_seen`, `expires_at`, `status` (`live` or `registered`),
 | `/readyz` | Readiness probe |
 | `/status` | Full component health and target states |
 | `/.well-known/smoke-alarm.json` | Machine-readable service descriptor |
+| `/` | Identity on the advertised port — the same document as `/.well-known/smoke-alarm.json`, because DNS-SD hands a consumer a bare `http://host:port` and a 404 there reads as a dead instance (smoke-alarm#22) |
 
 Multiple instances monitor each other, creating a Byzantine-tolerant consensus view of cluster health.
 

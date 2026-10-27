@@ -152,6 +152,12 @@ func NewServer(opts Options) *Server {
 	mux.HandleFunc("/hosted/status", s.handleHostedStatus)
 	mux.HandleFunc("/hosted/events", s.handleHostedEvents)
 
+	// A discovery consumer is handed http://host:port and probes it before
+	// asking for a path, so a 404 on "/" reads as a dead instance
+	// (smoke-alarm#22). Answer with this surface's identity instead; the
+	// handler keeps the 404 for every other unknown path.
+	mux.HandleFunc("/", s.handleRoot)
+
 	// Tuner integration endpoints.
 	mux.HandleFunc("/tuner/audience", s.handleTunerAudience)
 	mux.HandleFunc("/tuner/caller/", s.handleTunerCaller)
@@ -230,6 +236,44 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	timeoutCtx, cancel := context.WithTimeout(ctx, s.opts.ShutdownTimeout)
 	defer cancel()
 	return s.httpSrv.Shutdown(timeoutCtx)
+}
+
+func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
+
+	endpoints := map[string]string{
+		"status": "/hosted/status",
+		"events": "/hosted/events",
+	}
+	if s.opts.EnableMCP {
+		endpoints["mcp"] = s.opts.MCPEndpoint
+	}
+	if s.opts.EnableACP {
+		endpoints["acp"] = s.opts.ACPEndpoint
+	}
+	if s.opts.EnableA2A {
+		endpoints["a2a"] = s.opts.A2AEndpoint
+	}
+
+	transports := make([]string, 0, 2)
+	if s.opts.EnableHTTP {
+		transports = append(transports, "http")
+	}
+	if s.opts.EnableSSE {
+		transports = append(transports, "sse")
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"service":    s.opts.ServiceName,
+		"version":    s.opts.Version,
+		"surface":    "hosted",
+		"listen":     s.Addr(),
+		"transports": transports,
+		"endpoints":  endpoints,
+	})
 }
 
 func (s *Server) handleHostedStatus(w http.ResponseWriter, _ *http.Request) {

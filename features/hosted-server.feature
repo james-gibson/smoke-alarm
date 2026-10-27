@@ -1,5 +1,5 @@
 # features/hosted-server.feature
-# Canon record — last audited: 2026-03-25
+# Canon record — last audited: 2026-03-25 (updated: added the / root scenarios, smoke-alarm#22)
 # Exercises: embedded hosted MCP/ACP HTTP+SSE server, self-probe loop
 # Config reference: configs/samples/hosted-mcp-acp.yaml
 # Step definitions: features/step_definitions/hosted_server_steps.go
@@ -27,6 +27,22 @@ Feature: Embedded Hosted MCP/ACP Server
     Given a config with "hosted.enabled" set to false
     When ocd-smoke-alarm starts with that config
     Then no listener is bound on the hosted listen address
+
+  # ── root ──────────────────────────────────────────────────────────────────
+  # The port is handed out as a bare endpoint, so "/" has to identify the
+  # surface instead of 404ing like a dead service (smoke-alarm#22).
+
+  Scenario: the hosted port answers a bare GET on "/"
+    Given the hosted server is running on "localhost:18091"
+    When a GET request is sent to "http://localhost:18091/"
+    Then the response status code is 200
+    And the response body contains "hosted"
+
+  Scenario: the hosted port still 404s an unknown path
+    Given the hosted server is running on "localhost:18091"
+    When a GET request is sent to "http://localhost:18091/no-such-path"
+    Then the response status code is 404
+
   # ── HTTP transport ────────────────────────────────────────────────────────
 
   Scenario: hosted MCP HTTP endpoint responds to an initialize request
