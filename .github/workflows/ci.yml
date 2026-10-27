@@ -82,6 +82,21 @@ jobs:
           GOOS=windows GOARCH=amd64 go build ./...
           GOOS=windows GOARCH=arm64 go build ./...
 
+      # Nothing here read .goreleaser.yml before, which is how a deprecated
+      # `archives.builds` could sit on main with a green check: only a tag push
+      # or a manual run surfaced it (issue #50, and #64 for the gate). `check`
+      # needs no build and no secrets — it does not render the notarize
+      # templates — so it is the cheap pre-tag validation. The range matches
+      # release.yml so CI validates exactly the goreleaser a tag release runs;
+      # if it ever flakes on an unchanged tree, pin both to one version instead
+      # of drifting apart.
+      - name: Validate GoReleaser config
+        if: matrix.os == 'ubuntu-latest'
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          version: "~> v2"
+          args: check
+
   # Issue #43: the mock proves the prober agrees with itself; this job proves it
   # agrees with a real, spec-compliant MCP stdio server. It shells out to `npx`,
   # which fetches @modelcontextprotocol/server-filesystem from the npm registry,
