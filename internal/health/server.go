@@ -182,6 +182,7 @@ type Server struct {
 	isotopes       map[string]isotopeEntry
 	features       map[string]Feature // keyed by Feature.ID
 	listeners      map[string]string  // listener name -> address actually bound
+	shutdownOnce   sync.Once
 	shutdownSignal chan struct{}
 }
 
@@ -332,13 +333,16 @@ func (s *Server) Start(ctx context.Context) error {
 }
 
 // Shutdown gracefully stops the HTTP server.
+//
+// It is safe to call more than once and from more than one goroutine:
+// Start calls it when ctx is canceled, and the CLI calls it from a defer, so
+// the two can overlap on the way out. shutdownOnce is what makes the "shutdown
+// started" transition happen exactly once — a select/default around close() is
+// not atomic, and two callers that both took the default branch raced and
+// panicked with "close of closed channel" (smoke-alarm#40). Repeated calls
+// still wait for in-flight connections: http.Server.Shutdown is idempotent.
 func (s *Server) Shutdown(ctx context.Context) error {
-	select {
-	case <-s.shutdownSignal:
-		// already shutting down/shut down
-	default:
-		close(s.shutdownSignal)
-	}
+	s.shutdownOnce.Do(func() { close(s.shutdownSignal) })
 
 	s.live.Store(false)
 
