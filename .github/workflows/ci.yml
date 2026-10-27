@@ -70,6 +70,18 @@ jobs:
       - name: Build binary
         run: go build ./cmd/ocd-smoke-alarm
 
+      # The release archives windows/{amd64,arm64} (issue #58). A host build
+      # never type-checks the `//go:build windows` half of the tree, so a
+      # unix-only syscall in a shared package stays invisible until a tag is
+      # pushed. Cross-compiling costs seconds: the compiler runs, the linker
+      # does not, and nothing is executed. One OS is enough — the output does
+      # not depend on the host.
+      - name: Compile for Windows
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          GOOS=windows GOARCH=amd64 go build ./...
+          GOOS=windows GOARCH=arm64 go build ./...
+
   # Issue #43: the mock proves the prober agrees with itself; this job proves it
   # agrees with a real, spec-compliant MCP stdio server. It shells out to `npx`,
   # which fetches @modelcontextprotocol/server-filesystem from the npm registry,

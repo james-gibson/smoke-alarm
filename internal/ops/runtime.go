@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/james-gibson/smoke-alarm/internal/alerts"
@@ -448,15 +447,6 @@ func readPID(path string) (int, error) {
 		return 0, err
 	}
 	return pid, nil
-}
-
-func processAlive(pid int) bool {
-	if pid <= 0 {
-		return false
-	}
-	// Signal 0 checks existence/permission without delivering a signal.
-	err := syscall.Kill(pid, 0)
-	return err == nil || errors.Is(err, syscall.EPERM)
 }
 
 func filepathDir(path string) string {
