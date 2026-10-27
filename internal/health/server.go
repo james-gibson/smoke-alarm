@@ -236,6 +236,12 @@ func NewServer(opts Options) *Server {
 	mux.HandleFunc(opts.ReadyzPath, s.handleReadyz)
 	mux.HandleFunc(opts.StatusPath, s.handleStatus)
 	mux.HandleFunc(opts.SelfDescriptionPath, s.handleSelfDescription)
+	// The root is what a discovery consumer probes first: mDNS advertises
+	// http://host:port and nothing else (smoke-alarm#22). Registered last and
+	// guarded inside the handler, because "/" is a catch-all pattern.
+	if opts.SelfDescriptionPath != "/" {
+		mux.HandleFunc("/", s.handleRoot)
+	}
 	mux.HandleFunc("/federation/report", s.handleFederationReport)
 	mux.HandleFunc("/isotope/", s.handleIsotopeRoute)
 	mux.HandleFunc("/features", s.handleFeaturesList)
@@ -527,6 +533,48 @@ func (s *Server) handleSelfDescription(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, fn())
+}
+
+// handleRoot answers a bare GET on "/" with the instance's identity.
+//
+// DNS-SD hands a consumer http://host:port and nothing more (tuner's
+// mdns.Service.Endpoint()), so the root of the advertised port is what a
+// discovery client or an operator probes to decide whether the instance is
+// alive at all. A 404 there reads as a dead service (smoke-alarm#22), and the
+// honest answer is the isotope's own well-known document rather than a landing
+// page: the same body the dedicated path serves, from the same factory, so the
+// two cannot drift.
+//
+// Only the exact root is answered. "/" is a catch-all pattern in net/http, so
+// without the path check every unknown URL would become a 200 and the health
+// port would stop distinguishing "here" from "nowhere".
+func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
+
+	s.mu.RLock()
+	fn := s.selfDescFactory
+	s.mu.RUnlock()
+	if fn != nil {
+		writeJSON(w, http.StatusOK, fn())
+		return
+	}
+
+	// No factory: a bare server, or an embedder that did not wire one. State
+	// the identity that is still knowable rather than 404, because "not
+	// configured" is an answer to "what is this?", not an absence.
+	writeJSON(w, http.StatusOK, map[string]any{
+		"service": s.opts.ServiceName,
+		"version": s.opts.Version,
+		"endpoints": map[string]string{
+			"healthz":          s.opts.HealthzPath,
+			"readyz":           s.opts.ReadyzPath,
+			"status":           s.opts.StatusPath,
+			"self_description": s.opts.SelfDescriptionPath,
+		},
+	})
 }
 
 func (s *Server) handleFederationReport(w http.ResponseWriter, r *http.Request) {
