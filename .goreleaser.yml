@@ -22,7 +22,7 @@ builds:
 
 archives:
   - id: ocd-smoke-alarm
-    builds: [ocd-smoke-alarm]
+    ids: [ocd-smoke-alarm]
     name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
     format_overrides:
       - goos: windows
