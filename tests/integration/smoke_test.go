@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -29,12 +28,15 @@ import (
 func TestHealthServer_LivenessReadinessAndStatus(t *testing.T) {
 	t.Parallel()
 
-	addr := freeAddr(t)
+	ln, addr := boundListener(t)
 	srv := health.NewServer(health.Options{
 		ServiceName: "itest",
 		Version:     "test",
 		ListenAddr:  addr,
 	})
+	if _, bindErr := srv.BindListener(ln); bindErr != nil {
+		t.Fatalf("hand listener to server: %v", bindErr)
+	}
 
 	srv.SetComponent("engine", false, "warming")
 	srv.SetReady(false, "engine warming up")
@@ -631,16 +633,6 @@ func waitForTargetStatus(
 	}
 	t.Fatalf("timeout waiting for status on %s; got: %s", targetID, strings.TrimSpace(dump.String()))
 	return engine.TargetRuntimeStatus{}
-}
-
-func freeAddr(t *testing.T) string {
-	t.Helper()
-	ln, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		t.Fatalf("failed to allocate free port: %v", err)
-	}
-	defer ln.Close()
-	return ln.Addr().String()
 }
 
 func waitForHTTPStatus(t *testing.T, url string, want int, timeout time.Duration) {

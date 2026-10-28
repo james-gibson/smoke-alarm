@@ -1,6 +1,7 @@
 package health
 
 import (
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -68,4 +69,42 @@ func contains(haystack, needle string) bool {
 		}
 	}
 	return false
+}
+
+// TestBindListenerRecordsHealthListener covers the seam the integration tests use
+// (smoke-alarm#70): a caller that must know the address before the server starts
+// binds a listener itself and hands it over, so the port is never released in
+// between. /status must report the address that was handed over.
+func TestBindListenerRecordsHealthListener(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("bind listener: %v", err)
+	}
+	t.Cleanup(func() { _ = ln.Close() })
+
+	bound := ln.Addr().String()
+	srv := NewServer(Options{ListenAddr: bound})
+
+	got, err := srv.BindListener(ln)
+	if err != nil {
+		t.Fatalf("BindListener: %v", err)
+	}
+	if got != bound {
+		t.Fatalf("BindListener returned %q, want the listener's address %q", got, bound)
+	}
+	if addr := srv.ListenerAddr(ListenerHealth); addr != bound {
+		t.Fatalf("ListenerAddr(health) = %q, want %q", addr, bound)
+	}
+}
+
+// TestBindListenerRejectsNilListener keeps a nil listener from being recorded as a
+// bound surface: /status must not claim a listener that does not exist.
+func TestBindListenerRejectsNilListener(t *testing.T) {
+	srv := NewServer(Options{})
+	if _, err := srv.BindListener(nil); err == nil {
+		t.Fatal("BindListener(nil) returned no error")
+	}
+	if addr := srv.ListenerAddr(ListenerHealth); addr != "" {
+		t.Fatalf("ListenerAddr(health) = %q after a rejected bind, want empty", addr)
+	}
 }

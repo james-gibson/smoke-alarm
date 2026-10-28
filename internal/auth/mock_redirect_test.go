@@ -50,8 +50,10 @@ func TestBindWithRetryYieldsHeldPort(t *testing.T) {
 	if bound == held {
 		t.Fatalf("bound the held address %q", held)
 	}
-	if got, want := portOf(t, bound), portOf(t, held)+1; got != want {
-		t.Fatalf("bound port %d, want %d", got, want)
+	// Above the held port, not necessarily the next one: another process may hold
+	// that, in which case scanning past it is correct (smoke-alarm#74).
+	if got := portOf(t, bound); got <= portOf(t, held) {
+		t.Fatalf("bound port %d, want a port above the held %d", got, portOf(t, held))
 	}
 	if want := fmt.Sprintf("http://%s/oauth/callback", bound); srv.CallbackURL() != want {
 		t.Fatalf("CallbackURL() = %q, want %q (the callback must follow the bound port)", srv.CallbackURL(), want)
@@ -109,5 +111,66 @@ func TestBindWithRetryReportsExhaustedRange(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), held) {
 		t.Fatalf("error %q does not name the configured address %q", err, held)
+	}
+}
+
+// TestBindListenerServesTheListenerItWasGiven covers the seam the integration
+// tests use (smoke-alarm#70): a caller that must know the callback URL before the
+// server starts binds a listener itself and hands it over, so the port is never
+// released in between.
+func TestBindListenerServesTheListenerItWasGiven(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("bind listener: %v", err)
+	}
+	t.Cleanup(func() { _ = ln.Close() })
+
+	bound := ln.Addr().String()
+	srv := NewMockRedirectServer(MockRedirectOptions{ListenAddr: bound, Mode: MockRedirectAllow})
+
+	got, err := srv.BindListener(ln)
+	if err != nil {
+		t.Fatalf("BindListener: %v", err)
+	}
+	if got != bound {
+		t.Fatalf("BindListener returned %q, want the listener's address %q", got, bound)
+	}
+	if want := fmt.Sprintf("http://%s/oauth/callback", bound); srv.CallbackURL() != want {
+		t.Fatalf("CallbackURL() = %q, want %q", srv.CallbackURL(), want)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() { _ = srv.Start(ctx) }()
+	defer func() { _ = srv.Shutdown(context.Background()) }()
+
+	resp, err := http.Get(srv.CallbackURL() + "?state=s1") //nolint:noctx
+	if err != nil {
+		t.Fatalf("GET callback on the held address: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("callback on the held address = %d, want 200", resp.StatusCode)
+	}
+}
+
+// TestBindListenerRejectsUnusableListener pins the guards: a nil listener is a
+// programming error rather than a silent fallback to ListenAndServe.
+func TestBindListenerRejectsUnusableListener(t *testing.T) {
+	srv := NewMockRedirectServer(MockRedirectOptions{})
+	if _, err := srv.BindListener(nil); err == nil {
+		t.Fatal("BindListener(nil) returned no error")
+	}
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("bind listener: %v", err)
+	}
+	t.Cleanup(func() { _ = ln.Close() })
+
+	started := NewMockRedirectServer(MockRedirectOptions{})
+	started.started.Store(true)
+	if _, err := started.BindListener(ln); err == nil {
+		t.Fatal("BindListener accepted a listener after the server started")
 	}
 }
