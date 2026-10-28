@@ -179,7 +179,9 @@ federation:
   base_port: 5100
   max_port: 5103 # supports up to 4 instances (5100-5103)
 
-  # How often followers poll downstream peers' /status endpoints.
+  # Legacy name for report_interval: how often a follower pushes its own status
+  # to the introducer. Kept because existing configs set it; prefer
+  # report_interval below when writing new ones.
   poll_interval: "5s"
 
   # How often each instance re-announces itself to the introducer.
@@ -191,10 +193,11 @@ federation:
   # A peer missing this many consecutive heartbeat windows is aged out.
   heartbeat_timeout: "45s"
 
-  # Upstream and downstream are left empty here — slot election is automatic.
-  # For explicit topology, set:
-  #   upstream: "localhost:5100"         # follower points at introducer
-  #   downstream: ["localhost:5101"]     # introducer polls followers for /status
-  upstream: ""
+  # Topology is automatic. The process that binds base_port is the introducer;
+  # every other process points at it (or inherits the default
+  # http://localhost:<base_port>). `downstream` is rejected by validation —
+  # status is aggregated by the introducer and returned to every follower on
+  # each membership response, so there is no chain of endpoints to poll.
+  upstream: "" # deprecated alias for introducer
   downstream: []
-  rank: 0 # 0 = auto-detect from claimed port
+  rank: 0 # 0 = auto-detect from claimed port; informational only
