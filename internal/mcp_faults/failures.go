@@ -47,6 +47,17 @@ const (
 	// 42i direction: coordinated-signaling (Byzantine: server misrepresenting itself)
 	// Severity: critical
 	CapabilityMismatchFailure MCPFailureType = "capability-mismatch"
+
+	// StaleRouteFailure indicates a call carried a route that has rotated: a
+	// burned stamp, a retired-epoch prefix, or a rewritten-but-attributable name.
+	// 42i direction: unpredictable-behavior (client and route out of step)
+	// Severity: low (a refresh problem, not an attack)
+	//
+	// It exists so that rotation has a price of its own. Priced as a timeout it
+	// would share a tier with fuzz, and an honest client one epoch behind would
+	// cost the same as an enumerator - which would make rotation itself the
+	// attack surface it was meant to close.
+	StaleRouteFailure MCPFailureType = "stale-route"
 )
 
 // MCPFailureMode defines how a specific MCP failure type maps to 42i cost.
@@ -147,6 +158,15 @@ var DefaultMCPFailureModes = map[MCPFailureType]MCPFailureMode{
 		DistanceWeight: 48, // Very high (Byzantine: deception)
 		Severity:       5,  // Critical
 		Recoverable:    false,
+	},
+
+	StaleRouteFailure: {
+		Type:           StaleRouteFailure,
+		Description:    "Call carried a route that has rotated (stale stamp or retired epoch prefix)",
+		Direction:      "unpredictable-behavior",
+		DistanceWeight: 2, // Below the fuzz tier: rotation is a cost, not a signal
+		Severity:       1,
+		Recoverable:    true,
 	},
 }
 
