@@ -99,6 +99,11 @@ type Instance struct {
 	addr       string
 	cancel     context.CancelFunc
 	advertiser *mdns.Advertiser
+	// engineDone is closed when the goroutine running eng.Start returns. It
+	// exists so Shutdown can join that goroutine: the engine saves the
+	// known-state baseline on its way out, and that write must not land after
+	// the caller has torn down the directory the baseline lives in.
+	engineDone chan struct{}
 }
 
 // New builds an instance from a config. It does not start anything; call Start.
@@ -277,12 +282,18 @@ func (in *Instance) Start(ctx context.Context) error {
 	in.started = true
 	runCtx, cancel := context.WithCancel(ctx)
 	in.cancel = cancel
+	in.engineDone = make(chan struct{})
+	engineDone := in.engineDone
 	in.mu.Unlock()
 
 	if in.hs != nil {
 		boundAddr, err := in.hs.BindWithRetry(10)
 		if err != nil {
 			cancel()
+			// Nothing below launches the engine, so close the channel the
+			// goroutine would have: a Shutdown after a failed Start must not
+			// wait on a join that can never happen.
+			close(engineDone)
 			return fmt.Errorf("smokealarm: bind health server: %w", err)
 		}
 		in.mu.Lock()
@@ -335,6 +346,7 @@ func (in *Instance) Start(ctx context.Context) error {
 	}
 
 	go func() {
+		defer close(engineDone)
 		if err := in.eng.Start(runCtx); err != nil && !errors.Is(err, context.Canceled) {
 			in.logger.Error("smokealarm: engine stopped", "error", err)
 		}
@@ -345,6 +357,11 @@ func (in *Instance) Start(ctx context.Context) error {
 
 // Shutdown stops advertising, cancels the engine, and gracefully stops the
 // health server. It is safe to call more than once.
+//
+// Shutdown does not return until the engine has stopped. That matters for more
+// than tidiness: the engine persists the known-state baseline as it exits, so a
+// caller that removed or unmounted runtime.baseline_file's directory the moment
+// Shutdown returned would race that last write.
 func (in *Instance) Shutdown(ctx context.Context) error {
 	in.mu.Lock()
 	if !in.started {
@@ -355,6 +372,7 @@ func (in *Instance) Shutdown(ctx context.Context) error {
 	cancel := in.cancel
 	advertiser := in.advertiser
 	hs := in.hs
+	engineDone := in.engineDone
 	in.mu.Unlock()
 
 	if cancel != nil {
@@ -363,10 +381,33 @@ func (in *Instance) Shutdown(ctx context.Context) error {
 	if advertiser != nil {
 		advertiser.Shutdown()
 	}
+
+	var hsErr error
 	if hs != nil {
-		return hs.Shutdown(ctx)
+		hsErr = hs.Shutdown(ctx)
 	}
-	return nil
+
+	// Joining the engine is what makes the baseline write above safe; when ctx
+	// runs out first, report that rather than pretending the instance stopped.
+	if err := waitClosed(ctx, engineDone); err != nil {
+		return errors.Join(hsErr, err)
+	}
+	return hsErr
+}
+
+// waitClosed blocks until ch is closed or ctx ends. A nil channel means the
+// goroutine it would have tracked was never started, so there is nothing to
+// wait for.
+func waitClosed(ctx context.Context, ch <-chan struct{}) error {
+	if ch == nil {
+		return nil
+	}
+	select {
+	case <-ch:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // Reload applies a new configuration in place, mirroring the CLI's SIGHUP path:

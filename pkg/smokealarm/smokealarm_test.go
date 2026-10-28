@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -197,6 +198,93 @@ func TestNewWiresKnownStateStore(t *testing.T) {
 			t.Fatal("baseline file was never written: known-state is not wired into the engine")
 		}
 		time.Sleep(50 * time.Millisecond)
+	}
+}
+
+// TestShutdownJoinsEngine pins the half of the TempDir-cleanup failure that is
+// the facade's to fix: the engine writes the known-state baseline on its way out
+// (engine.Start saves after the target loops are joined), so Shutdown must not
+// return while that goroutine can still run. Otherwise the last write lands after
+// the caller has removed the baseline's directory, which surfaces as
+// "TempDir RemoveAll cleanup: directory not empty".
+//
+// The check is deliberate: a target whose handler is still sleeping when
+// Shutdown is called guarantees the engine goroutine is alive at that moment, so
+// a Shutdown that does not join it is caught here rather than by a race.
+func TestShutdownJoinsEngine(t *testing.T) {
+	slow := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		time.Sleep(300 * time.Millisecond)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer slow.Close()
+
+	cfg := quietConfig()
+	cfg.KnownState = config.KnownStateConfig{Enabled: true, Persist: true}
+	cfg.Runtime = config.RuntimeConfig{BaselineFile: filepath.Join(t.TempDir(), "known-good.json")}
+	cfg.Targets = []config.TargetConfig{{
+		ID:        "slow",
+		Name:      "Slow",
+		Enabled:   true,
+		Protocol:  config.ProtocolHTTP,
+		Transport: config.TransportHTTP,
+		Endpoint:  slow.URL,
+		Check:     config.TargetCheckConfig{Interval: "10ms", Timeout: "2s", Retries: 1},
+	}}
+
+	in, err := New(cfg, Options{Logger: discardLogger()})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if err := in.Start(context.Background()); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+
+	// Let the first check enter the handler; from here the engine cannot finish
+	// until the handler returns.
+	time.Sleep(100 * time.Millisecond)
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer shutdownCancel()
+	if err := in.Shutdown(shutdownCtx); err != nil {
+		t.Fatalf("Shutdown: %v", err)
+	}
+
+	select {
+	case <-in.engineDone:
+	default:
+		t.Fatal("Shutdown returned before the engine goroutine finished: its final baseline write can land after the caller's cleanup")
+	}
+}
+
+// TestShutdownAfterFailedStartDoesNotBlock covers the other half of the join: a
+// Start that fails before the engine goroutine exists leaves nothing to wait for,
+// so Shutdown must return instead of burning its context waiting on a join that
+// can never happen.
+func TestShutdownAfterFailedStartDoesNotBlock(t *testing.T) {
+	cfg := quietConfig()
+	// Not a host:port, so binding fails before any goroutine starts.
+	cfg.Health = config.HealthConfig{Enabled: true, ListenAddr: "not-an-address"}
+
+	in, err := New(cfg, Options{Logger: discardLogger()})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if err := in.Start(context.Background()); err == nil {
+		t.Fatal("Start should fail on an unbindable health address")
+	}
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer shutdownCancel()
+	done := make(chan error, 1)
+	go func() { done <- in.Shutdown(shutdownCtx) }()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("Shutdown: %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Shutdown blocked after a failed Start")
 	}
 }
 
