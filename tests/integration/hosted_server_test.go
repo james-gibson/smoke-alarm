@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"net"
 	"net/http"
 	"strings"
 	"testing"
@@ -18,7 +17,7 @@ import (
 func TestHostedServer_MCPACPHTTPJSONRPC(t *testing.T) {
 	t.Parallel()
 
-	addr := freeTCPAddr(t)
+	ln, addr := boundListener(t)
 	srv := hosted.NewServer(hosted.Options{
 		ServiceName: "itest-hosted",
 		Version:     "test",
@@ -35,6 +34,9 @@ func TestHostedServer_MCPACPHTTPJSONRPC(t *testing.T) {
 		ACPEndpoint: "/acp",
 		A2AEndpoint: "/a2a",
 	})
+	if _, bindErr := srv.BindListener(ln); bindErr != nil {
+		t.Fatalf("hand listener to server: %v", bindErr)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -120,7 +122,7 @@ func TestHostedServer_MCPACPHTTPJSONRPC(t *testing.T) {
 func TestHostedServer_SSEEndpoints(t *testing.T) {
 	t.Parallel()
 
-	addr := freeTCPAddr(t)
+	ln, addr := boundListener(t)
 	srv := hosted.NewServer(hosted.Options{
 		ServiceName: "itest-hosted-sse",
 		Version:     "test",
@@ -137,6 +139,9 @@ func TestHostedServer_SSEEndpoints(t *testing.T) {
 		ACPEndpoint: "/acp",
 		A2AEndpoint: "/a2a",
 	})
+	if _, bindErr := srv.BindListener(ln); bindErr != nil {
+		t.Fatalf("hand listener to server: %v", bindErr)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -208,7 +213,7 @@ func TestHostedServer_SSEEndpoints(t *testing.T) {
 func TestHostedServer_EventsSSEAndCountersVisibility(t *testing.T) {
 	t.Parallel()
 
-	addr := freeTCPAddr(t)
+	ln, addr := boundListener(t)
 	srv := hosted.NewServer(hosted.Options{
 		ServiceName: "itest-hosted-events",
 		Version:     "test",
@@ -225,6 +230,9 @@ func TestHostedServer_EventsSSEAndCountersVisibility(t *testing.T) {
 		ACPEndpoint: "/acp",
 		A2AEndpoint: "/a2a",
 	})
+	if _, bindErr := srv.BindListener(ln); bindErr != nil {
+		t.Fatalf("hand listener to server: %v", bindErr)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -335,7 +343,7 @@ func TestHostedServer_EventsSSEAndCountersVisibility(t *testing.T) {
 func TestHostedServer_MCPStreamableHTTPSession(t *testing.T) {
 	t.Parallel()
 
-	addr := freeAddr(t)
+	ln, addr := boundListener(t)
 	srv := hosted.NewServer(hosted.Options{
 		ServiceName: "itest-streamable",
 		Version:     "test",
@@ -344,6 +352,9 @@ func TestHostedServer_MCPStreamableHTTPSession(t *testing.T) {
 		EnableSSE:   true,
 		EnableMCP:   true,
 	})
+	if _, bindErr := srv.BindListener(ln); bindErr != nil {
+		t.Fatalf("hand listener to server: %v", bindErr)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -526,16 +537,6 @@ func waitForStatus(t *testing.T, url string, want int, timeout time.Duration) {
 		t.Fatalf("wait for status %d failed: %v", want, lastErr)
 	}
 	t.Fatalf("wait for status %d failed: last code=%d", want, lastCode)
-}
-
-func freeTCPAddr(t *testing.T) string {
-	t.Helper()
-	ln, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		t.Fatalf("listen free addr: %v", err)
-	}
-	defer ln.Close()
-	return ln.Addr().String()
 }
 
 func intPtr(v int) *int { return &v }

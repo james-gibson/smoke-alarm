@@ -211,6 +211,34 @@ func (s *Server) BindWithRetry(maxRetries int) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("hosted server: %w", err)
 	}
+	return s.adoptListener(ln, boundAddr)
+}
+
+// BindListener takes ownership of an already-bound listener and reports the
+// address the server will serve on once Start runs. Must be called before Start;
+// the server closes the listener on Shutdown.
+//
+// It exists for the caller that has to know the address before the server does:
+// a test asserting a URL, a process advertising itself. Such a caller can bind
+// first and hand the listener over, instead of reserving a port, releasing it,
+// and hoping the server is given the same one again. That gap is what made the
+// integration suite flaky (smoke-alarm#70): the port belonged to nobody between
+// the probe and the server's own bind, so a parallel test could take it and the
+// server would fail to start on the address the test was already dialing.
+func (s *Server) BindListener(ln net.Listener) (string, error) {
+	if ln == nil {
+		return "", errors.New("hosted server: nil listener")
+	}
+	return s.adoptListener(ln, ln.Addr().String())
+}
+
+// adoptListener records a listener and the address to advertise for it, which is
+// the configured host on the retry path and the listener's own address when the
+// caller bound it.
+func (s *Server) adoptListener(ln net.Listener, boundAddr string) (string, error) {
+	if s.started.Load() {
+		return "", errors.New("hosted server: already started")
+	}
 	s.listener = ln
 	s.boundAddr = boundAddr
 	s.httpSrv.Addr = boundAddr
@@ -218,7 +246,8 @@ func (s *Server) BindWithRetry(maxRetries int) (string, error) {
 }
 
 // Addr returns the address the hosted server actually serves on: the bound
-// address once BindWithRetry has run, otherwise the configured one.
+// address once BindWithRetry or BindListener has run, otherwise the configured
+// one.
 func (s *Server) Addr() string {
 	if s.boundAddr != "" {
 		return s.boundAddr

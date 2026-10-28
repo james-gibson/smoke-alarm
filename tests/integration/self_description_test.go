@@ -14,7 +14,7 @@ import (
 func TestSelfDescription_ServedAtWellKnownPath(t *testing.T) {
 	t.Parallel()
 
-	addr := freeAddr(t)
+	ln, addr := boundListener(t)
 	cfg := config.Config{
 		Version: "1",
 		Service: config.ServiceConfig{
@@ -77,6 +77,9 @@ func TestSelfDescription_ServedAtWellKnownPath(t *testing.T) {
 		Version:     "0.1.0-test",
 		ListenAddr:  addr,
 	})
+	if _, bindErr := srv.BindListener(ln); bindErr != nil {
+		t.Fatalf("hand listener to server: %v", bindErr)
+	}
 	srv.SetSelfDescription(health.NewSelfDescriptionFactory(cfg, "0.1.0-test", startedAt, srv))
 	srv.SetReady(true, "")
 
@@ -209,11 +212,14 @@ func TestSelfDescription_ServedAtWellKnownPath(t *testing.T) {
 func TestSelfDescription_Returns404WhenNotConfigured(t *testing.T) {
 	t.Parallel()
 
-	addr := freeAddr(t)
+	ln, addr := boundListener(t)
 	srv := health.NewServer(health.Options{
 		ServiceName: "no-sd",
 		ListenAddr:  addr,
 	})
+	if _, bindErr := srv.BindListener(ln); bindErr != nil {
+		t.Fatalf("hand listener to server: %v", bindErr)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

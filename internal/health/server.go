@@ -264,6 +264,29 @@ func (s *Server) BindWithRetry(maxRetries int) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("health server: %w", err)
 	}
+	return s.adoptListener(ln, boundAddr)
+}
+
+// BindListener takes ownership of an already-bound listener and reports the
+// address the health server will serve on once Start runs. Must be called before
+// Start; the server closes the listener on Shutdown.
+//
+// It exists for the caller that has to know the address before the server does -
+// a test dialing /healthz, a process advertising itself through mDNS. Such a
+// caller can bind first and hand the listener over instead of reserving a port
+// and releasing it, which leaves the port free for anyone else to take before the
+// server binds it again (smoke-alarm#70).
+func (s *Server) BindListener(ln net.Listener) (string, error) {
+	if ln == nil {
+		return "", errors.New("health server: nil listener")
+	}
+	return s.adoptListener(ln, ln.Addr().String())
+}
+
+// adoptListener records a listener and the address to advertise for it, which is
+// the configured host on the retry path and the listener's own address when the
+// caller bound it.
+func (s *Server) adoptListener(ln net.Listener, boundAddr string) (string, error) {
 	s.listener = ln
 	s.SetListener(ListenerHealth, boundAddr)
 	return boundAddr, nil

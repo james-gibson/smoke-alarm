@@ -120,6 +120,32 @@ func (s *MockRedirectServer) BindWithRetry(maxRetries int) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("oauth mock redirect: %w", err)
 	}
+	return s.adoptListener(ln, boundAddr)
+}
+
+// BindListener takes ownership of an already-bound listener and reports the
+// address the server will serve on once Start runs. Must be called before Start;
+// the server closes the listener on Shutdown.
+//
+// It exists for the caller that has to know the callback URL before the server
+// does - a test, a process handing the URL to an OAuth client. Such a caller can
+// bind first and hand the listener over instead of reserving a port and releasing
+// it, which leaves it open to be taken before the server binds it again
+// (smoke-alarm#70).
+func (s *MockRedirectServer) BindListener(ln net.Listener) (string, error) {
+	if ln == nil {
+		return "", errors.New("oauth mock redirect: nil listener")
+	}
+	return s.adoptListener(ln, ln.Addr().String())
+}
+
+// adoptListener records a listener and the address to advertise for it, which is
+// the configured host on the retry path and the listener's own address when the
+// caller bound it.
+func (s *MockRedirectServer) adoptListener(ln net.Listener, boundAddr string) (string, error) {
+	if s.started.Load() {
+		return "", errors.New("oauth mock redirect: already started")
+	}
 	s.listener = ln
 	s.boundAddr = boundAddr
 	s.httpSrv.Addr = boundAddr
@@ -127,7 +153,8 @@ func (s *MockRedirectServer) BindWithRetry(maxRetries int) (string, error) {
 }
 
 // Addr returns the address the callback endpoint actually serves on: the bound
-// address once BindWithRetry has run, otherwise the configured one.
+// address once BindWithRetry or BindListener has run, otherwise the configured
+// one.
 func (s *MockRedirectServer) Addr() string {
 	if s.boundAddr != "" {
 		return s.boundAddr
