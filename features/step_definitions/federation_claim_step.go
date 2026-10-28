@@ -13,6 +13,10 @@ import (
 	"strings"
 )
 
+// fedClaimResultPrefix marks the one line the child prints, so the parent can
+// find it among the test binary's own output.
+const fedClaimResultPrefix = "FED_CLAIM_RESULT:"
+
 func fedRunClaimHelper(stateDir string, base, maxPort int) (fedClaimResult, error) {
 	cmd := exec.Command(os.Args[0], "-test.run=TestFederationClaimHelper", "-test.timeout=30s")
 	cmd.Env = append(os.Environ(),

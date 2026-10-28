@@ -21,8 +21,6 @@ import (
 	"github.com/james-gibson/smoke-alarm/internal/federation"
 )
 
-const fedClaimResultPrefix = "FED_CLAIM_RESULT:"
-
 func TestFederationClaimHelper(t *testing.T) {
 	if os.Getenv("FED_CLAIM_HELPER") != "1" {
 		return
