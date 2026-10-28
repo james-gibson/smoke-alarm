@@ -30,8 +30,15 @@ const (
     ResourceExhaustionFailure   // 16 distance, boundary-violation
     PartialResponseFailure      // 12 distance, unpredictable-behavior
     CapabilityMismatchFailure   // 48 distance, coordinated-signaling (Byzantine!)
+    StaleRouteFailure           //  2 distance, unpredictable-behavior (rotation)
 )
 ```
+
+`StaleRouteFailure` exists so that rotation has a price of its own. A call that
+carried a route the node has already rotated away from is a client that has not
+caught up, not an attacker: pricing it as a timeout (8) would make an honest
+client one epoch behind cost the same as an enumerator, which would turn rotation
+into the attack surface it was meant to close.
 
 ### FaultInjectionProfile
 
@@ -280,6 +287,38 @@ func BenchmarkAgentResilience(b *testing.B) {
 3. Evict servers with Byzantine failures immediately
 4. Prefer healthy servers (distance=0) for critical operations
 
+## Route rotation
+
+A tool proxy's prefix is derived from `(instance nonce, epoch)` rather than drawn
+once at startup, so a listed prefix expires with its epoch instead of staying a
+valid route for the life of the process. `features/route-rotation.feature` states
+the behaviour; the short version:
+
+| reading | reason string | cost |
+|---|---|---|
+| inside the epoch | (resolves) | 0 |
+| retired epoch, inside grace | (resolves) | 0 |
+| retired epoch, past grace | `stale-route-epoch` | 2 |
+| burned stamp | `burned-skill-route` | 2 |
+| intact prefix, rewritten suffix | `skill-route-mismatch` | 2 |
+| one epoch ahead (clock skew) | `ahead-route-epoch` | 2 |
+| prefix matching nothing of ours | `fuzzed-or-wrong-prefix` | 8 |
+| no prefix at all | `unprefixed-malformed` | 16 |
+| bare tool name | `direct-call-to-tool-bypasses-proxy` | 24 |
+
+The clock is lazy: a route rotates on the first call after its epoch closes, and
+the retirement is dated at the epoch boundary rather than at the call, so a leaked
+prefix does not get a free call after each boundary. Nothing in `internal/engine`
+drives it - the mirror node that would notify neighbours is
+[james-gibson/lab-safety#9](https://github.com/james-gibson/lab-safety/issues/9),
+and rotation is deliberately not a component of the monitor.
+
+Only `RetiredEpochWindow` (8) closed epochs stay attributable. Past that a prefix
+is no longer a capability the node vouches for, so it reads as a guess.
+
+Rotation bounds replay; it does not detect it. A stamp redeemed twice inside its
+own epoch still resolves twice.
+
 ## Testing Checklist
 
 - [ ] Agent correctly accumulates distance from each failure type
@@ -289,6 +328,8 @@ func BenchmarkAgentResilience(b *testing.B) {
 - [ ] Byzantine failures trigger immediate eviction
 - [ ] Agent prefers healthy servers over degraded ones
 - [ ] No sensitive data in error logs/messages
+- [ ] A retired-epoch prefix costs less than an enumeration attempt
+- [ ] A clock-driven rotation dates its retirement at the epoch boundary
 
 ## See Also
 

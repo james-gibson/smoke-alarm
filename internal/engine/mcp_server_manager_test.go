@@ -574,9 +574,10 @@ func TestMCPServerManagerConcurrentValidation(t *testing.T) {
 
 	health := manager.GetServerHealth(serverID)
 
-	// Should have recorded multiple suspicious calls (concurrent writes may lose count)
-	if health.SuspiciousCallCnt < 4 {
-		t.Errorf("Expected at least 4 suspicious calls, got %d", health.SuspiciousCallCnt)
+	// Exactly half the calls bypass the proxy, and the proxy's call log is now
+	// mutex-guarded (#48), so a lost update is a failure rather than a tolerance.
+	if health.SuspiciousCallCnt != 5 {
+		t.Errorf("Expected exactly 5 suspicious calls, got %d", health.SuspiciousCallCnt)
 	}
 
 	t.Logf("✓ Concurrent validation: %d suspicious calls recorded", health.SuspiciousCallCnt)

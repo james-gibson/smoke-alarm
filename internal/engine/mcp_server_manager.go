@@ -224,6 +224,11 @@ func mapSuspicionToFailureType(suspicion string) mcp_faults.MCPFailureType {
 		return mcp_faults.TimeoutFailure // Transient: fuzz test
 	case "unprefixed-malformed":
 		return mcp_faults.CorruptedResponseFailure // Protocol violation
+	case "stale-route-epoch", "ahead-route-epoch", "burned-skill-route", "skill-route-mismatch":
+		// Attributable staleness: the route rotated under the caller. It must not
+		// fall through to a protocol weight, or rotation would be indistinguishable
+		// from enumeration in the eviction score.
+		return mcp_faults.StaleRouteFailure
 	case "unknown-tool":
 		return mcp_faults.CapabilityMismatchFailure // Tool doesn't exist
 	case "unknown-server":

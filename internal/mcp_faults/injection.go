@@ -2,7 +2,11 @@ package mcp_faults
 
 import (
 	"fmt"
+	"hash/fnv"
 	"math/rand"
+	"os"
+	"strconv"
+	"testing"
 	"time"
 )
 
@@ -22,12 +26,65 @@ type FaultInjectionRule struct {
 	MaxRetries  int // How many times to retry before giving up
 }
 
+// FaultSeedWindow is the tumble epoch for the fault-injection RNG. Seeds are
+// taken from UTC truncated to this window, so every process started in the same
+// epoch makes exactly the same draws: jobs launched by one push agree instead of
+// splitting at random, and a failing run can be replayed from its log timestamp
+// (UTC mod FaultSeedWindow). Nothing in the process can enumerate an epoch ahead
+// of time; see FaultSeedEnv for the deliberate exception.
+const FaultSeedWindow = 5 * time.Second
+
+// FaultSeedEnv pins the tumble epoch to a fixed value, turning the tumbled route
+// into a static one. A pinned epoch is enumerable by definition, so it is
+// honored only inside a `go test` binary: a shipped smoke-alarm never reads it,
+// whatever its environment says.
+const FaultSeedEnv = "SMOKE_ALARM_FAULT_SEED"
+
+// faultSeedPin returns the pinned epoch, if one is set and this is a test binary.
+func faultSeedPin() (int64, bool) {
+	if !testing.Testing() {
+		return 0, false
+	}
+	return parseSeedPin(os.Getenv(FaultSeedEnv))
+}
+
+// parseSeedPin parses a pin, reporting false for empty or malformed values so a
+// typo falls back to the tumble instead of silently freezing every profile.
+func parseSeedPin(raw string) (int64, bool) {
+	if raw == "" {
+		return 0, false
+	}
+	v, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil {
+		return 0, false
+	}
+	return v, true
+}
+
+// faultRandSeed returns the RNG seed for the epoch containing now. The profile
+// name is mixed in so that profiles created in one epoch draw independent
+// streams: without it every stage of a progressive profile would share a single
+// sequence, and "stage N is clean" would force "stage N+2 is clean", collapsing
+// five routes into one.
+func faultRandSeed(now time.Time, profileName string) int64 {
+	utc := now.UTC()
+	epoch := utc.Unix() - utc.Unix()%int64(FaultSeedWindow/time.Second)
+
+	if pinned, ok := faultSeedPin(); ok {
+		epoch = pinned
+	}
+
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(profileName))
+	return epoch ^ int64(h.Sum64())
+}
+
 // NewFaultInjectionProfile creates a profile with a seeded RNG.
 func NewFaultInjectionProfile(name string) *FaultInjectionProfile {
 	return &FaultInjectionProfile{
 		Name:   name,
 		Faults: []FaultInjectionRule{},
-		Random: rand.New(rand.NewSource(time.Now().UnixNano())),
+		Random: rand.New(rand.NewSource(faultRandSeed(time.Now(), name))),
 	}
 }
 
