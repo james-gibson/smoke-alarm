@@ -2,6 +2,7 @@ package netbind
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"strconv"
 	"strings"
@@ -35,6 +36,53 @@ func holdAddr(t *testing.T) string {
 	return ln.Addr().String()
 }
 
+// holdBlock reserves n consecutive loopback ports and returns the first address
+// together with every listener it holds. It reports ok=false when no run of n
+// consecutive ports is available, letting the caller try a different block
+// instead of asserting on a range somebody else is using.
+//
+// Consecutive ports are what make a scan observable. What a test may not do is
+// assume a particular neighbor is free: any other process on the machine can hold
+// port+1, in which case Listen correctly scans past it and an exact-port assertion
+// fails for a reason that has nothing to do with the code (smoke-alarm#74). Here
+// the block is ours by construction, so "the scan went past it" is a fact.
+func holdBlock(t *testing.T, n int) (string, []net.Listener, bool) {
+	t.Helper()
+
+	for attempt := 0; attempt < 20; attempt++ {
+		var lc net.ListenConfig
+		first, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:0")
+		if err != nil {
+			return "", nil, false
+		}
+		base := portOf(t, first.Addr().String())
+		block := []net.Listener{first}
+
+		for port := base + 1; port < base+n; port++ {
+			addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(port))
+			ln, bindErr := lc.Listen(context.Background(), "tcp", addr)
+			if bindErr != nil {
+				break // the run collides with something else; release and retry
+			}
+			block = append(block, ln)
+		}
+
+		if len(block) == n {
+			t.Cleanup(func() {
+				for _, ln := range block {
+					_ = ln.Close()
+				}
+			})
+			return net.JoinHostPort("127.0.0.1", strconv.Itoa(base)), block, true
+		}
+		for _, ln := range block {
+			_ = ln.Close()
+		}
+	}
+
+	return "", nil, false
+}
+
 func portOf(t *testing.T, addr string) int {
 	t.Helper()
 	_, portStr, err := net.SplitHostPort(addr)
@@ -49,34 +97,78 @@ func portOf(t *testing.T, addr string) int {
 }
 
 func TestListenBindsConfiguredAddressWhenFree(t *testing.T) {
-	addr := freeAddr(t)
+	// A port that was free a moment ago can be taken by another process, or its
+	// whole neighborhood can be, before Listen binds it. That is the environment
+	// moving, not Listen misbehaving, so retry with a fresh address; the assertion
+	// itself stays exact.
+	const attempts = 5
 
-	ln, bound, err := Listen(addr, DefaultRetries)
-	if err != nil {
-		t.Fatalf("Listen(%q): %v", addr, err)
-	}
-	defer func() { _ = ln.Close() }()
+	var last string
+	for attempt := 1; attempt <= attempts; attempt++ {
+		addr := freeAddr(t)
 
-	if bound != addr {
-		t.Fatalf("bound address %q != configured %q", bound, addr)
+		ln, bound, err := Listen(addr, DefaultRetries)
+		if err != nil {
+			last = err.Error()
+			continue
+		}
+		_ = ln.Close()
+
+		if bound == addr {
+			return
+		}
+		last = fmt.Sprintf("bound address %q != configured %q", bound, addr)
 	}
+	t.Fatalf("Listen did not bind a free configured address in %d attempts: %s", attempts, last)
 }
 
 func TestListenScansPastHeldPort(t *testing.T) {
-	held := holdAddr(t)
+	// The block is held by us, so every assertion below is about Listen and not
+	// about the machine: it must not bind a held port, it must bind above the
+	// block, it must stay inside the configured range, and it must keep the host.
+	// Whether it stopped at the *first* free port is not asserted - after the fact
+	// a port that was held during the scan and released since is indistinguishable
+	// from one Listen skipped, so that claim cannot be made without flaking.
+	const (
+		blockSize = 3
+		attempts  = 5
+	)
 
-	ln, bound, err := Listen(held, DefaultRetries)
-	if err != nil {
-		t.Fatalf("Listen(%q): %v", held, err)
-	}
-	defer func() { _ = ln.Close() }()
+	var last string
+	for attempt := 1; attempt <= attempts; attempt++ {
+		first, block, ok := holdBlock(t, blockSize)
+		if !ok {
+			last = "could not reserve a block"
+			continue
+		}
+		base := portOf(t, first)
+		blockEnd := base + len(block) - 1
 
-	if bound == held {
-		t.Fatalf("expected to yield the held port %q", held)
+		ln, bound, err := Listen(first, DefaultRetries)
+		if err != nil {
+			last = err.Error() // the range around the block was taken around us
+			continue
+		}
+		got := portOf(t, bound)
+		host, _, splitErr := net.SplitHostPort(bound)
+		_ = ln.Close()
+
+		if bound == first {
+			t.Fatalf("bound the held port %q", first)
+		}
+		if got <= blockEnd {
+			t.Fatalf("bound port %d, inside the held block %d-%d", got, base, blockEnd)
+		}
+		if maxPort := base + DefaultRetries; got > maxPort {
+			t.Fatalf("bound port %d, beyond the scanned range %d-%d", got, base, maxPort)
+		}
+		if splitErr != nil || host != "127.0.0.1" {
+			t.Fatalf("bound address %q did not keep the configured host", bound)
+		}
+
+		return
 	}
-	if got, want := portOf(t, bound), portOf(t, held)+1; got != want {
-		t.Fatalf("bound port %d, want the next free port %d", got, want)
-	}
+	t.Fatalf("Listen did not scan past a held block in %d attempts: %s", attempts, last)
 }
 
 func TestListenReportsWholeRangeTaken(t *testing.T) {
