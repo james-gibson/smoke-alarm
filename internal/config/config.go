@@ -68,6 +68,7 @@ type Config struct {
 	Telemetry     TelemetryConfig     `yaml:"telemetry"`
 	Federation    FederationConfig    `yaml:"federation"`
 	Tuner         TunerConfig         `yaml:"tuner"`
+	Trust         TrustConfig         `yaml:"trust"`
 	Extra         map[string]any      `yaml:",inline"`
 }
 
@@ -193,6 +194,21 @@ func applyEfficiencyProfile(svc *ServiceConfig) {
 			svc.Timeout = "3s"
 		}
 	}
+}
+
+// TrustConfig is the evidence this alarm accepts about registrations.
+//
+// An isotope registration is a claim: "this endpoint is mine, and I belong to
+// cluster X". Without evidence, the claim is self-declared and the rung stays at
+// the floor (isotope#23). Clusters maps a cluster identity to the launch secret
+// its members were given — lezz mints one per cluster and hands it to the alarm
+// and to the processes it spawns — and a registration may only rise above the
+// floor by presenting a receipt signed with one of these secrets.
+type TrustConfig struct {
+	// Clusters maps cluster identity to launch secret. An empty map means this
+	// alarm can attest nobody: every registration is capped at rung 2, which is
+	// the honest answer for an unauthenticated claim.
+	Clusters map[string]string `yaml:"clusters"`
 }
 
 type HealthConfig struct {
@@ -871,6 +887,18 @@ func (c Config) Validate() error {
 		}
 		if _, err := parsePositiveDuration(c.Health.IsotopeTTL); err != nil {
 			add("health.isotope_ttl invalid: %v", err)
+		}
+	}
+
+	// A cluster with no secret cannot attest anyone, and a blank secret would
+	// match a receipt signed with an empty key. Both are configuration errors
+	// rather than a quiet downgrade to rung 2.
+	for cluster, secret := range c.Trust.Clusters {
+		if strings.TrimSpace(cluster) == "" {
+			add("trust.clusters has an entry with an empty cluster identity")
+		}
+		if strings.TrimSpace(secret) == "" {
+			add("trust.clusters.%s is empty; a cluster secret must be present or the entry removed", cluster)
 		}
 	}
 

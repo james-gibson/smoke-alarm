@@ -49,9 +49,33 @@ ocd-smoke-alarm is the isotope registry for the cluster:
 | `/isotope/by-route/<route>` | GET | Resolve a project route to its live instances |
 | `/isotope/by-contract/<id>` | GET | Resolve a pinned contract id to what implements or depends on it |
 
-Trust rungs are assigned by `VerifyTrust`: rung 6 if both the lezz cluster registry (`:19100/cluster`) and mDNS (`_lezz-demo._tcp`) confirm the registrant, rung 4 if registry only, rung 2 if self-registered.
+Trust rungs are granted from **evidence**, never from presence. A registrant
+presents a cluster *attestation* — an HMAC receipt over the cluster identity and
+its own endpoint, signed with the cluster's launch secret — and only that can
+lift it above the floor:
 
-**A name is a heartbeat, not a label.** A registration made through `POST /isotope/register` lives for `health.isotope_ttl` (default `5m`) unless it is renewed; `/isotope/list` sweeps expired names, so a node that dies without deregistering stops resolving. Re-registering the same name and endpoint extends the window and keeps the assigned rung (the trust probe is not re-run); a changed endpoint is a new claim and is verified again. Records mirrored from federation membership have no heartbeat and report `"status": "registered"` — their lifecycle belongs to the membership feed.
+| Evidence | Rung |
+|----------|------|
+| Attested, the cluster's registry entry names this host:port, mDNS names the cluster | 6 — Certification |
+| Attested and registry-confirmed, mDNS did not confirm | 4 — Higher Authority |
+| Unattested, wrong secret, unknown cluster, or no matching registry entry | 2 — Harness Tools |
+
+Configure the clusters this alarm can attest:
+
+```yaml
+trust:
+  clusters:
+    demo-1234: "<the cluster's launch secret>"   # lezz mints this per cluster
+```
+
+An alarm with no `trust.clusters` attests nobody and grants rung 2 to every
+registration — the honest answer for a self-declared endpoint (isotope#23). A
+renewal that presents the same receipt keeps its rung without re-probing; a
+renewal that presents none is verified like a new claim, so it cannot inherit a
+rung it did not earn. `POST /features/certify` likewise requires a receipt from
+an instance already at rung 6 when the alarm holds cluster secrets.
+
+**A name is a heartbeat, not a label.** A registration made through `POST /isotope/register` lives for `health.isotope_ttl` (default `5m`) unless it is renewed; `/isotope/list` sweeps expired names, so a node that dies without deregistering stops resolving. Re-registering the same name and endpoint extends the window and keeps the assigned rung (the trust probe is not re-run) **when the renewal presents the same attestation**; a changed endpoint, or a renewal with no receipt, is a new claim and is verified again. Records mirrored from federation membership have no heartbeat and report `"status": "registered"` — their lifecycle belongs to the membership feed.
 
 **A project is not one process.** A registration may carry its `project_route` (the lezz `seed.json` route), the `contract` it implements, and `depends_on` references to other projects (each a route plus a pinned contract). A dependent resolves the non-moving identity — the route — and pins the contract id it was built against; neither is a trust claim, and the rung stays the registry's judgement. The registry's own contract is `features/isotope-registry.feature`, canonicalised as `smoke-alarm-isotope-registry-v1:bb021b6028b247ed` (key `seed-42`).
 

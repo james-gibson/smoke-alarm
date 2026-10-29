@@ -30,11 +30,11 @@ func isotopeTestServer(t *testing.T, ttl time.Duration, verified *int) (*Server,
 
 	s := NewServer(Options{
 		IsotopeTTL: ttl,
-		VerifyTrust: func(_ context.Context, _ string) int {
+		VerifyRegistration: func(_ context.Context, _ isotope.TrustConfig, _ isotope.Registration) isotope.TrustVerdict {
 			if verified != nil {
 				*verified++
 			}
-			return 4
+			return isotope.TrustVerdict{Rung: 4, Reasons: []string{"stub verifier"}}
 		},
 	})
 	return s, httptest.NewServer(s.httpSrv.Handler)

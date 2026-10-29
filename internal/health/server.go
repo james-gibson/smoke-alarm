@@ -39,9 +39,13 @@ type Options struct {
 	// registrant stopped renewing is swept from the registry. Zero uses
 	// DefaultIsotopeTTL.
 	IsotopeTTL time.Duration
-	// VerifyTrust resolves the initial trust rung for a registering endpoint.
-	// Defaults to isotope.VerifyTrust; tests inject a stub.
-	VerifyTrust func(ctx context.Context, endpoint string) int
+	// TrustConfig is the evidence this alarm was launched with: the cluster
+	// secrets it can attest. A registration that does not present a matching
+	// receipt stays at rung 2, whatever the discovery registry says (isotope#23).
+	TrustConfig isotope.TrustConfig
+	// VerifyRegistration resolves a registration's rung. Defaults to
+	// isotope.VerifyRegistration; tests inject a stub.
+	VerifyRegistration func(ctx context.Context, cfg isotope.TrustConfig, reg isotope.Registration) isotope.TrustVerdict
 }
 
 // DefaultIsotopeTTL is how long a registration lasts without renewal. Short
@@ -170,7 +174,7 @@ type Server struct {
 	startedAt       time.Time
 	selfDescFactory SelfDescriptionFunc
 	listener        net.Listener // set by BindWithRetry; nil means use ListenAndServe
-	verifyTrust     func(ctx context.Context, endpoint string) int
+	verifyTrust     func(ctx context.Context, cfg isotope.TrustConfig, reg isotope.Registration) isotope.TrustVerdict
 
 	live  atomic.Bool
 	ready atomic.Bool
@@ -212,15 +216,15 @@ func NewServer(opts Options) *Server {
 	if opts.IsotopeTTL <= 0 {
 		opts.IsotopeTTL = DefaultIsotopeTTL
 	}
-	if opts.VerifyTrust == nil {
-		opts.VerifyTrust = isotope.VerifyTrust
+	if opts.VerifyRegistration == nil {
+		opts.VerifyRegistration = isotope.VerifyRegistration
 	}
 
 	s := &Server{
 		opts:            opts,
 		startedAt:       time.Now().UTC(),
 		selfDescFactory: opts.SelfDescriptionFunc,
-		verifyTrust:     opts.VerifyTrust,
+		verifyTrust:     opts.VerifyRegistration,
 		components:      make(map[string]ComponentStatus),
 		targets:         make(map[string]TargetStatus),
 		isotopes:        make(map[string]isotopeEntry),
@@ -646,6 +650,33 @@ type isotopeRegistration struct {
 	DependsOn []IsotopeDependency `json:"depends_on,omitempty"`
 }
 
+// rungHarnessTools is the floor a registration holds without proving anything.
+const rungHarnessTools = 2
+
+// renewalAttests reports whether a re-registration may inherit the rung already
+// on file, rather than paying for a full verification again.
+//
+// It may inherit only by proving the same thing the original did. An attested
+// record needs a receipt for the same cluster and endpoint that still verifies —
+// otherwise repeating an endpoint you do not control would inherit a rung you
+// cannot earn. An unattested record (the pre-#23 behavior) inherits an
+// unattested renewal; a renewal that arrives *with* a receipt is a new claim and
+// is verified, so it can upgrade but never silently keep the old answer.
+func (s *Server) renewalAttests(reg isotope.Registration, existing isotopeEntry) bool {
+	att := reg.Attestation
+	if existing.record.AttestedBy == "" {
+		return att == nil
+	}
+	if att == nil || att.Cluster != existing.record.AttestedBy {
+		return false
+	}
+	secret, ok := s.opts.TrustConfig.Secrets[att.Cluster]
+	if !ok {
+		return false
+	}
+	return att.Verify(secret, reg.Endpoint, time.Now(), s.opts.TrustConfig.Skew) == nil
+}
+
 func (s *Server) handleIsotopeRegister(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
@@ -681,12 +712,18 @@ func (s *Server) handleIsotopeRegister(w http.ResponseWriter, r *http.Request) {
 	existing, found := s.isotopes[reg.Name]
 	s.mu.RUnlock()
 
-	rung, rungName := 0, ""
-	if found && existing.record.Endpoint == reg.Endpoint {
+	rung, rungName, evidence, attestedBy := 0, "", []string(nil), ""
+	if found && existing.record.Endpoint == reg.Endpoint && s.renewalAttests(reg, existing) {
 		rung, rungName = existing.record.TrustRung, existing.record.RungName
+		evidence, attestedBy = existing.record.Evidence, existing.record.AttestedBy
 	} else {
-		rung = s.verifyTrust(r.Context(), reg.Endpoint)
+		verdict := s.verifyTrust(r.Context(), s.opts.TrustConfig, reg)
+		rung = verdict.Rung
 		rungName = rungNameFor(rung)
+		evidence = verdict.Reasons
+		if reg.Attestation != nil && rung > rungHarnessTools {
+			attestedBy = reg.Attestation.Cluster
+		}
 	}
 
 	registeredAt := now
@@ -703,6 +740,8 @@ func (s *Server) handleIsotopeRegister(w http.ResponseWriter, r *http.Request) {
 			TrustRung:    rung,
 			RungName:     rungName,
 			RegisteredAt: registeredAt,
+			Evidence:     evidence,
+			AttestedBy:   attestedBy,
 		},
 		lastSeen:     now,
 		expiresAt:    now.Add(ttl),
@@ -1086,19 +1125,36 @@ func (s *Server) handleFeaturesList(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
+// isotopeCertificationRung is "Certification — can certify others". A feature
+// certification is a claim about the lab, so it takes the rung that says the
+// claimant may make one.
+const isotopeCertificationRung = 6
+
 // handleFeatureCertify accepts a POST body {"id":"..."} and certifies that feature.
 // Called by the Godog step suite after a scenario passes.
+//
+// When the alarm holds cluster secrets, the caller must be a certified isotope:
+// it presents its name, endpoint and attestation, and the named registration
+// must already be at rung 6. Without that, anyone who can reach the port could
+// certify any feature — the other half of #23.
 func (s *Server) handleFeatureCertify(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
 		return
 	}
 	var body struct {
-		ID     string `json:"id"`
-		Status string `json:"status"` // "certified" or "failed"; defaults to "certified"
+		ID          string               `json:"id"`
+		Status      string               `json:"status"` // "certified" or "failed"; defaults to "certified"
+		Name        string               `json:"name"`
+		Endpoint    string               `json:"endpoint"`
+		Attestation *isotope.Attestation `json:"attestation"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.ID == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "id required"})
+		return
+	}
+	if refusal := s.refuseUnattestedCertification(body.Name, body.Endpoint, body.Attestation); refusal != "" {
+		writeJSON(w, http.StatusForbidden, map[string]any{"error": refusal})
 		return
 	}
 	if body.Status == "failed" {
@@ -1107,6 +1163,37 @@ func (s *Server) handleFeatureCertify(w http.ResponseWriter, r *http.Request) {
 		s.CertifyFeature(body.ID)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"status": "ok", "id": body.ID})
+}
+
+// refuseUnattestedCertification returns why a certification request is refused,
+// or "" when it may proceed. An alarm with no cluster secrets keeps the old
+// behavior: it has nothing to attest and no certified instance to ask.
+func (s *Server) refuseUnattestedCertification(name, endpoint string, att *isotope.Attestation) string {
+	if len(s.opts.TrustConfig.Secrets) == 0 {
+		return ""
+	}
+	if name == "" || endpoint == "" || att == nil {
+		return "certification requires name, endpoint and attestation"
+	}
+	secret, ok := s.opts.TrustConfig.Secrets[att.Cluster]
+	if !ok {
+		return fmt.Sprintf("cluster %q is not attested by this alarm", att.Cluster)
+	}
+	if err := att.Verify(secret, endpoint, time.Now(), s.opts.TrustConfig.Skew); err != nil {
+		return "attestation rejected: " + err.Error()
+	}
+	s.mu.RLock()
+	entry, found := s.isotopes[name]
+	s.mu.RUnlock()
+	switch {
+	case !found:
+		return fmt.Sprintf("%q is not registered with this alarm", name)
+	case entry.record.Endpoint != endpoint:
+		return fmt.Sprintf("%q is registered for %s, not %s", name, entry.record.Endpoint, endpoint)
+	case entry.record.TrustRung < isotopeCertificationRung:
+		return fmt.Sprintf("%q holds rung %d; certification requires rung %d", name, entry.record.TrustRung, isotopeCertificationRung)
+	}
+	return ""
 }
 
 func summarizeTargets(targets []TargetStatus) StatusSummary {
