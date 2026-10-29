@@ -22,6 +22,13 @@ health:
   # name is swept from /isotope/list after this window.
   isotope_ttl: "5m"
 
+# Cluster launch secrets this alarm can attest. A registration that cannot
+# present a receipt signed with one of these stays at rung 2 (isotope#23).
+# lezz mints the secret per cluster and hands it to the alarm and its agents.
+trust:
+  clusters: {}
+  # demo-1234: "<launch secret>"
+
 runtime:
   lock_file: "/tmp/ocd-smoke-alarm.lock"
   state_dir: "./state"

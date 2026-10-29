@@ -439,3 +439,52 @@ federation:
 		t.Fatal("expected an invalid federation.report_interval to be rejected")
 	}
 }
+
+// TestTrustClustersLoad: a cluster secret is how this alarm attests a
+// registration (isotope#23). It loads from YAML like any other section.
+func TestTrustClustersLoad(t *testing.T) {
+	raw := `
+version: "1"
+trust:
+  clusters:
+    demo-1234: "launch-secret"
+`
+	cfg, err := LoadBytes([]byte(raw))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := cfg.Trust.Clusters["demo-1234"]; got != "launch-secret" {
+		t.Fatalf("trust.clusters[demo-1234] = %q, want launch-secret", got)
+	}
+}
+
+// TestTrustClustersRejectEmptySecret: a blank secret would match a receipt
+// signed with an empty key, so it is a configuration error rather than a quiet
+// downgrade to the floor.
+func TestTrustClustersRejectEmptySecret(t *testing.T) {
+	raw := `
+version: "1"
+trust:
+  clusters:
+    demo-1234: ""
+`
+	_, err := LoadBytes([]byte(raw))
+	if err == nil {
+		t.Fatal("expected an empty cluster secret to be rejected")
+	}
+	if !strings.Contains(err.Error(), "trust.clusters.demo-1234") {
+		t.Fatalf("error %q does not name the entry", err)
+	}
+}
+
+// TestTrustClustersRejectEmptyIdentity covers the other half: a nameless cluster
+// can never be matched to a receipt.
+func TestTrustClustersRejectEmptyIdentity(t *testing.T) {
+	cfg := Config{Trust: TrustConfig{Clusters: map[string]string{"": "secret"}}}
+	cfg.Version = "1"
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("expected an empty cluster identity to be rejected")
+	} else if !strings.Contains(err.Error(), "empty cluster identity") {
+		t.Fatalf("error %q does not explain the problem", err)
+	}
+}

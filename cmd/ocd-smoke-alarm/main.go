@@ -20,6 +20,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/james-gibson/isotope"
 	"github.com/james-gibson/smoke-alarm/internal/alerts"
 	"github.com/james-gibson/smoke-alarm/internal/auth"
 	"github.com/james-gibson/smoke-alarm/internal/config"
@@ -291,6 +292,9 @@ func cmdServe(args []string) error {
 			StatusPath:      cfg.Health.Endpoints.Status,
 			ShutdownTimeout: mustDuration(cfg.Runtime.GracefulShutdownTimeout, 10*time.Second),
 			IsotopeTTL:      mustDuration(cfg.Health.IsotopeTTL, health.DefaultIsotopeTTL),
+			// Registrations can only rise above the floor with a receipt signed
+			// by one of these cluster secrets (isotope#23).
+			TrustConfig: isotope.TrustConfig{Secrets: cfg.Trust.Clusters},
 		})
 		hs.SetComponent("engine", false, "waiting for first checks")
 		hs.SetReady(false, "engine not ready")

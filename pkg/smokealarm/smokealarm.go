@@ -42,6 +42,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/james-gibson/isotope"
 	"github.com/james-gibson/smoke-alarm/internal/alerts"
 	"github.com/james-gibson/smoke-alarm/internal/config"
 	"github.com/james-gibson/smoke-alarm/internal/engine"
@@ -162,6 +163,9 @@ func New(cfg Config, opts Options) (*Instance, error) {
 			StatusPath:      cfg.Health.Endpoints.Status,
 			ShutdownTimeout: durationOrDefault(cfg.Runtime.GracefulShutdownTimeout, 10*time.Second),
 			IsotopeTTL:      durationOrDefault(cfg.Health.IsotopeTTL, health.DefaultIsotopeTTL),
+			// The embedded instance attests exactly the clusters its config
+			// names. lezz sets them, because it mints the secret (isotope#23).
+			TrustConfig: isotope.TrustConfig{Secrets: cfg.Trust.Clusters},
 		})
 		hs.SetSelfDescription(health.NewSelfDescriptionFactory(cfg, opts.Version, time.Now().UTC(), hs))
 		if opts.FeaturesDir != "" {
