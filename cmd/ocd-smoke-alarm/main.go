@@ -292,9 +292,14 @@ func cmdServe(args []string) error {
 			StatusPath:      cfg.Health.Endpoints.Status,
 			ShutdownTimeout: mustDuration(cfg.Runtime.GracefulShutdownTimeout, 10*time.Second),
 			IsotopeTTL:      mustDuration(cfg.Health.IsotopeTTL, health.DefaultIsotopeTTL),
-			// Registrations can only rise above the floor with a receipt signed
-			// by one of these cluster secrets (isotope#23).
-			TrustConfig: isotope.TrustConfig{Secrets: cfg.Trust.Clusters},
+			// Registrations can only rise above the floor with evidence this
+			// alarm pins: a receipt signed by one of these cluster secrets
+			// (isotope#23), or a certificate chaining the cluster to one of
+			// these roots (isotope#25).
+			TrustConfig: isotope.TrustConfig{
+				Secrets: cfg.Trust.Clusters,
+				Roots:   cfg.Trust.Roots,
+			},
 		})
 		hs.SetComponent("engine", false, "waiting for first checks")
 		hs.SetReady(false, "engine not ready")

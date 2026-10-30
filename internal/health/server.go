@@ -670,11 +670,32 @@ func (s *Server) renewalAttests(reg isotope.Registration, existing isotopeEntry)
 	if att == nil || att.Cluster != existing.record.AttestedBy {
 		return false
 	}
-	secret, ok := s.opts.TrustConfig.Secrets[att.Cluster]
-	if !ok {
+	keyring, err := s.trustKeyring()
+	if err != nil {
+		// An unusable trust configuration proves nothing. Falling back to a full
+		// verification would only repeat the same failure more slowly.
 		return false
 	}
-	return att.Verify(secret, reg.Endpoint, time.Now(), s.opts.TrustConfig.Skew) == nil
+	// VerifyWith dispatches on the receipt's scheme: a secret for hmac-sha256,
+	// a pinned root for ed25519. A renewal must prove the same thing the
+	// original did, whichever scheme it used.
+	return att.VerifyWith(keyring, reg.Endpoint, time.Now(), s.opts.TrustConfig.Skew) == nil
+}
+
+// trustKeyring is the evidence this alarm can check a receipt against: the
+// secrets it was launched with, plus the roots it pins.
+//
+// It is built from TrustConfig on use rather than cached, so a test (or a
+// reload) that changes the configuration cannot leave a stale keyring deciding
+// a rung. A root that does not parse is fail-closed: no certificate verifies,
+// which is the same answer as a root that is absent — and Config.Validate
+// rejects such a configuration before the alarm starts.
+func (s *Server) trustKeyring() (isotope.Keyring, error) {
+	roots, err := isotope.ParseRoots(s.opts.TrustConfig.Roots)
+	if err != nil {
+		return isotope.Keyring{}, err
+	}
+	return isotope.Keyring{Roots: roots, Secrets: s.opts.TrustConfig.Secrets}, nil
 }
 
 func (s *Server) handleIsotopeRegister(w http.ResponseWriter, r *http.Request) {
@@ -1166,20 +1187,29 @@ func (s *Server) handleFeatureCertify(w http.ResponseWriter, r *http.Request) {
 }
 
 // refuseUnattestedCertification returns why a certification request is refused,
-// or "" when it may proceed. An alarm with no cluster secrets keeps the old
-// behavior: it has nothing to attest and no certified instance to ask.
+// or "" when it may proceed. An alarm with no evidence configured — no secrets
+// and no pinned roots — keeps the old behavior: it has nothing to attest and no
+// certified instance to ask.
 func (s *Server) refuseUnattestedCertification(name, endpoint string, att *isotope.Attestation) string {
-	if len(s.opts.TrustConfig.Secrets) == 0 {
+	// Either half of the keyring is evidence. Checking only the secrets would
+	// leave an alarm that pins a root but holds no secret letting certification
+	// through unproven — the gate would be off precisely where certificates are
+	// the only way to attest.
+	if len(s.opts.TrustConfig.Secrets) == 0 && len(s.opts.TrustConfig.Roots) == 0 {
 		return ""
 	}
 	if name == "" || endpoint == "" || att == nil {
 		return "certification requires name, endpoint and attestation"
 	}
-	secret, ok := s.opts.TrustConfig.Secrets[att.Cluster]
-	if !ok {
-		return fmt.Sprintf("cluster %q is not attested by this alarm", att.Cluster)
+	keyring, err := s.trustKeyring()
+	if err != nil {
+		return "trust configuration is unusable: " + err.Error()
 	}
-	if err := att.Verify(secret, endpoint, time.Now(), s.opts.TrustConfig.Skew); err != nil {
+	// VerifyWith names the missing evidence itself: "this alarm holds no secret
+	// for cluster X" for an hmac receipt, or "issuer X is not a pinned root" for
+	// a certificate. Repeating that as "not attested" here would lose which half
+	// of the keyring was absent.
+	if err := att.VerifyWith(keyring, endpoint, time.Now(), s.opts.TrustConfig.Skew); err != nil {
 		return "attestation rejected: " + err.Error()
 	}
 	s.mu.RLock()

@@ -1,6 +1,9 @@
 package config
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"strings"
 	"testing"
@@ -486,5 +489,79 @@ func TestTrustClustersRejectEmptyIdentity(t *testing.T) {
 		t.Fatal("expected an empty cluster identity to be rejected")
 	} else if !strings.Contains(err.Error(), "empty cluster identity") {
 		t.Fatalf("error %q does not explain the problem", err)
+	}
+}
+
+// TestTrustRootsRejectAnUnusableKey: a pinned root that is not a valid ed25519
+// key must be a configuration error, not a silent non-match. Otherwise a typo
+// in the key rejects every certificate the alarm should accept, and the floor
+// rung looks like the cluster's fault rather than the operator's.
+func TestTrustRootsRejectAnUnusableKey(t *testing.T) {
+	cfg := Config{Trust: TrustConfig{Roots: map[string]string{"seed-42": "not-base64!!"}}}
+	cfg.Version = "1"
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("expected an unparseable root to be rejected")
+	}
+	if !strings.Contains(err.Error(), "trust.roots") || !strings.Contains(err.Error(), "seed-42") {
+		t.Fatalf("error %q does not name the root", err)
+	}
+}
+
+// TestTrustRootsRejectAShortKey covers the quiet case: valid base64 that decodes
+// to the wrong length would otherwise parse as a key that matches nothing.
+func TestTrustRootsRejectAShortKey(t *testing.T) {
+	short := base64.StdEncoding.EncodeToString([]byte("too short"))
+	cfg := Config{Trust: TrustConfig{Roots: map[string]string{"seed-42": short}}}
+	cfg.Version = "1"
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("expected a short root key to be rejected")
+	}
+	if !strings.Contains(err.Error(), "32") {
+		t.Fatalf("error %q does not explain the key length", err)
+	}
+}
+
+func TestTrustRootsAcceptAnEd25519Key(t *testing.T) {
+	pub, _, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("generate key: %v", err)
+	}
+	raw := `
+version: "1"
+trust:
+  roots:
+    seed-42: "` + base64.StdEncoding.EncodeToString(pub) + `"
+`
+	if _, err := LoadBytes([]byte(raw)); err != nil {
+		t.Fatalf("a valid ed25519 root was rejected: %v", err)
+	}
+}
+
+// TestLoadBytesReadsRootsBesideClusters keeps the YAML shape the issue asks for:
+// a root is configured next to the clusters it vouches for, in one trust block.
+func TestLoadBytesReadsRootsBesideClusters(t *testing.T) {
+	pub, _, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("generate key: %v", err)
+	}
+	raw := `
+version: "1"
+trust:
+  clusters:
+    demo-1234: "launch-secret"
+  roots:
+    seed-42: "` + base64.StdEncoding.EncodeToString(pub) + `"
+`
+	cfg, err := LoadBytes([]byte(raw))
+	if err != nil {
+		t.Fatalf("LoadBytes: %v", err)
+	}
+	if got := cfg.Trust.Roots["seed-42"]; got == "" {
+		t.Fatalf("trust.roots.seed-42 was dropped: %+v", cfg.Trust)
+	}
+	if got := cfg.Trust.Clusters["demo-1234"]; got != "launch-secret" {
+		t.Fatalf("trust.clusters.demo-1234 = %q", got)
 	}
 }

@@ -60,20 +60,28 @@ lift it above the floor:
 | Attested and registry-confirmed, mDNS did not confirm | 4 — Higher Authority |
 | Unattested, wrong secret, unknown cluster, or no matching registry entry | 2 — Harness Tools |
 
-Configure the clusters this alarm can attest:
+Configure the evidence this alarm accepts:
 
 ```yaml
 trust:
+  # A symmetric cluster: the launch secret lezz minted for it.
   clusters:
-    demo-1234: "<the cluster's launch secret>"   # lezz mints this per cluster
+    demo-1234: "<the cluster's launch secret>"
+  # A root, pinned by name: a cluster that presents a certificate chaining it
+  # here is attested without this alarm holding its secret.
+  roots:
+    seed-42: "<base64 ed25519 public key>"
 ```
 
-An alarm with no `trust.clusters` attests nobody and grants rung 2 to every
-registration — the honest answer for a self-declared endpoint (isotope#23). A
-renewal that presents the same receipt keeps its rung without re-probing; a
-renewal that presents none is verified like a new claim, so it cannot inherit a
-rung it did not earn. `POST /features/certify` likewise requires a receipt from
-an instance already at rung 6 when the alarm holds cluster secrets.
+An alarm with neither map attests nobody and grants rung 2 to every registration
+— the honest answer for a self-declared endpoint (isotope#23, isotope#25).
+Naming a root is not trusting it: the key has to be present, and a key that does
+not parse is a configuration error rather than a silent non-match. A renewal
+that presents the same receipt — by secret or by certificate — keeps its rung
+without re-probing; a renewal that presents none is verified like a new claim, so
+it cannot inherit a rung it did not earn. `POST /features/certify` likewise
+requires a receipt from an instance already at rung 6 whenever the alarm holds
+either kind of evidence.
 
 **A name is a heartbeat, not a label.** A registration made through `POST /isotope/register` lives for `health.isotope_ttl` (default `5m`) unless it is renewed; `/isotope/list` sweeps expired names, so a node that dies without deregistering stops resolving. Re-registering the same name and endpoint extends the window and keeps the assigned rung (the trust probe is not re-run) **when the renewal presents the same attestation**; a changed endpoint, or a renewal with no receipt, is a new claim and is verified again. Records mirrored from federation membership have no heartbeat and report `"status": "registered"` — their lifecycle belongs to the membership feed.
 
