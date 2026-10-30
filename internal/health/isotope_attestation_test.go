@@ -29,7 +29,7 @@ func (b stubAds) Browse(context.Context, string) ([]isotope.Advertisement, error
 
 // attestedServer is a health server with real verification and a fake registry
 // and browser: the evidence chain is exercised, the network is not.
-func attestedServer(t *testing.T, secrets map[string]string, ads ...isotope.Advertisement) (*Server, *httptest.Server, *atomic.Int32) {
+func attestedServer(t *testing.T, secrets, roots map[string]string, ads ...isotope.Advertisement) (*Server, *httptest.Server, *atomic.Int32) {
 	t.Helper()
 
 	reg := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -45,6 +45,7 @@ func attestedServer(t *testing.T, secrets map[string]string, ads ...isotope.Adve
 		IsotopeTTL: time.Minute,
 		TrustConfig: isotope.TrustConfig{
 			Secrets:     secrets,
+			Roots:       roots,
 			RegistryURL: reg.URL + "/cluster",
 			Browser:     stubAds{ads: ads},
 		},
@@ -76,7 +77,7 @@ func registrationBody(t *testing.T, endpoint string, att *isotope.Attestation) s
 // advertisement naming this cluster.
 func TestAttestedRegistrationReachesCertification(t *testing.T) {
 	endpoint := "http://127.0.0.1:64400/mcp"
-	_, srv, _ := attestedServer(t, map[string]string{attCluster: attSecret},
+	_, srv, _ := attestedServer(t, map[string]string{attCluster: attSecret}, nil,
 		isotope.Advertisement{Cluster: attCluster, Host: "127.0.0.1", Port: 19100})
 	defer srv.Close()
 
@@ -97,7 +98,7 @@ func TestAttestedRegistrationReachesCertification(t *testing.T) {
 // names, but no receipt. This is #23's exploit, and it must not buy anything.
 func TestUnattestedRegistrationStaysAtTheFloor(t *testing.T) {
 	endpoint := "http://127.0.0.1:64400/mcp"
-	_, srv, _ := attestedServer(t, map[string]string{attCluster: attSecret},
+	_, srv, _ := attestedServer(t, map[string]string{attCluster: attSecret}, nil,
 		isotope.Advertisement{Cluster: attCluster, Host: "127.0.0.1", Port: 19100})
 	defer srv.Close()
 
@@ -114,7 +115,7 @@ func TestUnattestedRegistrationStaysAtTheFloor(t *testing.T) {
 // without letting a repeat of someone else's endpoint inherit their rung.
 func TestRenewalInheritsAnAttestedRungOnlyWithAReceipt(t *testing.T) {
 	endpoint := "http://127.0.0.1:64400/mcp"
-	_, srv, calls := attestedServer(t, map[string]string{attCluster: attSecret},
+	_, srv, calls := attestedServer(t, map[string]string{attCluster: attSecret}, nil,
 		isotope.Advertisement{Cluster: attCluster, Host: "127.0.0.1", Port: 19100})
 	defer srv.Close()
 
@@ -149,7 +150,7 @@ func TestRenewalInheritsAnAttestedRungOnlyWithAReceipt(t *testing.T) {
 // /features/certify used to accept a POST from anyone.
 func TestCertificationRequiresACertifiedRegistrant(t *testing.T) {
 	endpoint := "http://127.0.0.1:64400/mcp"
-	s, srv, _ := attestedServer(t, map[string]string{attCluster: attSecret},
+	s, srv, _ := attestedServer(t, map[string]string{attCluster: attSecret}, nil,
 		isotope.Advertisement{Cluster: attCluster, Host: "127.0.0.1", Port: 19100})
 	defer srv.Close()
 	s.RegisterFeature(Feature{ID: "isotope.features.trust"})

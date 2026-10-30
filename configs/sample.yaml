@@ -28,6 +28,11 @@ health:
 trust:
   clusters: {}
   # demo-1234: "<launch secret>"
+  # A root is a name and the ed25519 public key it pins. A cluster that presents
+  # a certificate chaining it here is attested without this alarm holding its
+  # secret. Naming a root is not trusting it: the key must be present.
+  roots: {}
+  # seed-42: "<base64 ed25519 public key>"
 
 runtime:
   lock_file: "/tmp/ocd-smoke-alarm.lock"
