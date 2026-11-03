@@ -1,0 +1,215 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1382" height="736" viewBox="0 0 1382 736" font-family="ui-monospace, SFMono-Regular, monospace">
+<rect width="1382" height="736" fill="#ffffff"/>
+<text x="18" y="32" font-size="17" font-weight="bold">Threat × mechanism</text>
+<text x="18" y="52" font-size="10" fill="#555">Every cell is a factor or a repair time, never immunity. Source: docs/design-matrices.md</text>
+<text x="321" y="74" font-size="10" font-weight="bold" text-anchor="middle" fill="#222">tiers</text>
+<text x="443" y="74" font-size="10" font-weight="bold" text-anchor="middle" fill="#222">golden</text>
+<text x="565" y="74" font-size="10" font-weight="bold" text-anchor="middle" fill="#222">tick</text>
+<text x="687" y="74" font-size="10" font-weight="bold" text-anchor="middle" fill="#222">hydration</text>
+<text x="809" y="74" font-size="10" font-weight="bold" text-anchor="middle" fill="#222">churn</text>
+<text x="931" y="74" font-size="10" font-weight="bold" text-anchor="middle" fill="#222">isotropy</text>
+<text x="1053" y="74" font-size="10" font-weight="bold" text-anchor="middle" fill="#222">conv</text>
+<text x="1175" y="74" font-size="10" font-weight="bold" text-anchor="middle" fill="#222">helix</text>
+<text x="1297" y="74" font-size="10" font-weight="bold" text-anchor="middle" fill="#222">side</text>
+<line x1="18" y1="82" x2="1364" y2="82" stroke="#999"/>
+<text x="248" y="110" font-size="10" text-anchor="end" fill="#111">stale flood (10^6 alarms)</text>
+<rect x="260" y="86" width="119" height="37" fill="#2f7d4f" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="267" y="102" font-size="11" fill="#ffffff">●</text>
+<text x="319" y="113" font-size="8" text-anchor="middle" fill="#ffffff">plateau</text>
+<rect x="382" y="86" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="504" y="86" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="626" y="86" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="748" y="86" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="870" y="86" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="992" y="86" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="1114" y="86" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="1236" y="86" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="248" y="150" font-size="10" text-anchor="end" fill="#111">pipelined flood</text>
+<rect x="260" y="126" width="119" height="37" fill="#2f7d4f" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="267" y="142" font-size="11" fill="#ffffff">●</text>
+<text x="319" y="153" font-size="8" text-anchor="middle" fill="#ffffff">stale by shape</text>
+<rect x="382" y="126" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="504" y="126" width="119" height="37" fill="#2f7d4f" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="511" y="142" font-size="11" fill="#ffffff">●</text>
+<text x="563" y="153" font-size="8" text-anchor="middle" fill="#ffffff">chain skew</text>
+<rect x="626" y="126" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="748" y="126" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="870" y="126" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="992" y="126" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="1114" y="126" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="1236" y="126" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="248" y="190" font-size="10" text-anchor="end" fill="#111">filter saturation (4x)</text>
+<rect x="260" y="166" width="119" height="37" fill="#b8860b" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="267" y="182" font-size="11" fill="#1a1a1a">◐</text>
+<text x="319" y="193" font-size="8" text-anchor="middle" fill="#1a1a1a">per-group</text>
+<rect x="382" y="166" width="119" height="37" fill="#2f7d4f" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="389" y="182" font-size="11" fill="#ffffff">●</text>
+<text x="441" y="193" font-size="8" text-anchor="middle" fill="#ffffff">870 ms</text>
+<rect x="504" y="166" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="626" y="166" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="748" y="166" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="870" y="166" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="992" y="166" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="1114" y="166" width="119" height="37" fill="#b8860b" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="1121" y="182" font-size="11" fill="#1a1a1a">◐</text>
+<text x="1173" y="193" font-size="8" text-anchor="middle" fill="#1a1a1a">period</text>
+<rect x="1236" y="166" width="119" height="37" fill="#2f7d4f" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="1243" y="182" font-size="11" fill="#ffffff">●</text>
+<text x="1295" y="193" font-size="8" text-anchor="middle" fill="#ffffff">canary 16x</text>
+<text x="248" y="230" font-size="10" text-anchor="end" fill="#111">cohort eviction (30 rot)</text>
+<rect x="260" y="206" width="119" height="37" fill="#b8860b" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="267" y="222" font-size="11" fill="#1a1a1a">◐</text>
+<text x="319" y="233" font-size="8" text-anchor="middle" fill="#1a1a1a">priced</text>
+<rect x="382" y="206" width="119" height="37" fill="#2f7d4f" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="389" y="222" font-size="11" fill="#ffffff">●</text>
+<text x="441" y="233" font-size="8" text-anchor="middle" fill="#ffffff">hydrate</text>
+<rect x="504" y="206" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="626" y="206" width="119" height="37" fill="#2f7d4f" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="633" y="222" font-size="11" fill="#ffffff">●</text>
+<text x="685" y="233" font-size="8" text-anchor="middle" fill="#ffffff">550 ms</text>
+<rect x="748" y="206" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="870" y="206" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="992" y="206" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="1114" y="206" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="1236" y="206" width="119" height="37" fill="#a33" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="1243" y="222" font-size="11" fill="#ffffff">○</text>
+<text x="1295" y="233" font-size="8" text-anchor="middle" fill="#ffffff">not closed</text>
+<text x="248" y="270" font-size="10" text-anchor="end" fill="#111">stamp forgery (guess)</text>
+<rect x="260" y="246" width="119" height="37" fill="#2f7d4f" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="267" y="262" font-size="11" fill="#ffffff">●</text>
+<text x="319" y="273" font-size="8" text-anchor="middle" fill="#ffffff">7 tries</text>
+<rect x="382" y="246" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="504" y="246" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="626" y="246" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="748" y="246" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="870" y="246" width="119" height="37" fill="#2f7d4f" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="877" y="262" font-size="11" fill="#ffffff">●</text>
+<text x="929" y="273" font-size="8" text-anchor="middle" fill="#ffffff">2^32</text>
+<rect x="992" y="246" width="119" height="37" fill="#2f7d4f" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="999" y="262" font-size="11" fill="#ffffff">●</text>
+<text x="1051" y="273" font-size="8" text-anchor="middle" fill="#ffffff">no format</text>
+<rect x="1114" y="246" width="119" height="37" fill="#2f7d4f" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="1121" y="262" font-size="11" fill="#ffffff">●</text>
+<text x="1173" y="273" font-size="8" text-anchor="middle" fill="#ffffff">commit</text>
+<rect x="1236" y="246" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="248" y="310" font-size="10" text-anchor="end" fill="#111">replay across ticks</text>
+<rect x="260" y="286" width="119" height="37" fill="#2f7d4f" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="267" y="302" font-size="11" fill="#ffffff">●</text>
+<text x="319" y="313" font-size="8" text-anchor="middle" fill="#ffffff">issuance</text>
+<rect x="382" y="286" width="119" height="37" fill="#2f7d4f" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="389" y="302" font-size="11" fill="#ffffff">●</text>
+<text x="441" y="313" font-size="8" text-anchor="middle" fill="#ffffff">1 epoch</text>
+<rect x="504" y="286" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="626" y="286" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="748" y="286" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="870" y="286" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="992" y="286" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="1114" y="286" width="119" height="37" fill="#2f7d4f" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="1121" y="302" font-size="11" fill="#ffffff">●</text>
+<text x="1173" y="313" font-size="8" text-anchor="middle" fill="#ffffff">no period</text>
+<rect x="1236" y="286" width="119" height="37" fill="#b8860b" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="1243" y="302" font-size="11" fill="#1a1a1a">◐</text>
+<text x="1295" y="313" font-size="8" text-anchor="middle" fill="#1a1a1a">flag only</text>
+<text x="248" y="350" font-size="10" text-anchor="end" fill="#111">competent derivation</text>
+<rect x="260" y="326" width="119" height="37" fill="#b8860b" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="267" y="342" font-size="11" fill="#1a1a1a">◐</text>
+<text x="319" y="353" font-size="8" text-anchor="middle" fill="#1a1a1a">rate cap</text>
+<rect x="382" y="326" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="504" y="326" width="119" height="37" fill="#2f7d4f" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="511" y="342" font-size="11" fill="#ffffff">●</text>
+<text x="563" y="353" font-size="8" text-anchor="middle" fill="#ffffff">10 s win</text>
+<rect x="626" y="326" width="119" height="37" fill="#2f7d4f" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="633" y="342" font-size="11" fill="#ffffff">●</text>
+<text x="685" y="353" font-size="8" text-anchor="middle" fill="#ffffff">550 ms</text>
+<rect x="748" y="326" width="119" height="37" fill="#2f7d4f" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="755" y="342" font-size="11" fill="#ffffff">●</text>
+<text x="807" y="353" font-size="8" text-anchor="middle" fill="#ffffff">2x cap</text>
+<rect x="870" y="326" width="119" height="37" fill="#2f7d4f" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="877" y="342" font-size="11" fill="#ffffff">●</text>
+<text x="929" y="353" font-size="8" text-anchor="middle" fill="#ffffff">parity</text>
+<rect x="992" y="326" width="119" height="37" fill="#2f7d4f" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="999" y="342" font-size="11" fill="#ffffff">●</text>
+<text x="1051" y="353" font-size="8" text-anchor="middle" fill="#ffffff">no claim</text>
+<rect x="1114" y="326" width="119" height="37" fill="#2f7d4f" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="1121" y="342" font-size="11" fill="#ffffff">●</text>
+<text x="1173" y="353" font-size="8" text-anchor="middle" fill="#ffffff">attribution</text>
+<rect x="1236" y="326" width="119" height="37" fill="#2f7d4f" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="1243" y="342" font-size="11" fill="#ffffff">●</text>
+<text x="1295" y="353" font-size="8" text-anchor="middle" fill="#ffffff">99% local</text>
+<text x="248" y="390" font-size="10" text-anchor="end" fill="#111">common-mode drift</text>
+<rect x="260" y="366" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="382" y="366" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="504" y="366" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="626" y="366" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="748" y="366" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="870" y="366" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="992" y="366" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="1114" y="366" width="119" height="37" fill="#2f7d4f" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="1121" y="382" font-size="11" fill="#ffffff">●</text>
+<text x="1173" y="393" font-size="8" text-anchor="middle" fill="#ffffff">difference 2d</text>
+<rect x="1236" y="366" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="248" y="430" font-size="10" text-anchor="end" fill="#111">load surge (work &gt; 50%)</text>
+<rect x="260" y="406" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="382" y="406" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="504" y="406" width="119" height="37" fill="#b8860b" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="511" y="422" font-size="11" fill="#1a1a1a">◐</text>
+<text x="563" y="433" font-size="8" text-anchor="middle" fill="#1a1a1a">10 s</text>
+<rect x="626" y="406" width="119" height="37" fill="#2f7d4f" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="633" y="422" font-size="11" fill="#ffffff">●</text>
+<text x="685" y="433" font-size="8" text-anchor="middle" fill="#ffffff">1:6 min</text>
+<rect x="748" y="406" width="119" height="37" fill="#2f7d4f" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="755" y="422" font-size="11" fill="#ffffff">●</text>
+<text x="807" y="433" font-size="8" text-anchor="middle" fill="#ffffff">add capacity</text>
+<rect x="870" y="406" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="992" y="406" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="1114" y="406" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="1236" y="406" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="248" y="470" font-size="10" text-anchor="end" fill="#111">wall-following probe</text>
+<rect x="260" y="446" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="382" y="446" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="504" y="446" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="626" y="446" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="748" y="446" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="870" y="446" width="119" height="37" fill="#2f7d4f" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="877" y="462" font-size="11" fill="#ffffff">●</text>
+<text x="929" y="473" font-size="8" text-anchor="middle" fill="#ffffff">469 ms</text>
+<rect x="992" y="446" width="119" height="37" fill="#2f7d4f" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="999" y="462" font-size="11" fill="#ffffff">●</text>
+<text x="1051" y="473" font-size="8" text-anchor="middle" fill="#ffffff">5.2x</text>
+<rect x="1114" y="446" width="119" height="37" fill="#2f7d4f" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="1121" y="462" font-size="11" fill="#ffffff">●</text>
+<text x="1173" y="473" font-size="8" text-anchor="middle" fill="#ffffff">isotropic</text>
+<rect x="1236" y="446" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="248" y="510" font-size="10" text-anchor="end" fill="#111">gate enumeration</text>
+<rect x="260" y="486" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="382" y="486" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="504" y="486" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="626" y="486" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="748" y="486" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="870" y="486" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="992" y="486" width="119" height="37" fill="#2f7d4f" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<text x="999" y="502" font-size="11" fill="#ffffff">●</text>
+<text x="1051" y="513" font-size="8" text-anchor="middle" fill="#ffffff">51x</text>
+<rect x="1114" y="486" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<rect x="1236" y="486" width="119" height="37" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff" stroke-width="2"/>
+<line x1="18" y1="538" x2="1364" y2="538" stroke="#999"/>
+<text x="18" y="554" font-size="10" font-weight="bold">columns</text>
+<text x="18" y="572" font-size="10" fill="#333">tiers = membership tiers + pricing</text>
+<text x="18" y="592" font-size="10" fill="#333">golden = golden derived reference</text>
+<text x="18" y="612" font-size="10" fill="#333">tick = lagged tick window</text>
+<text x="478" y="572" font-size="10" fill="#333">hydration = predictive hydration</text>
+<text x="478" y="592" font-size="10" fill="#333">churn = churn yield at 50%</text>
+<text x="478" y="612" font-size="10" fill="#333">isotropy = isotropic name space</text>
+<text x="938" y="572" font-size="10" fill="#333">conv = convenience rule</text>
+<text x="938" y="592" font-size="10" fill="#333">helix = helix in the lift</text>
+<text x="938" y="612" font-size="10" fill="#333">side = side channel, 3 filters</text>
+<text x="18" y="642" font-size="10" font-weight="bold">status</text>
+<rect x="18" y="648" width="14" height="12" fill="#2f7d4f" fill-opacity="0.9" stroke="#fff"/>
+<text x="38" y="658" font-size="10" fill="#333">● closed by this mechanism</text>
+<rect x="318" y="648" width="14" height="12" fill="#b8860b" fill-opacity="0.9" stroke="#fff"/>
+<text x="338" y="658" font-size="10" fill="#333">◐ partially closed</text>
+<rect x="618" y="648" width="14" height="12" fill="#a33" fill-opacity="0.9" stroke="#fff"/>
+<text x="638" y="658" font-size="10" fill="#333">○ not closed / open risk</text>
+<rect x="918" y="648" width="14" height="12" fill="#e8e8e8" fill-opacity="0.9" stroke="#fff"/>
+<text x="938" y="658" font-size="10" fill="#333">· not addressed</text>
+</svg>
