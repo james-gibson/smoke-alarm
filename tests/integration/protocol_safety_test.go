@@ -152,7 +152,16 @@ func TestHTTPProber_StrictMCPHandshakePassAndRequiredMethodFailure(t *testing.T)
 		}
 
 		switch req.Method {
-		case "initialize", "tools/list", "resources/list":
+		case "initialize":
+			resp.Result = map[string]any{
+				"protocolVersion": "2024-11-05",
+				"capabilities":    map[string]any{},
+				"serverInfo": map[string]any{
+					"name":    "http-test-server",
+					"version": "0.0.1",
+				},
+			}
+		case "tools/list", "resources/list":
 			resp.Result = map[string]any{"ok": true}
 		default:
 			resp.Error = &rpcErr{
@@ -426,6 +435,7 @@ type resp struct {
 func main() {
 	r := bufio.NewReader(os.Stdin)
 	w := bufio.NewWriter(os.Stdout)
+	initialized := false
 	defer w.Flush()
 
 	for {
@@ -451,6 +461,9 @@ func main() {
 		}
 
 		switch in.Method {
+		case "notifications/initialized":
+			initialized = true
+			continue
 		case "initialize", "session/setup":
 			_ = writeFrame(w, resp{
 				JSONRPC: "2.0",
@@ -464,6 +477,12 @@ func main() {
 					},
 				},
 			})
+		case "tools/list":
+			if !initialized {
+				_ = writeFrame(w, resp{JSONRPC: "2.0", ID: in.ID, Error: &rpcErr{Code: -32000, Message: "initialized notification required"}})
+				continue
+			}
+			_ = writeFrame(w, resp{JSONRPC: "2.0", ID: in.ID, Result: map[string]any{"tools": []any{}}})
 		default:
 			_ = writeFrame(w, resp{
 				JSONRPC: "2.0",

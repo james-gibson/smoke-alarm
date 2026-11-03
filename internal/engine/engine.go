@@ -826,9 +826,10 @@ func (p *HTTPProber) probeJSONRPCHandshakeHTTP(ctx context.Context, target targe
 	exercised := make([]string, 0, len(methods))
 	failed := make([]string, 0, len(methods))
 	var (
-		firstFailure string
-		failureCode  int
-		advertised   map[string]any
+		firstFailure  string
+		failureCode   int
+		advertised    map[string]any
+		notifications []string
 	)
 
 	for i, method := range methods {
@@ -889,10 +890,37 @@ func (p *HTTPProber) probeJSONRPCHandshakeHTTP(ctx context.Context, target targe
 			failed = append(failed, method)
 			continue
 		}
+		if method == "initialize" && target.Protocol == targets.ProtocolMCP {
+			if err := validateMCPInitializeResult(rpcResp.Result); err != nil {
+				if firstFailure == "" {
+					firstFailure = fmt.Sprintf("handshake method %q returned invalid initialize result: %v", method, err)
+				}
+				failed = append(failed, method)
+				break
+			}
+		}
 
 		exercised = append(exercised, method)
 		if method == "initialize" {
 			advertised = advertisedCapabilities(rpcResp.Result)
+			if target.Protocol == targets.ProtocolMCP {
+				status, notificationErr := p.sendHTTPNotification(ctx, target, headers, rpcNotification{
+					JSONRPC: "2.0",
+					Method:  "notifications/initialized",
+				})
+				if notificationErr != nil {
+					return targets.CheckResult{}, notificationErr
+				}
+				if status < 200 || status >= 300 {
+					if firstFailure == "" {
+						firstFailure = fmt.Sprintf("handshake notification %q failed with status %d", "notifications/initialized", status)
+						failureCode = status
+					}
+					failed = append(failed, "notifications/initialized")
+					break
+				}
+				notifications = append(notifications, "notifications/initialized")
+			}
 		}
 	}
 
@@ -912,6 +940,7 @@ func (p *HTTPProber) probeJSONRPCHandshakeHTTP(ctx context.Context, target targe
 			"profile":           target.Check.HandshakeProfile,
 			"exercised_methods": exercised,
 			"failed_methods":    failed,
+			"notifications":     notifications,
 		},
 	}
 
@@ -946,6 +975,27 @@ func (p *HTTPProber) probeJSONRPCHandshakeHTTP(ctx context.Context, target targe
 	}
 
 	return result, nil
+}
+
+func (p *HTTPProber) sendHTTPNotification(ctx context.Context, target targets.Target, headers map[string]string, notification rpcNotification) (int, error) {
+	body, err := json.Marshal(notification)
+	if err != nil {
+		return 0, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, target.Endpoint, bytes.NewReader(body))
+	if err != nil {
+		return 0, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	return resp.StatusCode, nil
 }
 
 // advertisedCapabilities returns the capability families a surface declared in
@@ -1061,7 +1111,7 @@ func httpHandshakeParams(proto targets.Protocol, method string) any {
 			"capabilities": map[string]any{},
 		}
 		if proto == targets.ProtocolMCP {
-			params["protocolVersion"] = "2024-11-05"
+			params["protocolVersion"] = mcpProtocolVersion
 		}
 		return params
 	case "session/setup":
