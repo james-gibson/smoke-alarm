@@ -1718,10 +1718,12 @@ func theFollowerRegistrySnapshotSaved() error {
 		return err
 	}
 	path := filepath.Join(dir, "follower", "federation", "registry.json")
-	if _, err := os.Stat(path); err != nil {
-		return fmt.Errorf("follower registry snapshot %q: %w", path, err)
-	}
-	return nil
+	// The peers become visible in the registry before SaveSnapshot writes the
+	// file, so wait for the file rather than checking as soon as the peers appear.
+	return fedWaitFor(func() bool {
+		_, err := os.Stat(path)
+		return err == nil
+	})
 }
 
 func theIntroducerURLIsUnreachable() error {
