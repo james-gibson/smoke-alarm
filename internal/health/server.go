@@ -622,8 +622,13 @@ func (s *Server) handleFederationReport(w http.ResponseWriter, r *http.Request) 
 
 	// Merge upstream components too — an upstream (e.g. adhd) reports security
 	// events (honeypot contact) as components, not targets. Dropping them here
-	// silently loses the event.
+	// silently loses the event. Entries the reporter itself mirrored from its
+	// peers are skipped: re-adopting them would nest "federation/<hash>/…" one
+	// level deeper on every round trip.
 	for _, c := range incoming.Components {
+		if isFederationNamespaced(c.Name) {
+			continue
+		}
 		s.SetComponent(c.Name, c.Healthy, c.Detail)
 	}
 
@@ -696,6 +701,12 @@ func (s *Server) trustKeyring() (isotope.Keyring, error) {
 		return isotope.Keyring{}, err
 	}
 	return isotope.Keyring{Roots: roots, Secrets: s.opts.TrustConfig.Secrets}, nil
+}
+
+// isFederationNamespaced reports whether a component name is a peer-derived
+// entry (or the federation roll-up owned by the reporting instance).
+func isFederationNamespaced(name string) bool {
+	return name == "federation" || strings.HasPrefix(name, "federation/")
 }
 
 func (s *Server) handleIsotopeRegister(w http.ResponseWriter, r *http.Request) {
