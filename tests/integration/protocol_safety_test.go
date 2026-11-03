@@ -232,7 +232,16 @@ func TestHTTPProber_StrictMCPHandshakePassAndRequiredMethodFailure(t *testing.T)
 		}
 
 		switch req.Method {
-		case "initialize", "tools/list", "resources/list":
+		case "initialize":
+			resp.Result = map[string]any{
+				"protocolVersion": "2024-11-05",
+				"capabilities":    map[string]any{},
+				"serverInfo": map[string]any{
+					"name":    "http-test-server",
+					"version": "0.0.1",
+				},
+			}
+		case "tools/list", "resources/list":
 			resp.Result = map[string]any{"ok": true}
 		default:
 			resp.Error = &rpcErr{

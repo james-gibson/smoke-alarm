@@ -50,10 +50,21 @@ func main() {
 			continue
 		}
 
+		var result any = map[string]any{}
+		if req.Method == "initialize" {
+			result = map[string]any{
+				"protocolVersion": "2024-11-05",
+				"capabilities":    map[string]any{},
+				"serverInfo": map[string]any{
+					"name":    "mock-stubborn-stdio-server",
+					"version": "0.1.0",
+				},
+			}
+		}
 		resp := map[string]any{
 			"jsonrpc": "2.0",
 			"id":      req.ID,
-			"result":  map[string]any{},
+			"result":  result,
 		}
 		body, marshalErr := json.Marshal(resp)
 		if marshalErr != nil {
