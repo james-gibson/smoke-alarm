@@ -248,6 +248,21 @@ func (p *StdioProber) performHandshake(ctx context.Context, target targets.Targe
 			stderrWG.Wait()
 			return stderrBuf.String(), exercised, fmt.Errorf("handshake method %q rejected: %s", method, resp.Error.Error())
 		}
+		if method == "initialize" && target.Protocol == targets.ProtocolMCP {
+			if err := validateMCPInitializeResult(resp.Result); err != nil {
+				_ = stdin.Close()
+				stderrWG.Wait()
+				return stderrBuf.String(), exercised, err
+			}
+			if err := writeRPCNotification(stdin, rpcNotification{
+				JSONRPC: "2.0",
+				Method:  "notifications/initialized",
+			}); err != nil {
+				_ = stdin.Close()
+				stderrWG.Wait()
+				return stderrBuf.String(), exercised, fmt.Errorf("write rpc notification %q: %w", "notifications/initialized", err)
+			}
+		}
 		exercised = append(exercised, method)
 	}
 
@@ -266,7 +281,7 @@ func (p *StdioProber) defaultParams(proto targets.Protocol) map[string]any {
 	}
 	// MCP-specific shape is widely accepted; ACP implementations usually ignore unknown fields.
 	if proto == targets.ProtocolMCP {
-		params["protocolVersion"] = "2024-11-05"
+		params["protocolVersion"] = mcpProtocolVersion
 	}
 	return params
 }
@@ -339,6 +354,19 @@ func normalizeMethods(in []string) []string {
 
 func writeRPCFrame(w io.Writer, req rpcRequest) error {
 	body, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+	header := fmt.Sprintf("Content-Length: %d\r\n\r\n", len(body))
+	if _, writeErr := io.WriteString(w, header); writeErr != nil {
+		return writeErr
+	}
+	_, err = w.Write(body)
+	return err
+}
+
+func writeRPCNotification(w io.Writer, notification rpcNotification) error {
+	body, err := json.Marshal(notification)
 	if err != nil {
 		return err
 	}
@@ -429,6 +457,7 @@ func classifyStdioError(err error) targets.FailureClass {
 		strings.Contains(msg, "rpc"),
 		strings.Contains(msg, "json"),
 		strings.Contains(msg, "content-length"),
+		strings.Contains(msg, "initialize result"),
 		strings.Contains(msg, "handshake"):
 		return targets.FailureProtocol
 	case strings.Contains(msg, "timeout"),

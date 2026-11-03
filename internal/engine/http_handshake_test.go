@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/james-gibson/smoke-alarm/internal/targets"
@@ -41,7 +42,7 @@ func initResult(families ...string) map[string]any {
 	for _, name := range families {
 		caps[name] = map[string]any{}
 	}
-	return map[string]any{"protocolVersion": "2024-11-05", "capabilities": caps, "serverInfo": map[string]any{"name": "stub"}}
+	return map[string]any{"protocolVersion": "2024-11-05", "capabilities": caps, "serverInfo": map[string]any{"name": "stub", "version": "0.0.1"}}
 }
 
 func handshakeTarget(endpoint string, minCaps []string) targets.Target {
@@ -157,5 +158,70 @@ func TestHTTPHandshakeKeepsTransportErrorsAsErrors(t *testing.T) {
 
 	if _, err := p.Probe(context.Background(), target, nil); err == nil {
 		t.Fatal("expected a transport error for an unreachable endpoint")
+	}
+}
+
+func TestHTTPHandshakeSendsInitializedNotificationBeforeNormalMethods(t *testing.T) {
+	var methods []string
+	var notificationID *int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			ID     *int   `json:"id"`
+			Method string `json:"method"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Errorf("decode request: %v", err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		methods = append(methods, req.Method)
+		if req.Method == "notifications/initialized" {
+			notificationID = req.ID
+			w.WriteHeader(http.StatusAccepted)
+			return
+		}
+		result := map[string]any{"ok": true}
+		if req.Method == "initialize" {
+			result = initResult("tools")
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": req.ID, "result": result})
+	}))
+	t.Cleanup(srv.Close)
+
+	got, err := NewHTTPProber().Probe(context.Background(), handshakeTarget(srv.URL, nil), nil)
+	if err != nil {
+		t.Fatalf("Probe: %v", err)
+	}
+	if got.State != targets.StateHealthy {
+		t.Fatalf("state = %s, want healthy: %s", got.State, got.Message)
+	}
+	want := []string{"initialize", "notifications/initialized", "tools/list"}
+	if strings.Join(methods, ",") != strings.Join(want, ",") {
+		t.Fatalf("methods = %v, want %v", methods, want)
+	}
+	if notificationID != nil {
+		t.Fatalf("initialized notification had an id: %v", *notificationID)
+	}
+	notifications, ok := got.Details["notifications"].([]string)
+	if !ok || len(notifications) != 1 || notifications[0] != "notifications/initialized" {
+		t.Fatalf("notifications = %v, want initialized", got.Details["notifications"])
+	}
+}
+
+func TestHTTPHandshakeRejectsInvalidInitializeResult(t *testing.T) {
+	srv := handshakeStub(t, map[string]any{
+		"initialize": map[string]any{},
+		"tools/list": map[string]any{"tools": []any{}},
+	})
+
+	got, err := NewHTTPProber().Probe(context.Background(), handshakeTarget(srv.URL, nil), nil)
+	if err != nil {
+		t.Fatalf("Probe: %v", err)
+	}
+	if got.State != targets.StateUnhealthy {
+		t.Fatalf("state = %s, want unhealthy: %s", got.State, got.Message)
+	}
+	if !strings.Contains(got.Message, "invalid initialize result") {
+		t.Fatalf("message = %q, want invalid initialize result", got.Message)
 	}
 }
