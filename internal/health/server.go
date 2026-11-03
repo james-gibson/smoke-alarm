@@ -7,14 +7,16 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
+	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/james-gibson/isotope"
+	"github.com/james-gibson/smoke-alarm/internal/netbind"
 )
 
 // SelfDescriptionFunc returns the live self-description document as a
@@ -32,7 +34,36 @@ type Options struct {
 	SelfDescriptionPath string
 	SelfDescriptionFunc SelfDescriptionFunc
 	ShutdownTimeout     time.Duration
+	// IsotopeTTL is how long a self-registered isotope stays live without
+	// re-registering. A registration is a heartbeat, not a name: a record the
+	// registrant stopped renewing is swept from the registry. Zero uses
+	// DefaultIsotopeTTL.
+	IsotopeTTL time.Duration
+	// TrustConfig is the evidence this alarm was launched with: the cluster
+	// secrets it can attest. A registration that does not present a matching
+	// receipt stays at rung 2, whatever the discovery registry says (isotope#23).
+	TrustConfig isotope.TrustConfig
+	// VerifyRegistration resolves a registration's rung. Defaults to
+	// isotope.VerifyRegistration; tests inject a stub.
+	VerifyRegistration func(ctx context.Context, cfg isotope.TrustConfig, reg isotope.Registration) isotope.TrustVerdict
 }
+
+// DefaultIsotopeTTL is how long a registration lasts without renewal. Short
+// enough that a node that dies without deregistering stops resolving, long
+// enough that a client renewing on a one-minute cadence can miss several
+// heartbeats before its name expires (smoke-alarm#35).
+const DefaultIsotopeTTL = 5 * time.Minute
+
+// Registry status values reported by GET /isotope/list.
+const (
+	// IsotopeStatusLive is a self-registered record whose heartbeat is current.
+	IsotopeStatusLive = "live"
+	// IsotopeStatusRegistered is a record the alarm mirrors from a trusted
+	// source (federation membership). Its lifecycle belongs to that source, not
+	// to a heartbeat, so the registry reports the registration without claiming
+	// the name is live.
+	IsotopeStatusRegistered = "registered"
+)
 
 // ComponentStatus tracks readiness contributors (scheduler, discovery, probe engine, etc).
 type ComponentStatus struct {
@@ -68,6 +99,10 @@ type StatusResponse struct {
 	Summary    StatusSummary     `json:"summary"`
 	Components []ComponentStatus `json:"components"`
 	Targets    []TargetStatus    `json:"targets"`
+	// Listeners maps a listener name (health, hosted, oauth_redirect_mock) to
+	// the address it actually bound. A listener whose configured port was held
+	// reports the port it moved to, not the port that was asked for.
+	Listeners map[string]string `json:"listeners,omitempty"`
 }
 
 // StatusSummary aggregates target states.
@@ -94,6 +129,44 @@ type Feature struct {
 	FailedAt    time.Time `json:"failed_at,omitempty"`
 }
 
+// IsotopeDependency names another project this registration depends on: the
+// route says where that project is (lezz `seed.json` project.route), and the
+// contract pins the signed spec the dependency was built against. Neither is a
+// trust claim; the rung remains the registry's judgement.
+type IsotopeDependency struct {
+	ProjectRoute string `json:"project_route"`
+	Contract     string `json:"contract,omitempty"`
+}
+
+// IsotopeView is a registered isotope plus what only the registry knows about
+// the name. isotope.Record is the wire shape shared with isotope.Client; the
+// view adds the heartbeat and the project identity, so a consumer that resolves
+// by name can tell a live registration from one the registry has not heard from,
+// and a dependency can be resolved by project rather than by URL.
+type IsotopeView struct {
+	isotope.Record
+	LastSeen     time.Time           `json:"last_seen"`
+	ExpiresAt    *time.Time          `json:"expires_at,omitempty"`
+	ProjectRoute string              `json:"project_route,omitempty"`
+	Contract     string              `json:"contract,omitempty"`
+	DependsOn    []IsotopeDependency `json:"depends_on,omitempty"`
+	// Status is IsotopeStatusLive for a self-registered record within its TTL,
+	// or IsotopeStatusRegistered for a record mirrored from a trusted source.
+	Status string `json:"status"`
+}
+
+// isotopeEntry is a record plus its heartbeat and identity. A zero expiresAt
+// means the record is durable: the alarm mirrors it from federation membership,
+// whose lifecycle removes it, rather than from a registration that must renew.
+type isotopeEntry struct {
+	record       isotope.Record
+	lastSeen     time.Time
+	expiresAt    time.Time
+	projectRoute string
+	contract     string
+	dependsOn    []IsotopeDependency
+}
+
 // Server provides liveness, readiness, and status endpoints.
 type Server struct {
 	opts            Options
@@ -101,6 +174,7 @@ type Server struct {
 	startedAt       time.Time
 	selfDescFactory SelfDescriptionFunc
 	listener        net.Listener // set by BindWithRetry; nil means use ListenAndServe
+	verifyTrust     func(ctx context.Context, cfg isotope.TrustConfig, reg isotope.Registration) isotope.TrustVerdict
 
 	live  atomic.Bool
 	ready atomic.Bool
@@ -109,8 +183,10 @@ type Server struct {
 	readyError     string
 	components     map[string]ComponentStatus
 	targets        map[string]TargetStatus
-	isotopes       map[string]isotope.Record
+	isotopes       map[string]isotopeEntry
 	features       map[string]Feature // keyed by Feature.ID
+	listeners      map[string]string  // listener name -> address actually bound
+	shutdownOnce   sync.Once
 	shutdownSignal chan struct{}
 }
 
@@ -137,15 +213,23 @@ func NewServer(opts Options) *Server {
 	if opts.ShutdownTimeout <= 0 {
 		opts.ShutdownTimeout = 10 * time.Second
 	}
+	if opts.IsotopeTTL <= 0 {
+		opts.IsotopeTTL = DefaultIsotopeTTL
+	}
+	if opts.VerifyRegistration == nil {
+		opts.VerifyRegistration = isotope.VerifyRegistration
+	}
 
 	s := &Server{
 		opts:            opts,
 		startedAt:       time.Now().UTC(),
 		selfDescFactory: opts.SelfDescriptionFunc,
+		verifyTrust:     opts.VerifyRegistration,
 		components:      make(map[string]ComponentStatus),
 		targets:         make(map[string]TargetStatus),
-		isotopes:        make(map[string]isotope.Record),
+		isotopes:        make(map[string]isotopeEntry),
 		features:        make(map[string]Feature),
+		listeners:       make(map[string]string),
 		shutdownSignal:  make(chan struct{}),
 	}
 	s.live.Store(true)
@@ -156,9 +240,14 @@ func NewServer(opts Options) *Server {
 	mux.HandleFunc(opts.ReadyzPath, s.handleReadyz)
 	mux.HandleFunc(opts.StatusPath, s.handleStatus)
 	mux.HandleFunc(opts.SelfDescriptionPath, s.handleSelfDescription)
+	// The root is what a discovery consumer probes first: mDNS advertises
+	// http://host:port and nothing else (smoke-alarm#22). Registered last and
+	// guarded inside the handler, because "/" is a catch-all pattern.
+	if opts.SelfDescriptionPath != "/" {
+		mux.HandleFunc("/", s.handleRoot)
+	}
 	mux.HandleFunc("/federation/report", s.handleFederationReport)
-	mux.HandleFunc("/isotope/register", s.handleIsotopeRegister)
-	mux.HandleFunc("/isotope/list", s.handleIsotopeList)
+	mux.HandleFunc("/isotope/", s.handleIsotopeRoute)
 	mux.HandleFunc("/features", s.handleFeaturesList)
 	mux.HandleFunc("/features/certify", s.handleFeatureCertify)
 
@@ -175,33 +264,73 @@ func NewServer(opts Options) *Server {
 // Must be called before Start. The bound port is what callers should advertise
 // (e.g. via mDNS) — it may differ from opts.ListenAddr when ports are in use.
 func (s *Server) BindWithRetry(maxRetries int) (string, error) {
-	host, portStr, err := net.SplitHostPort(s.opts.ListenAddr)
+	ln, boundAddr, err := netbind.Listen(s.opts.ListenAddr, maxRetries)
 	if err != nil {
-		return "", fmt.Errorf("health server: invalid listen addr %q: %w", s.opts.ListenAddr, err)
+		return "", fmt.Errorf("health server: %w", err)
 	}
-	port, err := strconv.Atoi(portStr)
-	if err != nil {
-		return "", fmt.Errorf("health server: invalid port in %q: %w", s.opts.ListenAddr, err)
-	}
-	for i := 0; i <= maxRetries; i++ {
-		addr := net.JoinHostPort(host, strconv.Itoa(port+i))
-		var lc net.ListenConfig
-		ln, err := lc.Listen(context.Background(), "tcp", addr)
-		if err == nil {
-			s.listener = ln
-			return addr, nil
-		}
-		if !isAddrInUse(err) {
-			return "", fmt.Errorf("health server: listen %s: %w", addr, err)
-		}
-	}
-	return "", fmt.Errorf("health server: no free port in range %s – %s:%d",
-		s.opts.ListenAddr, host, port+maxRetries)
+	return s.adoptListener(ln, boundAddr)
 }
 
-func isAddrInUse(err error) bool {
-	return err != nil && (strings.Contains(err.Error(), "address already in use") ||
-		strings.Contains(err.Error(), "bind: can't assign requested address"))
+// BindListener takes ownership of an already-bound listener and reports the
+// address the health server will serve on once Start runs. Must be called before
+// Start; the server closes the listener on Shutdown.
+//
+// It exists for the caller that has to know the address before the server does -
+// a test dialing /healthz, a process advertising itself through mDNS. Such a
+// caller can bind first and hand the listener over instead of reserving a port
+// and releasing it, which leaves the port free for anyone else to take before the
+// server binds it again (smoke-alarm#70).
+func (s *Server) BindListener(ln net.Listener) (string, error) {
+	if ln == nil {
+		return "", errors.New("health server: nil listener")
+	}
+	return s.adoptListener(ln, ln.Addr().String())
+}
+
+// adoptListener records a listener and the address to advertise for it, which is
+// the configured host on the retry path and the listener's own address when the
+// caller bound it.
+func (s *Server) adoptListener(ln net.Listener, boundAddr string) (string, error) {
+	s.listener = ln
+	s.SetListener(ListenerHealth, boundAddr)
+	return boundAddr, nil
+}
+
+// SetListener records the address a named listener actually bound, so /status
+// can report a port that moved instead of the one that was configured. The
+// health listener is recorded by BindWithRetry; the process records its other
+// listeners here because they are the ones a lab notices missing (smoke-alarm#53).
+func (s *Server) SetListener(name, addr string) {
+	name = strings.TrimSpace(name)
+	addr = strings.TrimSpace(addr)
+	if name == "" || addr == "" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.listeners[name] = addr
+}
+
+// ListenerAddr returns the address a named listener actually bound, or "" when
+// the process does not run that listener.
+func (s *Server) ListenerAddr(name string) string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.listeners[strings.TrimSpace(name)]
+}
+
+// Listeners returns a copy of the bound addresses keyed by listener name.
+func (s *Server) Listeners() map[string]string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if len(s.listeners) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(s.listeners))
+	for name, addr := range s.listeners {
+		out[name] = addr
+	}
+	return out
 }
 
 // Start runs the HTTP server and blocks until ctx cancellation or a fatal serve error.
@@ -237,13 +366,16 @@ func (s *Server) Start(ctx context.Context) error {
 }
 
 // Shutdown gracefully stops the HTTP server.
+//
+// It is safe to call more than once and from more than one goroutine:
+// Start calls it when ctx is canceled, and the CLI calls it from a defer, so
+// the two can overlap on the way out. shutdownOnce is what makes the "shutdown
+// started" transition happen exactly once — a select/default around close() is
+// not atomic, and two callers that both took the default branch raced and
+// panicked with "close of closed channel" (smoke-alarm#40). Repeated calls
+// still wait for in-flight connections: http.Server.Shutdown is idempotent.
 func (s *Server) Shutdown(ctx context.Context) error {
-	select {
-	case <-s.shutdownSignal:
-		// already shutting down/shut down
-	default:
-		close(s.shutdownSignal)
-	}
+	s.shutdownOnce.Do(func() { close(s.shutdownSignal) })
 
 	s.live.Store(false)
 
@@ -349,6 +481,11 @@ func (s *Server) Snapshot() StatusResponse {
 
 	summary := summarizeTargets(targets)
 
+	listeners := make(map[string]string, len(s.listeners))
+	for name, addr := range s.listeners {
+		listeners[name] = addr
+	}
+
 	ready := readyFlag && allComponentsHealthy(components)
 	readyErr := s.readyError
 	if !ready {
@@ -369,6 +506,7 @@ func (s *Server) Snapshot() StatusResponse {
 		Summary:    summary,
 		Components: components,
 		Targets:    targets,
+		Listeners:  listeners,
 	}
 }
 
@@ -424,6 +562,48 @@ func (s *Server) handleSelfDescription(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, fn())
 }
 
+// handleRoot answers a bare GET on "/" with the instance's identity.
+//
+// DNS-SD hands a consumer http://host:port and nothing more (tuner's
+// mdns.Service.Endpoint()), so the root of the advertised port is what a
+// discovery client or an operator probes to decide whether the instance is
+// alive at all. A 404 there reads as a dead service (smoke-alarm#22), and the
+// honest answer is the isotope's own well-known document rather than a landing
+// page: the same body the dedicated path serves, from the same factory, so the
+// two cannot drift.
+//
+// Only the exact root is answered. "/" is a catch-all pattern in net/http, so
+// without the path check every unknown URL would become a 200 and the health
+// port would stop distinguishing "here" from "nowhere".
+func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
+
+	s.mu.RLock()
+	fn := s.selfDescFactory
+	s.mu.RUnlock()
+	if fn != nil {
+		writeJSON(w, http.StatusOK, fn())
+		return
+	}
+
+	// No factory: a bare server, or an embedder that did not wire one. State
+	// the identity that is still knowable rather than 404, because "not
+	// configured" is an answer to "what is this?", not an absence.
+	writeJSON(w, http.StatusOK, map[string]any{
+		"service": s.opts.ServiceName,
+		"version": s.opts.Version,
+		"endpoints": map[string]string{
+			"healthz":          s.opts.HealthzPath,
+			"readyz":           s.opts.ReadyzPath,
+			"status":           s.opts.StatusPath,
+			"self_description": s.opts.SelfDescriptionPath,
+		},
+	})
+}
+
 func (s *Server) handleFederationReport(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
@@ -442,13 +622,91 @@ func (s *Server) handleFederationReport(w http.ResponseWriter, r *http.Request) 
 
 	// Merge upstream components too — an upstream (e.g. adhd) reports security
 	// events (honeypot contact) as components, not targets. Dropping them here
-	// silently loses the event.
+	// silently loses the event. Entries the reporter itself mirrored from its
+	// peers are skipped: re-adopting them would nest "federation/<hash>/…" one
+	// level deeper on every round trip.
 	for _, c := range incoming.Components {
+		if isFederationNamespaced(c.Name) {
+			continue
+		}
 		s.SetComponent(c.Name, c.Healthy, c.Detail)
 	}
 
 	s.SetComponent("federation", true, fmt.Sprintf("received %d targets from upstream", len(incoming.Targets)))
 	writeJSON(w, http.StatusOK, map[string]any{"status": "accepted"})
+}
+
+// isotopeRegistration is the request body for POST /isotope/register: the wire
+// shape shared with isotope.Client plus the heartbeat override and the project
+// identity a dependency needs to resolve this registration.
+type isotopeRegistration struct {
+	isotope.Registration
+	// TTL overrides the server's isotope TTL for this registration, as a Go
+	// duration ("90s"). Re-registering renews it.
+	TTL string `json:"ttl,omitempty"`
+	// ProjectRoute is the project this instance belongs to (lezz `seed.json`
+	// project.route). An instance name identifies one process; the route
+	// identifies the project a dependent is trying to reach.
+	ProjectRoute string `json:"project_route,omitempty"`
+	// Contract is the signed spec id this instance implements.
+	Contract string `json:"contract,omitempty"`
+	// DependsOn references the projects this instance depends on, by route and
+	// pinned contract.
+	DependsOn []IsotopeDependency `json:"depends_on,omitempty"`
+}
+
+// rungHarnessTools is the floor a registration holds without proving anything.
+const rungHarnessTools = 2
+
+// renewalAttests reports whether a re-registration may inherit the rung already
+// on file, rather than paying for a full verification again.
+//
+// It may inherit only by proving the same thing the original did. An attested
+// record needs a receipt for the same cluster and endpoint that still verifies —
+// otherwise repeating an endpoint you do not control would inherit a rung you
+// cannot earn. An unattested record (the pre-#23 behavior) inherits an
+// unattested renewal; a renewal that arrives *with* a receipt is a new claim and
+// is verified, so it can upgrade but never silently keep the old answer.
+func (s *Server) renewalAttests(reg isotope.Registration, existing isotopeEntry) bool {
+	att := reg.Attestation
+	if existing.record.AttestedBy == "" {
+		return att == nil
+	}
+	if att == nil || att.Cluster != existing.record.AttestedBy {
+		return false
+	}
+	keyring, err := s.trustKeyring()
+	if err != nil {
+		// An unusable trust configuration proves nothing. Falling back to a full
+		// verification would only repeat the same failure more slowly.
+		return false
+	}
+	// VerifyWith dispatches on the receipt's scheme: a secret for hmac-sha256,
+	// a pinned root for ed25519. A renewal must prove the same thing the
+	// original did, whichever scheme it used.
+	return att.VerifyWith(keyring, reg.Endpoint, time.Now(), s.opts.TrustConfig.Skew) == nil
+}
+
+// trustKeyring is the evidence this alarm can check a receipt against: the
+// secrets it was launched with, plus the roots it pins.
+//
+// It is built from TrustConfig on use rather than cached, so a test (or a
+// reload) that changes the configuration cannot leave a stale keyring deciding
+// a rung. A root that does not parse is fail-closed: no certificate verifies,
+// which is the same answer as a root that is absent — and Config.Validate
+// rejects such a configuration before the alarm starts.
+func (s *Server) trustKeyring() (isotope.Keyring, error) {
+	roots, err := isotope.ParseRoots(s.opts.TrustConfig.Roots)
+	if err != nil {
+		return isotope.Keyring{}, err
+	}
+	return isotope.Keyring{Roots: roots, Secrets: s.opts.TrustConfig.Secrets}, nil
+}
+
+// isFederationNamespaced reports whether a component name is a peer-derived
+// entry (or the federation roll-up owned by the reporting instance).
+func isFederationNamespaced(name string) bool {
+	return name == "federation" || strings.HasPrefix(name, "federation/")
 }
 
 func (s *Server) handleIsotopeRegister(w http.ResponseWriter, r *http.Request) {
@@ -457,11 +715,12 @@ func (s *Server) handleIsotopeRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var reg isotope.Registration
-	if err := json.NewDecoder(r.Body).Decode(&reg); err != nil {
+	var body isotopeRegistration
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid JSON"})
 		return
 	}
+	reg := body.Registration
 	reg.Name = strings.TrimSpace(reg.Name)
 	reg.Endpoint = strings.TrimSpace(reg.Endpoint)
 	if reg.Name == "" || reg.Endpoint == "" {
@@ -469,30 +728,82 @@ func (s *Server) handleIsotopeRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rung := isotope.VerifyTrust(r.Context(), reg.Endpoint)
-	rungName := ""
-	for _, rt := range isotope.DefaultRungThresholds {
-		if rt.Rung == rung {
-			rungName = rt.Name
-			break
+	ttl, err := s.isotopeTTL(body.TTL)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+		return
+	}
+
+	now := time.Now().UTC()
+
+	// Re-registration is a heartbeat, not a new claim. Re-verifying an unchanged
+	// endpoint on every beat would run the trust probe (up to 4s) for an answer
+	// that cannot have changed; a changed endpoint is a new claim and is
+	// verified again.
+	s.mu.RLock()
+	existing, found := s.isotopes[reg.Name]
+	s.mu.RUnlock()
+
+	rung, rungName, evidence, attestedBy := 0, "", []string(nil), ""
+	if found && existing.record.Endpoint == reg.Endpoint && s.renewalAttests(reg, existing) {
+		rung, rungName = existing.record.TrustRung, existing.record.RungName
+		evidence, attestedBy = existing.record.Evidence, existing.record.AttestedBy
+	} else {
+		verdict := s.verifyTrust(r.Context(), s.opts.TrustConfig, reg)
+		rung = verdict.Rung
+		rungName = rungNameFor(rung)
+		evidence = verdict.Reasons
+		if reg.Attestation != nil && rung > rungHarnessTools {
+			attestedBy = reg.Attestation.Cluster
 		}
 	}
 
-	record := isotope.Record{
-		Name:         reg.Name,
-		Role:         reg.Role,
-		Endpoint:     reg.Endpoint,
-		Protocol:     reg.Protocol,
-		TrustRung:    rung,
-		RungName:     rungName,
-		RegisteredAt: time.Now().UTC(),
+	registeredAt := now
+	if found {
+		registeredAt = existing.record.RegisteredAt
+	}
+
+	entry := isotopeEntry{
+		record: isotope.Record{
+			Name:         reg.Name,
+			Role:         reg.Role,
+			Endpoint:     reg.Endpoint,
+			Protocol:     reg.Protocol,
+			TrustRung:    rung,
+			RungName:     rungName,
+			RegisteredAt: registeredAt,
+			Evidence:     evidence,
+			AttestedBy:   attestedBy,
+		},
+		lastSeen:     now,
+		expiresAt:    now.Add(ttl),
+		projectRoute: strings.TrimSpace(body.ProjectRoute),
+		contract:     strings.TrimSpace(body.Contract),
+		dependsOn:    normalizeDependencies(body.DependsOn),
+	}
+	if entry.projectRoute != "" && !isoRoutePattern.MatchString(entry.projectRoute) {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "project_route must use letters, digits, _ . -"})
+		return
+	}
+	if found {
+		// A renewal may be minimal. Do not let a heartbeat erase the identity a
+		// dependent resolved.
+		if entry.projectRoute == "" {
+			entry.projectRoute = existing.projectRoute
+		}
+		if entry.contract == "" {
+			entry.contract = existing.contract
+		}
+		if len(entry.dependsOn) == 0 {
+			entry.dependsOn = existing.dependsOn
+		}
 	}
 
 	s.mu.Lock()
-	s.isotopes[reg.Name] = record
+	s.isotopes[reg.Name] = entry
 	s.mu.Unlock()
 
-	writeJSON(w, http.StatusOK, record)
+	writeJSON(w, http.StatusOK, viewOf(entry))
 }
 
 func (s *Server) handleIsotopeList(w http.ResponseWriter, r *http.Request) {
@@ -501,30 +812,282 @@ func (s *Server) handleIsotopeList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.mu.RLock()
-	records := make([]isotope.Record, 0, len(s.isotopes))
-	for _, rec := range s.isotopes {
-		records = append(records, rec)
-	}
-	s.mu.RUnlock()
+	writeJSON(w, http.StatusOK, s.liveIsotopeViews(func(isotopeEntry) bool { return true }))
+}
 
-	sort.Slice(records, func(i, j int) bool { return records[i].Name < records[j].Name })
-	writeJSON(w, http.StatusOK, records)
+// handleIsotopeRoute dispatches the isotope registry:
+//
+//	POST   /isotope/register     register or renew a name
+//	GET    /isotope/list         live records
+//	GET    /isotope/<name>       resolve one name (404 when expired)
+//	DELETE /isotope/<name>       deregister now
+//
+// It is one handler rather than ServeMux method patterns because the literal
+// /isotope/register route and a /isotope/{name} pattern overlap in a way the
+// mux rejects.
+func (s *Server) handleIsotopeRoute(w http.ResponseWriter, r *http.Request) {
+	item := strings.TrimPrefix(r.URL.Path, "/isotope/")
+	if unescaped, err := url.PathUnescape(item); err == nil {
+		item = unescaped
+	}
+
+	switch item {
+	case "register":
+		s.handleIsotopeRegister(w, r)
+		return
+	case "list":
+		s.handleIsotopeList(w, r)
+		return
+	case "":
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": "isotope not found"})
+		return
+	}
+
+	switch {
+	case strings.HasPrefix(item, "by-route/"):
+		s.handleIsotopeByRoute(w, r, strings.TrimPrefix(item, "by-route/"))
+		return
+	case strings.HasPrefix(item, "by-contract/"):
+		s.handleIsotopeByContract(w, r, strings.TrimPrefix(item, "by-contract/"))
+		return
+	}
+
+	name := strings.TrimSpace(item)
+	switch r.Method {
+	case http.MethodGet:
+		s.handleIsotopeGet(w, name)
+	case http.MethodDelete:
+		s.handleIsotopeDelete(w, name)
+	default:
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+	}
+}
+
+// handleIsotopeByRoute resolves a project route to the instances registered
+// under it. A route names the project, not one process: a restarted or
+// additional instance shares it.
+func (s *Server) handleIsotopeByRoute(w http.ResponseWriter, r *http.Request, route string) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	route = strings.TrimSpace(route)
+	if route == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "project route is required"})
+		return
+	}
+
+	views := s.liveIsotopeViews(func(entry isotopeEntry) bool {
+		return entry.projectRoute == route
+	})
+	if len(views) == 0 {
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": "no isotope registered for that project route"})
+		return
+	}
+	writeJSON(w, http.StatusOK, views)
+}
+
+// handleIsotopeByContract resolves a pinned contract id to what implements or
+// depends on it. A dependent pins the contract it was built against; this is
+// how it finds the project that still offers it.
+func (s *Server) handleIsotopeByContract(w http.ResponseWriter, r *http.Request, contract string) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+		return
+	}
+	contract = strings.TrimSpace(contract)
+	if contract == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "contract is required"})
+		return
+	}
+
+	views := s.liveIsotopeViews(func(entry isotopeEntry) bool {
+		if entry.contract == contract {
+			return true
+		}
+		for _, dep := range entry.dependsOn {
+			if dep.Contract == contract {
+				return true
+			}
+		}
+		return false
+	})
+	if len(views) == 0 {
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": "no isotope registered for that contract"})
+		return
+	}
+	writeJSON(w, http.StatusOK, views)
+}
+
+// liveIsotopeViews sweeps expired names and returns the matching views, ordered
+// by name so responses are stable.
+func (s *Server) liveIsotopeViews(match func(isotopeEntry) bool) []IsotopeView {
+	s.mu.Lock()
+	s.sweepIsotopesLocked(time.Now().UTC())
+	views := make([]IsotopeView, 0, len(s.isotopes))
+	for _, entry := range s.isotopes {
+		if match(entry) {
+			views = append(views, viewOf(entry))
+		}
+	}
+	s.mu.Unlock()
+
+	sort.Slice(views, func(i, j int) bool { return views[i].Name < views[j].Name })
+	return views
+}
+
+// handleIsotopeGet resolves one name. An expired registration is gone, so this
+// answers 404 rather than handing a consumer a dead endpoint.
+func (s *Server) handleIsotopeGet(w http.ResponseWriter, name string) {
+	if name == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "name is required"})
+		return
+	}
+
+	s.mu.Lock()
+	s.sweepIsotopesLocked(time.Now().UTC())
+	entry, found := s.isotopes[name]
+	s.mu.Unlock()
+
+	if !found {
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": "isotope not found"})
+		return
+	}
+	writeJSON(w, http.StatusOK, viewOf(entry))
+}
+
+// handleIsotopeDelete removes a registration explicitly, for a node that gets
+// the chance to say goodbye.
+func (s *Server) handleIsotopeDelete(w http.ResponseWriter, name string) {
+	if name == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "name is required"})
+		return
+	}
+
+	s.mu.Lock()
+	_, found := s.isotopes[name]
+	delete(s.isotopes, name)
+	s.mu.Unlock()
+
+	if !found {
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": "isotope not found"})
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// sweepIsotopesLocked drops heartbeat-managed records whose expiry has passed.
+// Durable records (federation-mirrored) have no expiry and are removed by the
+// membership feed instead. Callers must hold s.mu.
+func (s *Server) sweepIsotopesLocked(now time.Time) {
+	for name, entry := range s.isotopes {
+		if !entry.expiresAt.IsZero() && !now.Before(entry.expiresAt) {
+			delete(s.isotopes, name)
+		}
+	}
+}
+
+// rungNameFor renders a rung with the name the isotope module assigns it.
+func rungNameFor(rung int) string {
+	for _, rt := range isotope.DefaultRungThresholds {
+		if rt.Rung == rung {
+			return rt.Name
+		}
+	}
+	return ""
+}
+
+// isotopeTTL resolves the heartbeat window for one registration.
+func (s *Server) isotopeTTL(raw string) (time.Duration, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return s.opts.IsotopeTTL, nil
+	}
+	ttl, err := time.ParseDuration(raw)
+	if err != nil || ttl <= 0 {
+		return 0, fmt.Errorf("ttl must be a positive duration, e.g. \"90s\"")
+	}
+	return ttl, nil
+}
+
+// viewOf renders a stored entry as the liveness- and identity-bearing wire view.
+func viewOf(entry isotopeEntry) IsotopeView {
+	view := IsotopeView{
+		Record:       entry.record,
+		LastSeen:     entry.lastSeen,
+		ProjectRoute: entry.projectRoute,
+		Contract:     entry.contract,
+		DependsOn:    append([]IsotopeDependency(nil), entry.dependsOn...),
+		Status:       IsotopeStatusRegistered,
+	}
+	if !entry.expiresAt.IsZero() {
+		expires := entry.expiresAt
+		view.ExpiresAt = &expires
+		view.Status = IsotopeStatusLive
+	}
+	return view
+}
+
+// isoRoutePattern is lezz's project-id shape: letters, digits, and _ . - only.
+var isoRoutePattern = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
+
+// normalizeDependencies trims a dependency list and drops entries that name no
+// project. An empty list means "no dependencies", not "keep whatever was there".
+func normalizeDependencies(in []IsotopeDependency) []IsotopeDependency {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]IsotopeDependency, 0, len(in))
+	for _, dep := range in {
+		route := strings.TrimSpace(dep.ProjectRoute)
+		if route == "" {
+			continue
+		}
+		out = append(out, IsotopeDependency{
+			ProjectRoute: route,
+			Contract:     strings.TrimSpace(dep.Contract),
+		})
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 // UpsertIsotope adds or replaces an isotope record. Modules (for example the
 // federation mesh) use it to register internal isotopes for members they trust
 // by construction, without a network round-trip through /isotope/register.
+//
+// A record added this way is durable: the membership feed owns its lifecycle
+// and removes it when the member leaves, so it is not subject to the heartbeat
+// sweep. Updating a self-registered record preserves that record's heartbeat,
+// because a membership event says the peer is a member, not that its own
+// registration is current.
 func (s *Server) UpsertIsotope(rec isotope.Record) {
 	if strings.TrimSpace(rec.Name) == "" {
 		return
 	}
-	if rec.RegisteredAt.IsZero() {
-		rec.RegisteredAt = time.Now().UTC()
-	}
+	now := time.Now().UTC()
+
 	s.mu.Lock()
-	s.isotopes[rec.Name] = rec
-	s.mu.Unlock()
+	defer s.mu.Unlock()
+
+	entry, found := s.isotopes[rec.Name]
+	if found && rec.RegisteredAt.IsZero() {
+		rec.RegisteredAt = entry.record.RegisteredAt
+	}
+	if rec.RegisteredAt.IsZero() {
+		rec.RegisteredAt = now
+	}
+	if !found {
+		s.isotopes[rec.Name] = isotopeEntry{record: rec, lastSeen: now}
+		return
+	}
+	entry.record = rec
+	if entry.expiresAt.IsZero() {
+		entry.lastSeen = now
+	}
+	s.isotopes[rec.Name] = entry
 }
 
 // RemoveIsotope deletes a previously registered isotope by name. Unknown names
@@ -594,19 +1157,36 @@ func (s *Server) handleFeaturesList(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
+// isotopeCertificationRung is "Certification — can certify others". A feature
+// certification is a claim about the lab, so it takes the rung that says the
+// claimant may make one.
+const isotopeCertificationRung = 6
+
 // handleFeatureCertify accepts a POST body {"id":"..."} and certifies that feature.
 // Called by the Godog step suite after a scenario passes.
+//
+// When the alarm holds cluster secrets, the caller must be a certified isotope:
+// it presents its name, endpoint and attestation, and the named registration
+// must already be at rung 6. Without that, anyone who can reach the port could
+// certify any feature — the other half of #23.
 func (s *Server) handleFeatureCertify(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
 		return
 	}
 	var body struct {
-		ID     string `json:"id"`
-		Status string `json:"status"` // "certified" or "failed"; defaults to "certified"
+		ID          string               `json:"id"`
+		Status      string               `json:"status"` // "certified" or "failed"; defaults to "certified"
+		Name        string               `json:"name"`
+		Endpoint    string               `json:"endpoint"`
+		Attestation *isotope.Attestation `json:"attestation"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.ID == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "id required"})
+		return
+	}
+	if refusal := s.refuseUnattestedCertification(body.Name, body.Endpoint, body.Attestation); refusal != "" {
+		writeJSON(w, http.StatusForbidden, map[string]any{"error": refusal})
 		return
 	}
 	if body.Status == "failed" {
@@ -615,6 +1195,46 @@ func (s *Server) handleFeatureCertify(w http.ResponseWriter, r *http.Request) {
 		s.CertifyFeature(body.ID)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"status": "ok", "id": body.ID})
+}
+
+// refuseUnattestedCertification returns why a certification request is refused,
+// or "" when it may proceed. An alarm with no evidence configured — no secrets
+// and no pinned roots — keeps the old behavior: it has nothing to attest and no
+// certified instance to ask.
+func (s *Server) refuseUnattestedCertification(name, endpoint string, att *isotope.Attestation) string {
+	// Either half of the keyring is evidence. Checking only the secrets would
+	// leave an alarm that pins a root but holds no secret letting certification
+	// through unproven — the gate would be off precisely where certificates are
+	// the only way to attest.
+	if len(s.opts.TrustConfig.Secrets) == 0 && len(s.opts.TrustConfig.Roots) == 0 {
+		return ""
+	}
+	if name == "" || endpoint == "" || att == nil {
+		return "certification requires name, endpoint and attestation"
+	}
+	keyring, err := s.trustKeyring()
+	if err != nil {
+		return "trust configuration is unusable: " + err.Error()
+	}
+	// VerifyWith names the missing evidence itself: "this alarm holds no secret
+	// for cluster X" for an hmac receipt, or "issuer X is not a pinned root" for
+	// a certificate. Repeating that as "not attested" here would lose which half
+	// of the keyring was absent.
+	if err := att.VerifyWith(keyring, endpoint, time.Now(), s.opts.TrustConfig.Skew); err != nil {
+		return "attestation rejected: " + err.Error()
+	}
+	s.mu.RLock()
+	entry, found := s.isotopes[name]
+	s.mu.RUnlock()
+	switch {
+	case !found:
+		return fmt.Sprintf("%q is not registered with this alarm", name)
+	case entry.record.Endpoint != endpoint:
+		return fmt.Sprintf("%q is registered for %s, not %s", name, entry.record.Endpoint, endpoint)
+	case entry.record.TrustRung < isotopeCertificationRung:
+		return fmt.Sprintf("%q holds rung %d; certification requires rung %d", name, entry.record.TrustRung, isotopeCertificationRung)
+	}
+	return ""
 }
 
 func summarizeTargets(targets []TargetStatus) StatusSummary {

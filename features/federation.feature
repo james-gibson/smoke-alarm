@@ -1,31 +1,46 @@
 # features/federation.feature
-# Canon record — last audited: 2026-03-26
-# Exercises: federation subsystem — slot election, registry, server, client, poller
-# Code: internal/federation/{slots,registry,server,client,federation}.go
+# Canon record — last audited: 2026-10-28 (#38)
+# Exercises: federation subsystem — slot election, registry, server, client
+# Code: internal/federation/{slots,registry,server,client,status}.go
 # Step definitions: features/step_definitions/federation_steps.go
 # see: features/selfdescription.feature (capabilities.federation field)
-# see: features/known-state.feature (target status consumed by poller)
+# see: features/known-state.feature (target status consumed by the mesh)
 #
-# ARCHITECTURE CONSTRAINTS (from CLAUDE.md):
-#   - Fan-out is valid; cycles are forbidden
-#   - Every routed message must carry a routing trace
-#   - Routing logic belongs in internal/routing/ (planned) — NOT in internal/federation/
+# TOPOLOGY — what this feature describes and what it does not:
+#   The live design is a star. The first process to bind base_port is the
+#   introducer; every other process claims base_port+1.. and becomes a follower
+#   that announces itself, heartbeats and pushes its own status to the
+#   introducer. The introducer serves /introductions, /heartbeats, /membership
+#   and /reports, and hands the aggregated cluster status back on every
+#   membership response (status.go).
 #
-# RESOLVED IMPLEMENTATION GAPS:
-#   TF-FED-1 DONE: federation.go fmt.Printf replaced with slog.Debug (2026-03-26)
-#   TF-FED-2 DONE: ReportToUpstream marshals body, uses NewRequestWithContext (2026-03-26)
-#   TF-FED-3 DONE: configs/samples/federation-mesh.yaml added (2026-03-26)
-#   TF-FED-4 DONE: DetectRank/SortEndpoints use net.SplitHostPort (2026-03-26)
+#   There is no downstream/upstream chain. The Poller, ReportToUpstream and
+#   SortEndpoints helpers that described one were never reachable from a binary
+#   and were deleted in #38. Cycle detection and routing traces belong to
+#   internal/routing (planned), not here; the two scenarios that claimed them
+#   moved to features/routing.feature, tagged @wip, and are tracked in #81.
 #
-# Config block (from integration test, not yet in sample configs):
+# STEP WIRING — every step below drives the real internal/federation types.
+#   Slot election, registry and server scenarios claim real listeners on the
+#   ports they name, so the slot scenarios need 5100-5103 free on loopback.
+#   The process-level lifecycle scenarios are tagged @wip because
+#   tests/integration/federation_test.go already runs three real binaries
+#   through that lifecycle; re-running it here would double the wall clock for
+#   the same assertion.
+#
+#   features/step_definitions/federation_strict_test.go runs this file with
+#   godog Strict, so a pending or undefined step fails the build instead of
+#   reading as green. Do not add a scenario here without its steps.
+#
+# Config block (configs/samples/federation-mesh.yaml):
 #   federation:
 #     enabled: true
-#     base_port: <N>
-#     max_port: <M>
-#     poll_interval: "2s"
-#     announce_interval: "1s"
-#     heartbeat_interval: "1s"
-#     heartbeat_timeout: "3s"
+#     base_port: 5100
+#     max_port: 5103
+#     poll_interval: "5s"        # legacy alias for report_interval
+#     announce_interval: "10s"
+#     heartbeat_interval: "15s"
+#     heartbeat_timeout: "45s"
 @federation @optional
 Feature: Federation Mesh — Slot Election, Membership, and Status Fan-Out
   As an operator running multiple ocd-smoke-alarm instances
@@ -55,12 +70,12 @@ Feature: Federation Mesh — Slot Election, Membership, and Status Fan-Out
   Scenario: ClaimSlot returns ErrNoFreeSlots when all ports in the range are occupied
     Given all ports from base_port to max_port are already bound
     When ClaimSlot is called
-    Then the error is "federation: no free local slots available"
+    Then the slot claim fails with "federation: no free local slots available"
 
-  Scenario: ClaimSlot defaults to base_port 5100 and slot count 4 when not configured
+  Scenario: ClaimSlot defaults to base_port 19100 and four slots when not configured
     Given a config with no federation.base_port field
     When ClaimSlot is called
-    Then ports 5100 through 5103 are the candidates
+    Then ports 19100 through 19103 are the candidates
   # ── instance identity ─────────────────────────────────────────────────────
 
   Scenario: instance ID is deterministic for the same hostname, service, state_dir, and port
@@ -111,7 +126,7 @@ Feature: Federation Mesh — Slot Election, Membership, and Status Fan-Out
     And the response body contains "record.id is required"
 
   Scenario: POST /introductions rejects non-POST methods
-    When a GET request is sent to /introductions
+    When a GET request is sent to the introducer's /introductions
     Then the response status code is 405
 
   Scenario: POST /heartbeats refreshes the peer's LastSeenAt and returns current membership
@@ -131,24 +146,24 @@ Feature: Federation Mesh — Slot Election, Membership, and Status Fan-Out
 
   Scenario: a peer that stops heartbeating is removed after heartbeat_timeout elapses
     Given a follower is registered with the introducer
-    And "heartbeat_timeout" is set to "3s"
-    When the follower sends no heartbeat for 4 seconds
+    And the registry heartbeat timeout is "500ms"
+    When the follower sends no heartbeat for 600 milliseconds
     Then the follower is removed from the registry
     And the removal reason is "heartbeat_timeout"
     And the removal is reflected in GET /membership
 
   Scenario: a peer that resumes heartbeating before timeout is not removed
     Given a follower is registered with the introducer
-    And "heartbeat_timeout" is set to "3s"
-    When the follower sends a heartbeat at 2 seconds
-    Then the follower remains in the registry after 4 seconds
+    And the registry heartbeat timeout is "500ms"
+    When the follower sends a heartbeat at 200 milliseconds
+    Then the follower remains in the registry after 400 milliseconds
   # ── peer cap ──────────────────────────────────────────────────────────────
 
   Scenario: registry silently drops a new peer when MaxPeers is reached
     Given the registry already contains 10 peers at the MaxPeers limit
     When Upsert is called with a new peer record
     Then the registry peer count does not increase
-    And no error is returned
+    And the upsert reports no error
 
   Scenario: registry ignores Upsert calls for the local instance's own ID
     When Upsert is called with a record whose ID matches the registry's own identity
@@ -175,13 +190,13 @@ Feature: Federation Mesh — Slot Election, Membership, and Status Fan-Out
   Scenario: follower client logs a warning when an introduction request fails
     Given the introducer URL is unreachable
     When the follower attempts to send an introduction
-    Then a "warn" log entry is written containing "federation introduction failed"
+    Then the federation log contains "federation introduction failed"
     And the client retries on the next announce_interval
 
   Scenario: follower client logs a warning when a heartbeat request fails
     Given the follower is introduced and the introducer becomes unreachable
     When the heartbeat_interval elapses
-    Then a "warn" log entry is written containing "federation heartbeat failed"
+    Then the federation log contains "federation heartbeat failed"
   # ── registry snapshot persistence ────────────────────────────────────────
 
   Scenario: registry snapshot is written atomically via temp-file rename
@@ -217,50 +232,12 @@ Feature: Federation Mesh — Slot Election, Membership, and Status Fan-Out
     Given the registry has a peer with id "peer-001"
     When Remove is called with that id
     Then the OnChange callback receives an event with type "removed"
-  # ── poller fan-out ────────────────────────────────────────────────────────
-  # Fan-out is valid. Cycles are forbidden. See CLAUDE.md routing constraints.
-
-  Scenario: poller fetches target status from each downstream endpoint
-    Given a Poller configured with downstream endpoints ["localhost:8091", "localhost:8092"]
-    When a poll cycle runs
-    Then GET http://localhost:8091/status is requested
-    And GET http://localhost:8092/status is requested
-
-  Scenario: poller namespaces target IDs with the source endpoint
-    Given a downstream at "localhost:8091" returns a target with id "mcp-local"
-    When a poll cycle runs
-    Then the aggregated target ID is "[localhost:8091] mcp-local"
-
-  Scenario: poller reports an error target when a downstream endpoint is unreachable
-    Given a downstream endpoint "localhost:9999" is unreachable
-    When a poll cycle runs
-    Then a target with id "federation-error" is included in the update
-    And the target state is "unhealthy"
-
-  Scenario: poller calls the updateFn with all aggregated targets after each poll cycle
-    Given a Poller with 2 downstream endpoints each returning 3 targets
-    When a poll cycle runs
-    Then updateFn is called with 6 targets
-
-  Scenario: SortEndpoints orders by port number ascending
-    Given endpoints ["localhost:8093", "localhost:8091", "localhost:8092"]
-    When SortEndpoints is called
-    Then the result is ["localhost:8091", "localhost:8092", "localhost:8093"]
-
-  Scenario: no cycle exists when a downstream is also a peer of the introducer
-    Given instance A is the introducer with downstream [B]
-    And instance B is a follower with downstream [C]
-    And instance C has no downstream
-    When the topology is validated
-    Then no routing cycle is detected
-    And every message carries a routing trace
-
-  Scenario: a cycle is rejected when a downstream references an ancestor
-    Given instance A has downstream [B] and instance B has downstream [A]
-    When the topology is validated
-    Then a cycle error is returned
   # ── full lifecycle (integration) ──────────────────────────────────────────
+  # @wip: these drive the real binary three times. tests/integration/federation_test.go
+  # (TestFederationIntroducerAndFollowerLifecycle) already runs this lifecycle against
+  # three processes, so the assertion lives there rather than being duplicated here.
 
+  @wip
   Scenario: three instances form a mesh — introducer plus two followers
     Given no instances are running on the federation port range
     When instance 1 starts with federation enabled
@@ -272,9 +249,10 @@ Feature: Federation Mesh — Slot Election, Membership, and Status Fan-Out
     Then instance 3 joins as a follower
     And both instance 2 and instance 3 appear in GET /membership
 
+  @wip
   Scenario: stopping a follower causes it to be removed from the introducer's membership view
     Given a mesh of 3 instances (1 introducer + 2 followers) is running
-    And "heartbeat_timeout" is set to "3s"
+    And the registry heartbeat timeout is "500ms"
     When follower instance 2 is stopped
     Then within 5 seconds instance 2 is absent from GET /membership
     And instance 3 remains present in GET /membership

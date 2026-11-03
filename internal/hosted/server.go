@@ -7,11 +7,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/james-gibson/smoke-alarm/internal/netbind"
 )
 
 // Options configures the embedded hosted service server.
@@ -58,7 +61,9 @@ type Server struct {
 	opts    Options
 	httpSrv *http.Server
 
-	started atomic.Bool
+	started   atomic.Bool
+	listener  net.Listener // set by BindWithRetry; nil means use ListenAndServe
+	boundAddr string       // address actually bound, "" until BindWithRetry
 
 	totalReq atomic.Int64
 	mcpReq   atomic.Int64
@@ -147,6 +152,12 @@ func NewServer(opts Options) *Server {
 	mux.HandleFunc("/hosted/status", s.handleHostedStatus)
 	mux.HandleFunc("/hosted/events", s.handleHostedEvents)
 
+	// A discovery consumer is handed http://host:port and probes it before
+	// asking for a path, so a 404 on "/" reads as a dead instance
+	// (smoke-alarm#22). Answer with this surface's identity instead; the
+	// handler keeps the 404 for every other unknown path.
+	mux.HandleFunc("/", s.handleRoot)
+
 	// Tuner integration endpoints.
 	mux.HandleFunc("/tuner/audience", s.handleTunerAudience)
 	mux.HandleFunc("/tuner/caller/", s.handleTunerCaller)
@@ -155,6 +166,9 @@ func NewServer(opts Options) *Server {
 }
 
 // Start runs the hosted server until context cancellation or fatal listen error.
+//
+// If BindWithRetry was called first, Start serves on the pre-bound listener;
+// otherwise it falls back to ListenAndServe on the configured address.
 func (s *Server) Start(ctx context.Context) error {
 	if s.started.Load() {
 		return nil
@@ -163,7 +177,12 @@ func (s *Server) Start(ctx context.Context) error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		err := s.httpSrv.ListenAndServe()
+		var err error
+		if s.listener != nil {
+			err = s.httpSrv.Serve(s.listener)
+		} else {
+			err = s.httpSrv.ListenAndServe()
+		}
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 			return
@@ -179,6 +198,63 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 }
 
+// BindWithRetry pre-binds the hosted server's listen address, scanning up to
+// maxRetries higher ports on EADDRINUSE, and returns the address actually
+// bound. Must be called before Start.
+//
+// The hosted surface is what the process's own MCP/ACP targets probe, so a port
+// that silently moved must be reported rather than discovered as an outage
+// (smoke-alarm#53): callers record the returned address in /status and rewrite
+// self-referencing targets to it.
+func (s *Server) BindWithRetry(maxRetries int) (string, error) {
+	ln, boundAddr, err := netbind.Listen(s.opts.ListenAddr, maxRetries)
+	if err != nil {
+		return "", fmt.Errorf("hosted server: %w", err)
+	}
+	return s.adoptListener(ln, boundAddr)
+}
+
+// BindListener takes ownership of an already-bound listener and reports the
+// address the server will serve on once Start runs. Must be called before Start;
+// the server closes the listener on Shutdown.
+//
+// It exists for the caller that has to know the address before the server does:
+// a test asserting a URL, a process advertising itself. Such a caller can bind
+// first and hand the listener over, instead of reserving a port, releasing it,
+// and hoping the server is given the same one again. That gap is what made the
+// integration suite flaky (smoke-alarm#70): the port belonged to nobody between
+// the probe and the server's own bind, so a parallel test could take it and the
+// server would fail to start on the address the test was already dialing.
+func (s *Server) BindListener(ln net.Listener) (string, error) {
+	if ln == nil {
+		return "", errors.New("hosted server: nil listener")
+	}
+	return s.adoptListener(ln, ln.Addr().String())
+}
+
+// adoptListener records a listener and the address to advertise for it, which is
+// the configured host on the retry path and the listener's own address when the
+// caller bound it.
+func (s *Server) adoptListener(ln net.Listener, boundAddr string) (string, error) {
+	if s.started.Load() {
+		return "", errors.New("hosted server: already started")
+	}
+	s.listener = ln
+	s.boundAddr = boundAddr
+	s.httpSrv.Addr = boundAddr
+	return boundAddr, nil
+}
+
+// Addr returns the address the hosted server actually serves on: the bound
+// address once BindWithRetry or BindListener has run, otherwise the configured
+// one.
+func (s *Server) Addr() string {
+	if s.boundAddr != "" {
+		return s.boundAddr
+	}
+	return s.opts.ListenAddr
+}
+
 // Shutdown gracefully stops the hosted server.
 func (s *Server) Shutdown(ctx context.Context) error {
 	if !s.started.Load() {
@@ -191,11 +267,49 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	return s.httpSrv.Shutdown(timeoutCtx)
 }
 
+func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
+
+	endpoints := map[string]string{
+		"status": "/hosted/status",
+		"events": "/hosted/events",
+	}
+	if s.opts.EnableMCP {
+		endpoints["mcp"] = s.opts.MCPEndpoint
+	}
+	if s.opts.EnableACP {
+		endpoints["acp"] = s.opts.ACPEndpoint
+	}
+	if s.opts.EnableA2A {
+		endpoints["a2a"] = s.opts.A2AEndpoint
+	}
+
+	transports := make([]string, 0, 2)
+	if s.opts.EnableHTTP {
+		transports = append(transports, "http")
+	}
+	if s.opts.EnableSSE {
+		transports = append(transports, "sse")
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"service":    s.opts.ServiceName,
+		"version":    s.opts.Version,
+		"surface":    "hosted",
+		"listen":     s.Addr(),
+		"transports": transports,
+		"endpoints":  endpoints,
+	})
+}
+
 func (s *Server) handleHostedStatus(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"service": s.opts.ServiceName,
 		"version": s.opts.Version,
-		"listen":  s.opts.ListenAddr,
+		"listen":  s.Addr(),
 		"transports": map[string]bool{
 			"http": s.opts.EnableHTTP,
 			"sse":  s.opts.EnableSSE,

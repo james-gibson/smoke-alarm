@@ -132,8 +132,9 @@ func TestOneTimeSkillsIgnoredToVariation(t *testing.T) {
 
 // TestOneTimeSkillReuseIsScored pins the gap rather than a behavior worth
 // keeping: a stamped route resolves on every use today, so a replayed one-time
-// skill is indistinguishable from a second legitimate use. When replay
-// accounting lands (see #52) this test should fail, and that failure is the
+// skill is indistinguishable from a second legitimate use. Rotation bounds the
+// window (see #52) but does not detect the replay; when replay accounting lands
+// (james-gibson/smoke-alarm#73) this test should fail, and that failure is the
 // signal to invert it.
 func TestOneTimeSkillReuseIsScored(t *testing.T) {
 	proxy := hashedProxy(t, "list-tools")

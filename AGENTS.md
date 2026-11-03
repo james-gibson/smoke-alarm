@@ -3,14 +3,14 @@
 Guidelines for agentic coding agents operating in this repository.
 
 > **Note**: This repo also contains agent-specific config files. See:
-> - [`.cursorrules`](.cursorrules) - Cursor AI rules
-> - [`.cursor/rules/`](.cursor/rules/) - Cursor directory rules
+> - `.cursorrules` - Cursor AI rules
+> - `.cursor/rules/` - Cursor directory rules
 > - [`.github/copilot-instructions.md`](.github/copilot-instructions.md) - GitHub Copilot
-> - [`.aider.conf.yml`](.aider.conf.yml) - Aider config
-> - [`.claude.md`](.claude.md) - Claude Code settings
-> - [`.zed/`](zed/) - Zed editor settings
-> - [`.opencode/skills/`](.opencode/skills/) - OpenCode skills
-> - [`.opencode.md`](.opencode.md) - OpenCode settings
+> - `.aider.conf.yml` - Aider config
+> - `.claude.md` - Claude Code settings
+> - `.zed/` - Zed editor settings
+> - `.opencode/skills/` - OpenCode skills
+> - `.opencode.md` - OpenCode settings
 
 ## What This Is
 

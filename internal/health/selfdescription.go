@@ -49,6 +49,7 @@ type SDCapabilities struct {
 	Monitoring    SDMonitoring    `json:"monitoring"`
 	Discovery     SDDiscovery     `json:"discovery"`
 	Hosted        SDHosted        `json:"hosted"`
+	OAuth         SDOAuth         `json:"oauth"`
 	DynamicConfig SDDynamicConfig `json:"dynamic_config"`
 	MetaConfig    SDMetaConfig    `json:"meta_config"`
 	Federation    SDFederation    `json:"federation"`
@@ -77,6 +78,21 @@ type SDHosted struct {
 	Endpoints  map[string]string `json:"endpoints,omitempty"`
 	Transports []string          `json:"transports,omitempty"`
 	Protocols  []string          `json:"protocols,omitempty"`
+}
+
+// SDOAuth describes the deterministic OAuth surfaces this instance serves.
+type SDOAuth struct {
+	MockRedirect SDOAuthMockRedirect `json:"mock_redirect"`
+}
+
+// SDOAuthMockRedirect describes the mock redirect endpoint. ListenAddr is the
+// address actually bound, so a client that reads the document follows the
+// callback rather than the port the config asked for.
+type SDOAuthMockRedirect struct {
+	Enabled    bool   `json:"enabled"`
+	ListenAddr string `json:"listen_addr,omitempty"`
+	Path       string `json:"path,omitempty"`
+	Mode       string `json:"mode,omitempty"`
 }
 
 // SDDynamicConfig describes dynamic config artifact generation.
@@ -158,7 +174,9 @@ func buildSelfDescription(cfg config.Config, appVersion string, startedAt time.T
 			StartedAt:   startedAt.Format(time.RFC3339),
 		},
 		Health: SDHealth{
-			ListenAddr: cfg.Health.ListenAddr,
+			// The address actually bound: a listener that scanned past a taken
+			// port must not be described at the port it asked for.
+			ListenAddr: listenerAddrOr(srv, ListenerHealth, cfg.Health.ListenAddr),
 			Endpoints: SDEndpoints{
 				Healthz:         cfg.Health.Endpoints.Healthz,
 				Readyz:          cfg.Health.Endpoints.Readyz,
@@ -166,15 +184,15 @@ func buildSelfDescription(cfg config.Config, appVersion string, startedAt time.T
 				SelfDescription: "/.well-known/smoke-alarm.json",
 			},
 		},
-		Capabilities: buildCapabilities(cfg),
-		Permissions:  buildPermissions(cfg),
+		Capabilities: buildCapabilities(cfg, srv),
+		Permissions:  buildPermissions(cfg, srv),
 		MCP:          make(map[string]any),
 		Targets:      buildTargets(cfg, srv),
 	}
 	return sd
 }
 
-func buildCapabilities(cfg config.Config) SDCapabilities {
+func buildCapabilities(cfg config.Config, srv *Server) SDCapabilities {
 	// Discovery sources
 	var sources []string
 	if cfg.Discovery.Enabled {
@@ -231,10 +249,18 @@ func buildCapabilities(cfg config.Config) SDCapabilities {
 		},
 		Hosted: SDHosted{
 			Enabled:    cfg.Hosted.Enabled,
-			ListenAddr: cfg.Hosted.ListenAddr,
+			ListenAddr: listenerAddrOr(srv, ListenerHosted, cfg.Hosted.ListenAddr),
 			Endpoints:  hostedEndpoints,
 			Transports: cfg.Hosted.Transports,
 			Protocols:  cfg.Hosted.Protocols,
+		},
+		OAuth: SDOAuth{
+			MockRedirect: SDOAuthMockRedirect{
+				Enabled:    cfg.Auth.OAuth.MockRedirect.Enabled,
+				ListenAddr: listenerAddrOr(srv, ListenerOAuthRedirect, cfg.Auth.OAuth.MockRedirect.ListenAddr),
+				Path:       cfg.Auth.OAuth.MockRedirect.Path,
+				Mode:       cfg.Auth.OAuth.MockRedirect.Mode,
+			},
 		},
 		DynamicConfig: SDDynamicConfig{
 			Enabled:      cfg.DynamicConfig.Enabled,
@@ -252,7 +278,7 @@ func buildCapabilities(cfg config.Config) SDCapabilities {
 	}
 }
 
-func buildPermissions(cfg config.Config) SDPermissions {
+func buildPermissions(cfg config.Config, srv *Server) SDPermissions {
 	readPaths := []string{"./configs/"}
 	writePaths := []string{cfg.Runtime.StateDir}
 
@@ -267,10 +293,18 @@ func buildPermissions(cfg config.Config) SDPermissions {
 		writePaths = append(writePaths, cfg.Runtime.LockFile)
 	}
 
-	listen := []string{cfg.Health.ListenAddr}
-	if cfg.Hosted.Enabled && cfg.Hosted.ListenAddr != "" {
-		listen = append(listen, cfg.Hosted.ListenAddr)
+	listen := []string{listenerAddrOr(srv, ListenerHealth, cfg.Health.ListenAddr)}
+	if cfg.Hosted.Enabled {
+		if addr := listenerAddrOr(srv, ListenerHosted, cfg.Hosted.ListenAddr); addr != "" {
+			listen = append(listen, addr)
+		}
 	}
+	if cfg.Auth.OAuth.MockRedirect.Enabled {
+		if addr := listenerAddrOr(srv, ListenerOAuthRedirect, cfg.Auth.OAuth.MockRedirect.ListenAddr); addr != "" {
+			listen = append(listen, addr)
+		}
+	}
+	listen = dedup(listen)
 
 	// Collect outbound domains from llms.txt URIs
 	var outbound []string
@@ -363,6 +397,18 @@ func domainFromURI(uri string) string {
 		u = u[:idx]
 	}
 	return u
+}
+
+// listenerAddrOr prefers the address a listener actually bound, so the document
+// describes the port being served rather than the one the config asked for. A
+// nil server — a document built before binding — falls back to the config.
+func listenerAddrOr(srv *Server, name, configured string) string {
+	if srv != nil {
+		if addr := srv.ListenerAddr(name); addr != "" {
+			return addr
+		}
+	}
+	return configured
 }
 
 func dedup(ss []string) []string {

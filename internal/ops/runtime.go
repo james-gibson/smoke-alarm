@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/james-gibson/smoke-alarm/internal/alerts"
@@ -127,6 +126,10 @@ func (r *Runtime) bootstrap(ctx context.Context) error {
 
 	if r.cfg.Health.Enabled {
 		shutdownTimeout, _ := time.ParseDuration(r.cfg.Runtime.GracefulShutdownTimeout)
+		isotopeTTL, _ := time.ParseDuration(r.cfg.Health.IsotopeTTL)
+		if isotopeTTL <= 0 {
+			isotopeTTL = health.DefaultIsotopeTTL
+		}
 		r.health = health.NewServer(health.Options{
 			ServiceName:     r.cfg.Service.Name,
 			ListenAddr:      r.cfg.Health.ListenAddr,
@@ -134,6 +137,7 @@ func (r *Runtime) bootstrap(ctx context.Context) error {
 			ReadyzPath:      r.cfg.Health.Endpoints.Readyz,
 			StatusPath:      r.cfg.Health.Endpoints.Status,
 			ShutdownTimeout: shutdownTimeout,
+			IsotopeTTL:      isotopeTTL,
 		})
 
 		// Pre-bind with port scanning so we claim the lowest available port
@@ -443,15 +447,6 @@ func readPID(path string) (int, error) {
 		return 0, err
 	}
 	return pid, nil
-}
-
-func processAlive(pid int) bool {
-	if pid <= 0 {
-		return false
-	}
-	// Signal 0 checks existence/permission without delivering a signal.
-	err := syscall.Kill(pid, 0)
-	return err == nil || errors.Is(err, syscall.EPERM)
 }
 
 func filepathDir(path string) string {

@@ -105,8 +105,16 @@ func (s *Server) authorized(w http.ResponseWriter, r *http.Request) bool {
 }
 
 // Start begins serving HTTP and blocks until the context is canceled or an error occurs.
+//
+// It does not return until the age-out loop has stopped. That loop persists the
+// registry snapshot, so returning early would let a write land after the caller
+// believes the server is finished — which is how a shutdown raced a test's
+// TempDir cleanup (the snapshot appeared inside a directory being removed).
 func (s *Server) Start(ctx context.Context) error {
 	errCh := make(chan error, 1)
+
+	loopCtx, stopLoop := context.WithCancel(ctx)
+	loopDone := make(chan struct{})
 
 	go func() {
 		s.logger.Info("federation introducer listening",
@@ -119,17 +127,26 @@ func (s *Server) Start(ctx context.Context) error {
 		errCh <- nil
 	}()
 
-	go s.ageOutLoop(ctx)
+	go func() {
+		defer close(loopDone)
+		s.ageOutLoop(loopCtx)
+	}()
 
+	var startErr error
 	select {
 	case <-ctx.Done():
-		return s.shutdown()
+		startErr = s.shutdown()
 	case err := <-errCh:
 		if err == nil || errors.Is(err, http.ErrServerClosed) {
-			return nil
+			startErr = nil
+		} else {
+			startErr = err
 		}
-		return err
 	}
+
+	stopLoop()
+	<-loopDone
+	return startErr
 }
 
 // Shutdown stops the HTTP server gracefully.

@@ -10,7 +10,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -172,12 +171,21 @@ func (p *StdioProber) Probe(ctx context.Context, target targets.Target, _ map[st
 	}, nil
 }
 
-func (p *StdioProber) performHandshake(ctx context.Context, target targets.Target) (string, []string, error) {
+func (p *StdioProber) performHandshake(ctx context.Context, target targets.Target) (stderrText string, exercised []string, err error) {
 	cmd := exec.CommandContext(ctx, target.Stdio.Command, target.Stdio.Args...)
 	if target.Stdio.Cwd != "" {
 		cmd.Dir = target.Stdio.Cwd
 	}
 	cmd.Env = mergeEnv(target.Stdio.Env)
+	// The configured command is often a wrapper (`uvx`, `npx`) that forks or
+	// execs the real server. Put it in its own process group so teardown can
+	// signal the whole tree, and route context cancellation through that group
+	// instead of exec's default "kill the direct child" (issue #44).
+	cmd.SysProcAttr = stdioSysProcAttr()
+	cmd.Cancel = func() error { return terminateStdioProcess(cmd) }
+	// Bound the post-cancel wait: a process outside the group can still hold a
+	// pipe, and Probe must not outlive its own deadline waiting for it.
+	cmd.WaitDelay = stdioTeardownTimeout
 
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
@@ -195,35 +203,30 @@ func (p *StdioProber) performHandshake(ctx context.Context, target targets.Targe
 	if err := cmd.Start(); err != nil {
 		return "", nil, fmt.Errorf("start stdio server: %w", err)
 	}
-	defer func() {
-		_ = stdin.Close()
-		if cmd.Process != nil {
-			_ = cmd.Process.Kill()
-		}
-		_ = cmd.Wait()
-	}()
 
 	maxErr := p.MaxStderrBytes
 	if maxErr <= 0 {
 		maxErr = 8192
 	}
 	stderrBuf := newLimitedBuffer(maxErr)
-	var stderrWG sync.WaitGroup
-	stderrWG.Add(1)
+	stderrDone := make(chan struct{})
 	go func() {
-		defer stderrWG.Done()
+		defer close(stderrDone)
 		_, _ = io.Copy(stderrBuf, stderr)
 	}()
+
+	// Every exit path — success, protocol failure, write failure, timeout —
+	// tears the child down the same way and reports whatever stderr was
+	// captured before it died.
+	defer func() { stderrText = teardownStdioServer(cmd, stdin, stderrBuf, stderrDone) }()
 
 	reader := bufio.NewReader(stdout)
 	methods := p.handshakeMethods(target)
 	if len(methods) == 0 {
-		_ = stdin.Close()
-		stderrWG.Wait()
-		return stderrBuf.String(), nil, errors.New("no handshake methods configured")
+		return "", nil, errors.New("no handshake methods configured")
 	}
 
-	exercised := make([]string, 0, len(methods))
+	exercised = make([]string, 0, len(methods))
 	for i, method := range methods {
 		req := rpcRequest{
 			JSONRPC: "2.0",
@@ -232,43 +235,68 @@ func (p *StdioProber) performHandshake(ctx context.Context, target targets.Targe
 			Params:  p.requestParamsForMethod(target.Protocol, method),
 		}
 		if err := writeRPCFrame(stdin, req); err != nil {
-			_ = stdin.Close()
-			stderrWG.Wait()
-			return stderrBuf.String(), exercised, fmt.Errorf("write rpc request %q: %w", method, err)
+			return "", exercised, fmt.Errorf("write rpc request %q: %w", method, err)
 		}
 
 		resp, err := readRPCResponseByID(ctx, reader, req.ID)
 		if err != nil {
-			_ = stdin.Close()
-			stderrWG.Wait()
-			return stderrBuf.String(), exercised, fmt.Errorf("read rpc response for %q: %w", method, err)
+			// A deadline that fires while waiting on stdout is a timeout, not a
+			// protocol error: say so, and keep the peer detail for the message.
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				// errorlint: keep %w for the cause and render the peer detail as
+				// text, so the class is unambiguous and the message keeps both.
+				return "", exercised, fmt.Errorf("read rpc response for %q: %w (peer: %s)", method, ctxErr, err.Error())
+			}
+			return "", exercised, fmt.Errorf("read rpc response for %q: %w", method, err)
 		}
 		if resp.Error != nil {
-			_ = stdin.Close()
-			stderrWG.Wait()
-			return stderrBuf.String(), exercised, fmt.Errorf("handshake method %q rejected: %s", method, resp.Error.Error())
+			return "", exercised, fmt.Errorf("handshake method %q rejected: %s", method, resp.Error.Error())
 		}
 		if method == "initialize" && target.Protocol == targets.ProtocolMCP {
 			if err := validateMCPInitializeResult(resp.Result); err != nil {
-				_ = stdin.Close()
-				stderrWG.Wait()
-				return stderrBuf.String(), exercised, err
+				return "", exercised, err
 			}
 			if err := writeRPCNotification(stdin, rpcNotification{
 				JSONRPC: "2.0",
 				Method:  "notifications/initialized",
 			}); err != nil {
-				_ = stdin.Close()
-				stderrWG.Wait()
-				return stderrBuf.String(), exercised, fmt.Errorf("write rpc notification %q: %w", "notifications/initialized", err)
+				return "", exercised, fmt.Errorf("write rpc notification %q: %w", "notifications/initialized", err)
 			}
 		}
 		exercised = append(exercised, method)
 	}
 
+	return "", exercised, nil
+}
+
+// teardownStdioServer stops the server and returns the stderr it produced.
+//
+// Closing stdin is the shutdown signal MCP defines for stdio, so a well-behaved
+// server exits on its own and its stderr is complete. Whatever is still alive
+// when the grace window expires is killed by process group — a wrapper's
+// grandchild would otherwise be reparented to PID 1 and keep the pipes open,
+// which is the hang in issue #44. Both waits are bounded for the same reason:
+// diagnostics must not be able to outlive the probe.
+func teardownStdioServer(cmd *exec.Cmd, stdin io.Closer, stderrBuf *limitedBuffer, stderrDone <-chan struct{}) string {
 	_ = stdin.Close()
-	stderrWG.Wait()
-	return stderrBuf.String(), exercised, nil
+
+	select {
+	case <-stderrDone:
+	case <-time.After(stdioTeardownGrace):
+	}
+
+	_ = terminateStdioProcess(cmd)
+
+	select {
+	case <-stderrDone:
+	case <-time.After(stdioTeardownTimeout):
+	}
+
+	// Wait releases the pipes and reaps the direct child. WaitDelay, set in
+	// performHandshake, bounds it even when the pipes are still held open.
+	_ = cmd.Wait()
+
+	return stderrBuf.String()
 }
 
 func (p *StdioProber) defaultParams(proto targets.Protocol) map[string]any {
@@ -352,15 +380,37 @@ func normalizeMethods(in []string) []string {
 	return out
 }
 
+// maxRPCFrameBytes caps a single newline-delimited JSON-RPC message read from
+// a stdio server. Real MCP/ACP messages are a few KiB; the cap only exists so a
+// misbehaving or hostile peer cannot drive unbounded allocation in the probe.
+const maxRPCFrameBytes = 8 << 20 // 8 MiB
+
+const (
+	// stdioTeardownGrace lets a server that honors the stdin-EOF shutdown
+	// signal exit on its own before the process group is killed.
+	stdioTeardownGrace = 250 * time.Millisecond
+	// stdioTeardownTimeout bounds every wait in teardown. It is also the
+	// exec.Cmd.WaitDelay.
+	stdioTeardownTimeout = 2 * time.Second
+)
+
+// writeRPCFrame writes one JSON-RPC message framed the way both stdio
+// transports define it: the JSON object followed by a single newline.
+//
+//	MCP  § transports/stdio (2025-06-18): "Messages are delimited by newlines,
+//	      and MUST NOT contain embedded newlines."
+//	ACP  § transports/stdio: "Messages are delimited by newlines (\n), and
+//	      MUST NOT contain embedded newlines."
+//
+// LSP-style `Content-Length: N\r\n\r\n` headers belong to neither protocol, so
+// they are not written. json.Marshal escapes newlines inside strings, which is
+// what keeps the "no embedded newlines" half true.
 func writeRPCFrame(w io.Writer, req rpcRequest) error {
 	body, err := json.Marshal(req)
 	if err != nil {
 		return err
 	}
-	header := fmt.Sprintf("Content-Length: %d\r\n\r\n", len(body))
-	if _, writeErr := io.WriteString(w, header); writeErr != nil {
-		return writeErr
-	}
+	body = append(body, '\n')
 	_, err = w.Write(body)
 	return err
 }
@@ -370,16 +420,16 @@ func writeRPCNotification(w io.Writer, notification rpcNotification) error {
 	if err != nil {
 		return err
 	}
-	header := fmt.Sprintf("Content-Length: %d\r\n\r\n", len(body))
-	if _, writeErr := io.WriteString(w, header); writeErr != nil {
-		return writeErr
-	}
+	body = append(body, '\n')
 	_, err = w.Write(body)
 	return err
 }
 
 func readRPCResponseByID(ctx context.Context, r *bufio.Reader, id int) (rpcResponse, error) {
 	// Skip unrelated notifications/messages and only return matching response ID.
+	// The first unparsable line is kept so a silent timeout-less EOF still says
+	// something useful about what the peer actually wrote.
+	var noise string
 	for {
 		select {
 		case <-ctx.Done():
@@ -389,12 +439,18 @@ func readRPCResponseByID(ctx context.Context, r *bufio.Reader, id int) (rpcRespo
 
 		payload, err := readRPCFrame(r)
 		if err != nil {
+			if noise != "" {
+				return rpcResponse{}, fmt.Errorf("%w (unparsable stdout: %q)", err, noise)
+			}
 			return rpcResponse{}, err
 		}
 
 		var resp rpcResponse
 		if err := json.Unmarshal(payload, &resp); err != nil {
 			// Ignore malformed frames and continue looking for valid response.
+			if noise == "" {
+				noise = compact(string(payload), 120)
+			}
 			continue
 		}
 		if resp.ID == nil {
@@ -408,39 +464,56 @@ func readRPCResponseByID(ctx context.Context, r *bufio.Reader, id int) (rpcRespo
 	}
 }
 
+// readRPCFrame reads one newline-delimited JSON-RPC message. Blank lines are
+// skipped. Content-Length framing is rejected by name instead of being handed
+// to the JSON decoder, so a peer speaking the wrong transport is reported as a
+// framing mismatch rather than as an unmarshal error or a bare EOF.
 func readRPCFrame(r *bufio.Reader) ([]byte, error) {
-	// Parse headers.
-	contentLen := -1
 	for {
-		line, err := r.ReadString('\n')
+		line, err := readBoundedLine(r, maxRPCFrameBytes)
 		if err != nil {
 			return nil, err
 		}
-		line = strings.TrimRight(line, "\r\n")
-		if line == "" {
-			break
+		line = bytes.TrimRight(line, "\r\n")
+		if len(bytes.TrimSpace(line)) == 0 {
+			continue
 		}
-
-		lower := strings.ToLower(line)
-		if strings.HasPrefix(lower, "content-length:") {
-			raw := strings.TrimSpace(line[len("Content-Length:"):])
-			n, err := strconv.Atoi(raw)
-			if err != nil || n < 0 {
-				return nil, fmt.Errorf("invalid content-length %q", raw)
-			}
-			contentLen = n
+		if hasContentLengthPrefix(line) {
+			return nil, errors.New(
+				"peer used LSP Content-Length framing; MCP and ACP stdio require newline-delimited JSON",
+			)
 		}
+		return line, nil
 	}
+}
 
-	if contentLen < 0 {
-		return nil, errors.New("missing content-length header")
-	}
-
-	payload := make([]byte, contentLen)
-	if _, err := io.ReadFull(r, payload); err != nil {
+// readBoundedLine reads up to and including the next '\n', failing if the line
+// would exceed maxBytes. Unlike bufio.Reader.ReadString it cannot grow without
+// bound while it waits for a delimiter.
+func readBoundedLine(r *bufio.Reader, maxBytes int) ([]byte, error) {
+	var line []byte
+	for {
+		chunk, err := r.ReadSlice('\n')
+		if len(line)+len(chunk) > maxBytes {
+			return nil, fmt.Errorf("rpc frame exceeds %d bytes without a newline", maxBytes)
+		}
+		line = append(line, chunk...)
+		if err == nil {
+			return line, nil
+		}
+		if errors.Is(err, bufio.ErrBufferFull) {
+			continue
+		}
+		if len(line) > 0 {
+			return nil, fmt.Errorf("truncated rpc frame (%d bytes, no trailing newline): %w", len(line), io.ErrUnexpectedEOF)
+		}
 		return nil, err
 	}
-	return payload, nil
+}
+
+func hasContentLengthPrefix(line []byte) bool {
+	const prefix = "content-length:"
+	return len(line) >= len(prefix) && strings.EqualFold(string(line[:len(prefix)]), prefix)
 }
 
 func classifyStdioError(err error) targets.FailureClass {
@@ -458,6 +531,8 @@ func classifyStdioError(err error) targets.FailureClass {
 		strings.Contains(msg, "json"),
 		strings.Contains(msg, "content-length"),
 		strings.Contains(msg, "initialize result"),
+		strings.Contains(msg, "newline-delimited"),
+		strings.Contains(msg, "unparsable stdout"),
 		strings.Contains(msg, "handshake"):
 		return targets.FailureProtocol
 	case strings.Contains(msg, "timeout"),
@@ -506,7 +581,11 @@ func mergeEnv(extra map[string]string) []string {
 	return out
 }
 
+// limitedBuffer keeps the first max bytes written to it. It is written by the
+// stderr copier goroutine while teardown may already be reading it, so access is
+// synchronized: an orphan that outlives the timeout must not race the read.
 type limitedBuffer struct {
+	mu  sync.Mutex
 	max int
 	buf bytes.Buffer
 }
@@ -516,6 +595,9 @@ func newLimitedBuffer(maxBytes int) *limitedBuffer {
 }
 
 func (l *limitedBuffer) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
 	if l.max <= 0 {
 		return len(p), nil
 	}
@@ -532,6 +614,8 @@ func (l *limitedBuffer) Write(p []byte) (int, error) {
 }
 
 func (l *limitedBuffer) String() string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	return l.buf.String()
 }
 

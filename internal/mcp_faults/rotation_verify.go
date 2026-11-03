@@ -265,11 +265,24 @@ func (tp *ToolProxy) AdoptLedger(from *ToolProxy) int {
 	if from == nil {
 		return 0
 	}
+
+	// Copy the predecessor's ledger under both locks: a standby takes on an
+	// instance that is still serving, so neither side may see a half-adopted
+	// history.
+	from.mu.Lock()
+	incoming := make([]SkillRoute, len(from.Skills))
+	copy(incoming, from.Skills)
+	fromRotated := from.LastRotation
+	from.mu.Unlock()
+
+	tp.mu.Lock()
+	defer tp.mu.Unlock()
+
 	adopted := 0
-	for _, incoming := range from.Skills {
+	for _, candidate := range incoming {
 		seen := false
 		for _, existing := range tp.Skills {
-			if existing.Stamp == incoming.Stamp {
+			if existing.Stamp == candidate.Stamp {
 				seen = true
 				break
 			}
@@ -277,11 +290,11 @@ func (tp *ToolProxy) AdoptLedger(from *ToolProxy) int {
 		if seen {
 			continue
 		}
-		tp.Skills = append(tp.Skills, incoming)
+		tp.Skills = append(tp.Skills, candidate)
 		adopted++
 	}
-	if from.LastRotation.After(tp.LastRotation) {
-		tp.LastRotation = from.LastRotation
+	if fromRotated.After(tp.LastRotation) {
+		tp.LastRotation = fromRotated
 	}
 	return adopted
 }
@@ -289,6 +302,9 @@ func (tp *ToolProxy) AdoptLedger(from *ToolProxy) int {
 // Announcement returns what this node would tell its neighbors about its last
 // rotation, or nil if it has never rotated. It is a claim, not a fact.
 func (tp *ToolProxy) Announcement() *RotationClaim {
+	tp.mu.Lock()
+	defer tp.mu.Unlock()
+
 	if tp.LastRotation.IsZero() {
 		return nil
 	}

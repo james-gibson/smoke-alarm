@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"net"
 	"net/http"
 	"testing"
 	"time"
@@ -15,13 +14,16 @@ import (
 func TestMockRedirectServer_AllowMode(t *testing.T) {
 	t.Parallel()
 
-	addr := freeTCPAddrOAuth(t)
+	ln, addr := boundListener(t)
 	srv := auth.NewMockRedirectServer(auth.MockRedirectOptions{
 		ListenAddr:      addr,
 		Path:            "/oauth/callback",
 		Mode:            auth.MockRedirectAllow,
 		ShutdownTimeout: 3 * time.Second,
 	})
+	if _, bindErr := srv.BindListener(ln); bindErr != nil {
+		t.Fatalf("hand listener to server: %v", bindErr)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -79,13 +81,16 @@ func TestMockRedirectServer_AllowMode(t *testing.T) {
 func TestMockRedirectServer_FailMode(t *testing.T) {
 	t.Parallel()
 
-	addr := freeTCPAddrOAuth(t)
+	ln, addr := boundListener(t)
 	srv := auth.NewMockRedirectServer(auth.MockRedirectOptions{
 		ListenAddr:      addr,
 		Path:            "/oauth/callback",
 		Mode:            auth.MockRedirectFail,
 		ShutdownTimeout: 3 * time.Second,
 	})
+	if _, bindErr := srv.BindListener(ln); bindErr != nil {
+		t.Fatalf("hand listener to server: %v", bindErr)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -168,15 +173,4 @@ func waitForStatusOAuth(t *testing.T, url string, want int, timeout time.Duratio
 		t.Fatalf("wait for status=%d failed: %v", want, lastErr)
 	}
 	t.Fatalf("wait for status=%d failed: last code=%d", want, lastCode)
-}
-
-func freeTCPAddrOAuth(t *testing.T) string {
-	t.Helper()
-
-	ln, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		t.Fatalf("listen failed: %v", err)
-	}
-	defer ln.Close()
-	return ln.Addr().String()
 }

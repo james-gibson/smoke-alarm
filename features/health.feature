@@ -1,5 +1,5 @@
 # features/health.feature
-# Canon record — last audited: 2026-03-26 (updated: added BindWithRetry + mDNS-on-actual-port scenarios; fixed {int} in non-Outline steps)
+# Canon record — last audited: 2026-03-26 (updated: added BindWithRetry + mDNS-on-actual-port scenarios; fixed {int} in non-Outline steps; added the / root-probe scenarios, smoke-alarm#22)
 # Step definitions: features/step_definitions/health_steps.go
 
 @health @core
@@ -172,6 +172,26 @@ Feature: Health and Status Endpoints
     Then the response status code is 200
     And the response body contains "test-service"
 
+  # ── / ─────────────────────────────────────────────────────────────────────
+  # DNS-SD hands a consumer http://host:port and nothing else, so the root is
+  # what a discovery client or an operator probes first (smoke-alarm#22).
+
+  Scenario: / answers with the self-description so a bare probe finds a live instance
+    Given a self-description factory returning service name "test-service" is registered
+    When a GET request is sent to "/"
+    Then the response status code is 200
+    And the response body contains "test-service"
+
+  Scenario: / answers even when no self-description factory is configured
+    Given no self-description factory is registered
+    When a GET request is sent to "/"
+    Then the response status code is 200
+    And the response body contains the configured service name
+
+  Scenario: an unknown path is still 404 on the health port
+    When a GET request is sent to "/no-such-path"
+    Then the response status code is 404
+
   # ── /federation/report ────────────────────────────────────────────────────
 
   Scenario: POST to /federation/report accepts target status and updates snapshot
@@ -208,6 +228,38 @@ Feature: Health and Status Endpoints
     When the mDNS advertiser is started with the actual bound address
     Then the advertiser registers the service on the actual bound port
     And the advertiser does not register on the configured port
+
+  # ── self-negotiated listeners (smoke-alarm#53) ────────────────────────────
+  #
+  # Only the health listener and the federation slot claimed a free port. The
+  # hosted server and the OAuth mock redirect bound fixed ports: with one of
+  # those held by an unrelated process the instance either failed to start or
+  # ran without that surface, and /status still said live with no statement of
+  # which port was taken.
+
+  Scenario: the OAuth mock redirect claims the next free port when its port is held
+    Given another process holds the port the OAuth mock redirect would use
+    When the OAuth mock redirect listener is claimed with retry
+    Then the OAuth mock redirect bound a port other than the held one
+    And /status reports the "oauth_redirect_mock" listener on the address it bound
+
+  Scenario: the hosted server claims the next free port when its port is held
+    Given another process holds the port the hosted server would use
+    When the hosted listener is claimed with retry
+    Then the hosted listener bound a port other than the held one
+    And /status reports the "hosted" listener on the address it bound
+
+  Scenario: a target that names a moved listener follows the bound address
+    Given another process holds the port the hosted server would use
+    And a target named "hosted-mcp-http" points at the held address
+    When the hosted listener is claimed with retry
+    Then the target endpoint names the bound hosted port
+
+  Scenario: a listener that cannot bind is named as an unhealthy component
+    Given another process holds the port the OAuth mock redirect would use
+    When the OAuth mock redirect listener is claimed with no retries
+    Then /status reports the "oauth_redirect_mock" component unhealthy
+    And the component detail names the held port
 
   # ── shutdown ───────────────────────────────────────────────────────────────
 

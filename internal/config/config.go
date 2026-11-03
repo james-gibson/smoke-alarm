@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/james-gibson/isotope"
 	"gopkg.in/yaml.v3"
 )
 
@@ -68,6 +69,7 @@ type Config struct {
 	Telemetry     TelemetryConfig     `yaml:"telemetry"`
 	Federation    FederationConfig    `yaml:"federation"`
 	Tuner         TunerConfig         `yaml:"tuner"`
+	Trust         TrustConfig         `yaml:"trust"`
 	Extra         map[string]any      `yaml:",inline"`
 }
 
@@ -195,11 +197,45 @@ func applyEfficiencyProfile(svc *ServiceConfig) {
 	}
 }
 
+// TrustConfig is the evidence this alarm accepts about registrations.
+//
+// An isotope registration is a claim: "this endpoint is mine, and I belong to
+// cluster X". Without evidence, the claim is self-declared and the rung stays at
+// the floor (isotope#23). Two kinds of evidence count, and they are configured
+// side by side because they are two halves of one keyring (isotope#25):
+//
+//   - Clusters maps a cluster identity to the launch secret its members were
+//     given — lezz mints one per cluster and hands it to the alarm and to the
+//     processes it spawns. A receipt that proves this secret may rise above the
+//     floor.
+//   - Roots maps a trust root's name ("seed-42" for the public base, or a private
+//     cluster's own name) to its ed25519 public key. A cluster that presents a
+//     certificate chaining it to a pinned root is attested without this alarm
+//     ever holding a shared secret.
+//
+// Nothing is implicit: an empty map accepts nothing, and naming a root is not
+// enough — its key has to be there. That is what makes an offline alarm trust
+// exactly what an online one does (isotope docs/trust-roots.md).
+type TrustConfig struct {
+	// Clusters maps cluster identity to launch secret. An empty map means this
+	// alarm accepts no symmetric cluster: a receipt that needs a secret cannot
+	// be attested, which is the honest answer for a claim nobody vouched for.
+	Clusters map[string]string `yaml:"clusters"`
+	// Roots maps a trust root's name to its ed25519 public key (base64 std). A
+	// certificate issued by a root named here is accepted, so this alarm can
+	// check a cluster it holds no secret for without being able to mint as it.
+	Roots map[string]string `yaml:"roots"`
+}
+
 type HealthConfig struct {
 	Enabled    bool         `yaml:"enabled"`
 	ListenAddr string       `yaml:"listen_addr"`
 	Endpoints  HealthRoutes `yaml:"endpoints"`
 	SelfCheck  bool         `yaml:"self_check"`
+	// IsotopeTTL is how long a self-registered isotope stays in the registry
+	// without re-registering. A name is a heartbeat, not a label: a record the
+	// registrant stopped renewing is swept. Defaults to 5m.
+	IsotopeTTL string `yaml:"isotope_ttl"`
 }
 
 type HealthRoutes struct {
@@ -559,6 +595,9 @@ func (c *Config) ApplyDefaults() {
 	if c.Health.Endpoints.Status == "" {
 		c.Health.Endpoints.Status = "/status"
 	}
+	if c.Health.IsotopeTTL == "" {
+		c.Health.IsotopeTTL = "5m"
+	}
 	// Default to enabled unless explicitly disabled.
 	if !c.Health.Enabled && c.Health.ListenAddr == "localhost:8088" {
 		c.Health.Enabled = true
@@ -684,6 +723,12 @@ func (c *Config) ApplyDefaults() {
 	}
 
 	// Hosted service defaults.
+	//
+	// Port 0 asks the kernel for an ephemeral port; the bound address is reported
+	// in /status and the self-description, but it cannot be known in advance, so
+	// targets that name the hosted listener cannot follow it. Give a fixed
+	// preferred port when this process's own targets point at the hosted surface
+	// (see RewriteSelfReferences).
 	if c.Hosted.ListenAddr == "" {
 		c.Hosted.ListenAddr = ":0"
 	}
@@ -855,6 +900,32 @@ func (c Config) Validate() error {
 			if !strings.HasPrefix(ep, "/") {
 				add("health.endpoints.%s must start with /", name)
 			}
+		}
+		if _, err := parsePositiveDuration(c.Health.IsotopeTTL); err != nil {
+			add("health.isotope_ttl invalid: %v", err)
+		}
+	}
+
+	// A cluster with no secret cannot attest anyone, and a blank secret would
+	// match a receipt signed with an empty key. Both are configuration errors
+	// rather than a quiet downgrade to rung 2.
+	for cluster, secret := range c.Trust.Clusters {
+		if strings.TrimSpace(cluster) == "" {
+			add("trust.clusters has an entry with an empty cluster identity")
+		}
+		if strings.TrimSpace(secret) == "" {
+			add("trust.clusters.%s is empty; a cluster secret must be present or the entry removed", cluster)
+		}
+	}
+
+	// A root that does not parse is a configuration error, not a silent
+	// non-match: an alarm whose pinned key is a typo would reject every
+	// certificate it should have accepted, and the rung would look like a
+	// cluster's fault rather than the operator's. The parser is the verifier's
+	// own (isotope.ParseRoots), so the rule cannot drift from what is used.
+	if len(c.Trust.Roots) > 0 {
+		if _, err := isotope.ParseRoots(c.Trust.Roots); err != nil {
+			add("trust.roots invalid: %v", err)
 		}
 	}
 

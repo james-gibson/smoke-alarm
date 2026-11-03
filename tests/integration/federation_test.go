@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -23,6 +24,13 @@ type federationInstance struct {
 	stderr     *bytes.Buffer
 	healthAddr string
 	stopped    bool
+
+	// done is closed once cmd.Wait has returned; waitErr is set before the
+	// close. Wait may only be called once, and both Stop and the readiness
+	// waiters need its result, so the instance owns that single call.
+	done    chan struct{}
+	mu      sync.Mutex
+	waitErr error
 }
 
 type federationStartOptions struct {
@@ -111,7 +119,18 @@ func startFederationInstance(t *testing.T, name, configPath string, opts federat
 		stdout:     stdoutBuf,
 		stderr:     stderrBuf,
 		healthAddr: opts.HealthAddr,
+		done:       make(chan struct{}),
 	}
+
+	// Reap the child exactly once, from here on: the readiness waiters need to
+	// tell "still starting" from "died", and a second cmd.Wait would error.
+	go func() {
+		err := cmd.Wait()
+		instance.mu.Lock()
+		instance.waitErr = err
+		instance.mu.Unlock()
+		close(instance.done)
+	}()
 
 	waitCtx, waitCancel := context.WithTimeout(context.Background(), opts.StartTimeout)
 	defer waitCancel()
@@ -131,6 +150,20 @@ func startFederationInstance(t *testing.T, name, configPath string, opts federat
 	return instance
 }
 
+// exitErr reports the child's exit status once it has exited. The buffers are
+// only read after done is closed, because cmd.Wait returns only when the
+// output-copying goroutines have finished.
+func (fi *federationInstance) exitErr() (error, bool) {
+	select {
+	case <-fi.done:
+		fi.mu.Lock()
+		defer fi.mu.Unlock()
+		return fi.waitErr, true
+	default:
+		return nil, false
+	}
+}
+
 func (fi *federationInstance) Stop(t *testing.T) {
 	if fi == nil || fi.stopped {
 		return
@@ -140,14 +173,9 @@ func (fi *federationInstance) Stop(t *testing.T) {
 		fi.cancel()
 	}
 
-	done := make(chan error, 1)
-	go func() {
-		done <- fi.cmd.Wait()
-	}()
-
 	select {
-	case err := <-done:
-		if err != nil && t != nil {
+	case <-fi.done:
+		if err, _ := fi.exitErr(); err != nil && t != nil {
 			t.Logf("instance %q exited with error: %v\nstdout: %s\nstderr: %s", fi.name, err, fi.stdout.String(), fi.stderr.String())
 		}
 	case <-time.After(5 * time.Second):
@@ -157,6 +185,7 @@ func (fi *federationInstance) Stop(t *testing.T) {
 		if err := fi.cmd.Process.Kill(); err != nil && t != nil {
 			t.Logf("kill instance %q: %v", fi.name, err)
 		}
+		<-fi.done
 	}
 }
 
@@ -200,7 +229,11 @@ func TestFederationIntroducerAndFollowerLifecycle(t *testing.T) {
 	inst1 := startFederationInstance(t, "inst1", cfg1, federationStartOptions{
 		StartTimeout: 15 * time.Second,
 	})
-	membershipURL := fmt.Sprintf("http://localhost:%d/membership", basePort)
+	identity1 := waitForIdentity(t, inst1, stateDir1, 10*time.Second)
+	// The introducer is the instance that took base_port, which is where the
+	// test starts looking — but read the port it actually bound rather than
+	// assuming the probe's answer held until the child got there.
+	membershipURL := fmt.Sprintf("http://localhost:%d/membership", identity1.Port)
 
 	view1 := waitForMembership(t, membershipURL, 10*time.Second, func(m membershipView) bool {
 		return m.Self.ID != "" && m.Self.Role == "introducer" && len(m.Peers) == 0
@@ -209,7 +242,6 @@ func TestFederationIntroducerAndFollowerLifecycle(t *testing.T) {
 		t.Fatalf("expected introducer ID to match self, got %s vs %s", view1.IntroducerID, view1.Self.ID)
 	}
 
-	identity1 := waitForIdentity(t, stateDir1, 5*time.Second)
 	if identity1.Role != "introducer" {
 		t.Fatalf("expected introducer role, got %s", identity1.Role)
 	}
@@ -218,7 +250,7 @@ func TestFederationIntroducerAndFollowerLifecycle(t *testing.T) {
 	inst2 := startFederationInstance(t, "inst2", cfg2, federationStartOptions{
 		StartTimeout: 15 * time.Second,
 	})
-	identity2 := waitForIdentity(t, stateDir2, 5*time.Second)
+	identity2 := waitForIdentity(t, inst2, stateDir2, 10*time.Second)
 
 	view2 := waitForMembership(t, membershipURL, 10*time.Second, func(m membershipView) bool {
 		return len(m.Peers) == 1
@@ -231,7 +263,7 @@ func TestFederationIntroducerAndFollowerLifecycle(t *testing.T) {
 	inst3 := startFederationInstance(t, "inst3", cfg3, federationStartOptions{
 		StartTimeout: 15 * time.Second,
 	})
-	identity3 := waitForIdentity(t, stateDir3, 5*time.Second)
+	identity3 := waitForIdentity(t, inst3, stateDir3, 10*time.Second)
 
 	view3 := waitForMembership(t, membershipURL, 10*time.Second, func(m membershipView) bool {
 		return len(m.Peers) == 2
@@ -343,7 +375,7 @@ func containsPeer(peers []membershipRecord, id string) bool {
 	return false
 }
 
-func waitForIdentity(t *testing.T, stateDir string, timeout time.Duration) federationIdentity {
+func waitForIdentity(t *testing.T, fi *federationInstance, stateDir string, timeout time.Duration) federationIdentity {
 	t.Helper()
 
 	path := filepath.Join(stateDir, "federation", "identity.json")
@@ -356,6 +388,13 @@ func waitForIdentity(t *testing.T, stateDir string, timeout time.Duration) feder
 			if json.Unmarshal(data, &ident) == nil && ident.ID != "" {
 				return ident
 			}
+		}
+		// A child that has exited will never write the file, so report why it
+		// died — "no free local slots", a config error, a bind failure — instead
+		// of a missing identity that names none of them (smoke-alarm#78).
+		if exitErr, exited := fi.exitErr(); exited {
+			t.Fatalf("instance %q exited before writing %s: %v\nstdout: %s\nstderr: %s",
+				fi.name, path, exitErr, fi.stdout.String(), fi.stderr.String())
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
@@ -437,6 +476,22 @@ remote_agent:
 	return cfgPath, instanceDir
 }
 
+// federationPortClaimRoot holds one directory per port a run is about to hand
+// to its federation children. It lives in the OS temp dir because the claim
+// has to be visible to every `go test` process on the machine: the children
+// cannot bind the ports while the test holds them, so a probe-then-release
+// cannot reserve anything, and concurrent runs otherwise pick the same range
+// and one cluster dies with "no free local slots available" (smoke-alarm#78).
+func federationPortClaimRoot() string {
+	return filepath.Join(os.TempDir(), "smoke-alarm-federation-port-claims")
+}
+
+// federationPortClaimTTL is how long a claim survives without being released.
+// A live test holds its range for seconds, so the TTL only reclaims claims left
+// behind by a killed run — long enough not to steal one that is still busy,
+// short enough that a crashed run does not poison the temp dir for good.
+const federationPortClaimTTL = 10 * time.Minute
+
 func allocateFederationPortRange(t *testing.T, count int) (int, int) {
 	t.Helper()
 
@@ -444,24 +499,87 @@ func allocateFederationPortRange(t *testing.T, count int) (int, int) {
 		t.Fatalf("port count must be positive")
 	}
 
+	root := federationPortClaimRoot()
+	if err := os.MkdirAll(root, 0o700); err != nil {
+		t.Fatalf("create federation port claim directory: %v", err)
+	}
+
 	for attempt := 0; attempt < 200; attempt++ {
 		base := mustFreePortValue(t)
-		success := true
-		for offset := 1; offset < count; offset++ {
-			addr := fmt.Sprintf("localhost:%d", base+offset)
-			ln, err := net.Listen("tcp", addr)
-			if err != nil {
-				success = false
-				break
-			}
-			_ = ln.Close()
+		if !federationPortRangeFree(base, count) {
+			continue
 		}
-		if success {
-			return base, base + count - 1
+		claims, ok := claimFederationPortRange(root, base, count)
+		if !ok {
+			continue
 		}
+		t.Cleanup(func() { releaseFederationPortClaims(claims) })
+		return base, base + count - 1
 	}
 	t.Fatalf("unable to allocate contiguous federation port range of %d", count)
 	return 0, 0
+}
+
+// federationPortRangeFree reports whether every port in the range can be bound
+// right now. Passing it is necessary but not sufficient: the range also has to
+// be claimed, because this check releases each port before the child binds it.
+func federationPortRangeFree(base, count int) bool {
+	for offset := 0; offset < count; offset++ {
+		addr := fmt.Sprintf("localhost:%d", base+offset)
+		ln, err := net.Listen("tcp", addr)
+		if err != nil {
+			return false
+		}
+		_ = ln.Close()
+	}
+	return true
+}
+
+// claimFederationPortRange takes a claim directory per port, or gives back the
+// ones it managed to take. Claims are independent and retries pick a fresh base,
+// so two runs that overlap cannot deadlock on each other.
+func claimFederationPortRange(root string, base, count int) ([]string, bool) {
+	claims := make([]string, 0, count)
+	for offset := 0; offset < count; offset++ {
+		dir := filepath.Join(root, fmt.Sprintf("%d", base+offset))
+		if !claimFederationPort(dir) {
+			releaseFederationPortClaims(claims)
+			return nil, false
+		}
+		claims = append(claims, dir)
+	}
+	return claims, true
+}
+
+func claimFederationPort(dir string) bool {
+	for attempt := 0; attempt < 2; attempt++ {
+		err := os.Mkdir(dir, 0o700)
+		if err == nil {
+			return true
+		}
+		if !errors.Is(err, os.ErrExist) || !federationPortClaimStale(dir) {
+			return false
+		}
+		// Left behind by a run that was killed before its cleanup ran.
+		_ = os.RemoveAll(dir)
+	}
+	return false
+}
+
+// federationPortClaimStale reports whether a claim is old enough to be
+// abandoned. Activity cannot be refreshed portably, so age is the signal.
+func federationPortClaimStale(dir string) bool {
+	info, err := os.Stat(dir)
+	if err != nil {
+		return false
+	}
+	return time.Since(info.ModTime()) > federationPortClaimTTL
+}
+
+func releaseFederationPortClaims(claims []string) {
+	for _, dir := range claims {
+		_ = os.RemoveAll(dir)
+	}
 }
 
 func mustFreePortValue(t *testing.T) int {

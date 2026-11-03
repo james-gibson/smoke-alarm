@@ -24,8 +24,12 @@ may read. A caller that keeps departing is removed from the routeable set.
 ```
 
 One measure, regardless of source — a stale credential, a clock skew, a tampered
-receipt, a honeypot contact. Model: `kb/scripts/lab/PLANE.md`. Figures:
-`kb/scripts/lab/MATH.md`. Full page with references: `kb/scripts/lab/SPLASH.md`.
+receipt, a honeypot contact. Model:
+[`PLANE.md`](https://github.com/james-gibson/lab-safety/blob/main/lab/PLANE.md).
+Figures:
+[`MATH.md`](https://github.com/james-gibson/lab-safety/blob/main/lab/MATH.md).
+Full page with references:
+[`SPLASH.md`](https://github.com/james-gibson/lab-safety/blob/main/lab/SPLASH.md).
 
 ## In the Lab
 
@@ -33,7 +37,7 @@ ocd-smoke-alarm is part of a cluster of tools that share a common lab environmen
 
 Key integrations:
 - **lezz.go** — starts and manages ocd-smoke-alarm as a LaunchAgent; `lezz demo` runs two instances that monitor each other
-- **adhd** — polls ocd-smoke-alarm `/status` and SSE streams; registers with `/isotope/register` on startup
+- **adhd** — polls ocd-smoke-alarm `/status` and SSE streams; registers with `/isotope/register` and renews the registration
 - **isotope** — shared library used for `VerifyTrust`, wire types (`Registration`, `Record`), and the 42i capability lattice
 
 ### Isotope Endpoints
@@ -42,10 +46,52 @@ ocd-smoke-alarm is the isotope registry for the cluster:
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/isotope/register` | POST | Register an agent; returns a `Record` with a trust rung |
-| `/isotope/list` | GET | List all registered isotopes and their trust rungs |
+| `/isotope/register` | POST | Register an agent (and renew a registration); returns a `Record` with a trust rung |
+| `/isotope/list` | GET | List live isotopes with their trust rungs and heartbeat state |
+| `/isotope/<name>` | GET | Resolve one name; 404 when it is not registered or has expired |
+| `/isotope/<name>` | DELETE | Deregister now, for a node that gets to shut down cleanly |
+| `/isotope/by-route/<route>` | GET | Resolve a project route to its live instances |
+| `/isotope/by-contract/<id>` | GET | Resolve a pinned contract id to what implements or depends on it |
 
-Trust rungs are assigned by `VerifyTrust`: rung 6 if both the lezz cluster registry (`:19100/cluster`) and mDNS (`_lezz-demo._tcp`) confirm the registrant, rung 4 if registry only, rung 2 if self-registered.
+Trust rungs are granted from **evidence**, never from presence. A registrant
+presents a cluster *attestation* — an HMAC receipt over the cluster identity and
+its own endpoint, signed with the cluster's launch secret — and only that can
+lift it above the floor:
+
+| Evidence | Rung |
+|----------|------|
+| Attested, the cluster's registry entry names this host:port, mDNS names the cluster | 6 — Certification |
+| Attested and registry-confirmed, mDNS did not confirm | 4 — Higher Authority |
+| Unattested, wrong secret, unknown cluster, or no matching registry entry | 2 — Harness Tools |
+
+Configure the evidence this alarm accepts:
+
+```yaml
+trust:
+  # A symmetric cluster: the launch secret lezz minted for it.
+  clusters:
+    demo-1234: "<the cluster's launch secret>"
+  # A root, pinned by name: a cluster that presents a certificate chaining it
+  # here is attested without this alarm holding its secret.
+  roots:
+    seed-42: "<base64 ed25519 public key>"
+```
+
+An alarm with neither map attests nobody and grants rung 2 to every registration
+— the honest answer for a self-declared endpoint (isotope#23, isotope#25).
+Naming a root is not trusting it: the key has to be present, and a key that does
+not parse is a configuration error rather than a silent non-match. A renewal
+that presents the same receipt — by secret or by certificate — keeps its rung
+without re-probing; a renewal that presents none is verified like a new claim, so
+it cannot inherit a rung it did not earn. `POST /features/certify` likewise
+requires a receipt from an instance already at rung 6 whenever the alarm holds
+either kind of evidence.
+
+**A name is a heartbeat, not a label.** A registration made through `POST /isotope/register` lives for `health.isotope_ttl` (default `5m`) unless it is renewed; `/isotope/list` sweeps expired names, so a node that dies without deregistering stops resolving. Re-registering the same name and endpoint extends the window and keeps the assigned rung (the trust probe is not re-run) **when the renewal presents the same attestation**; a changed endpoint, or a renewal with no receipt, is a new claim and is verified again. Records mirrored from federation membership have no heartbeat and report `"status": "registered"` — their lifecycle belongs to the membership feed.
+
+**A project is not one process.** A registration may carry its `project_route` (the lezz `seed.json` route), the `contract` it implements, and `depends_on` references to other projects (each a route plus a pinned contract). A dependent resolves the non-moving identity — the route — and pins the contract id it was built against; neither is a trust claim, and the rung stays the registry's judgement. The registry's own contract is `features/isotope-registry.feature`, canonicalised as `smoke-alarm-isotope-registry-v1:bb021b6028b247ed` (key `seed-42`).
+
+The list view adds `last_seen`, `expires_at`, `status` (`live` or `registered`), `project_route`, `contract`, and `depends_on` to the shared `isotope.Record`.
 
 ### Other Endpoints
 
@@ -55,6 +101,7 @@ Trust rungs are assigned by `VerifyTrust`: rung 6 if both the lezz cluster regis
 | `/readyz` | Readiness probe |
 | `/status` | Full component health and target states |
 | `/.well-known/smoke-alarm.json` | Machine-readable service descriptor |
+| `/` | Identity on the advertised port — the same document as `/.well-known/smoke-alarm.json`, because DNS-SD hands a consumer a bare `http://host:port` and a 404 there reads as a dead instance (smoke-alarm#22) |
 
 Multiple instances monitor each other, creating a Byzantine-tolerant consensus view of cluster health.
 
@@ -311,6 +358,29 @@ Hosted service endpoints are configured under `hosted` in config:
 
 When enabled, you can monitor these hosted endpoints as normal targets and use them as baseline controls during outages or config migrations.
 
+### Ports that are already in use
+
+Every listener the process owns claims its port rather than failing on it. If the
+configured port is held by an unrelated process, the listener binds the next free
+port and the move is reported rather than left to be inferred:
+
+- `GET /status` lists each listener under `listeners` (for example
+  `{"hosted": "localhost:18092"}`), and its component detail says
+  `listening on <addr>`.
+- `/.well-known/smoke-alarm.json` reports the bound address in
+  `health.listen_addr`, `capabilities.hosted.listen_addr` and
+  `capabilities.oauth.mock_redirect.listen_addr`.
+- targets that name one of this process's own listeners (`hosted` endpoints,
+  `auth.oauth.mock_redirect`) are rewritten to follow the bound address, so the
+  alarm does not report its own surface as an outage.
+- a listener that cannot bind at all (the whole scan range is taken) is reported
+  as an unhealthy component whose detail names the port, and the process is not
+  ready.
+
+This covers `health`, `hosted`, `auth.oauth.mock_redirect` and the federation
+slot. Give `hosted.listen_addr` a fixed preferred port (rather than the default
+`:0`) when your own targets need to follow it.
+
 ### Handshake Matrix Options
 
 Configure per target with:
@@ -506,7 +576,11 @@ All sample configs live in `configs/samples/` and are intended for editor-side i
 > **Full catalog:** all 33 samples are documented in [`configs/samples/README.md`](configs/samples/README.md), grouped by theme — transports, federation, warroom, auth/secrets, deployment/ops, discovery, and the dev/QA harness.
 
 - `configs/samples/stdio-mcp-strict.yaml`
-  - strict stdio MCP handshake path (`initialize`, `tools/list`, `resources/list`).
+  - strict stdio MCP handshake path (`initialize`, `tools/list`) against
+    `npx @modelcontextprotocol/server-filesystem`, framed as newline-delimited JSON-RPC
+    (the MCP and ACP stdio transports define no other framing). The current package
+    advertises only the `tools` capability, so `resources/list` is not required. Needs
+    Node.js on `PATH`; the network-gated CI job runs this exact command weekly.
 - `configs/samples/sse-remote-mixed.yaml`
   - SSE-first remote profile with mixed MCP/ACP targets.
 - `configs/samples/hosted-mcp-acp.yaml`

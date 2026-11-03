@@ -18,6 +18,21 @@ health:
     healthz: "/healthz"
     readyz: "/readyz"
     status: "/status"
+  # A self-registered isotope is a heartbeat: re-register to renew, or the
+  # name is swept from /isotope/list after this window.
+  isotope_ttl: "5m"
+
+# Cluster launch secrets this alarm can attest. A registration that cannot
+# present a receipt signed with one of these stays at rung 2 (isotope#23).
+# lezz mints the secret per cluster and hands it to the alarm and its agents.
+trust:
+  clusters: {}
+  # demo-1234: "<launch secret>"
+  # A root is a name and the ed25519 public key it pins. A cluster that presents
+  # a certificate chaining it here is attested without this alarm holding its
+  # secret. Naming a root is not trusting it: the key must be present.
+  roots: {}
+  # seed-42: "<base64 ed25519 public key>"
 
 runtime:
   lock_file: "/tmp/ocd-smoke-alarm.lock"

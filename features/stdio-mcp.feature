@@ -4,6 +4,20 @@
 # Config reference: configs/samples/stdio-mcp-strict.yaml
 # Step definitions: features/step_definitions/stdio_mcp_steps.go
 # see: features/config-validation.feature (schema), features/dynamic-config.feature (state output)
+#
+# Wire format (issue #43): MCP and ACP both define stdio framing as one JSON-RPC
+# message per line, delimited by newlines and containing no embedded newlines —
+# never LSP-style `Content-Length: N\r\n\r\n` headers. The scenarios below state
+# that; the executable pin lives in internal/engine/stdio_prober_test.go and
+# tests/integration/protocol_safety_test.go (newline-framed mock passes,
+# Content-Length-framed mock is rejected), because this feature's steps are
+# stubs (see THESIS-FINDING in stdio_mcp_steps.go).
+#
+# Teardown (issue #44): the configured command is usually a wrapper (`uvx`, `npx`,
+# a shell) that forks or execs the real server. Killing the direct child leaves
+# that server reparented, holding the pipes — the probe then blocks past its own
+# deadline. Teardown therefore signals the whole process group and bounds every
+# wait. Executable pin: tests/integration/stdio_teardown_test.go.
 
 @stdio-mcp @core
 Feature: Stdio MCP Probe
@@ -30,10 +44,37 @@ Feature: Stdio MCP Probe
     When the probe for target "mcp-stdio-filesystem-strict" completes
     Then no orphan child processes remain for target "mcp-stdio-filesystem-strict"
 
+  Scenario: probe tears down a wrapper command's whole process tree
+    Given the target "mcp-stdio-filesystem-strict" is launched through a wrapper that forks the server
+    When the probe for target "mcp-stdio-filesystem-strict" completes
+    Then the probe returns within its configured timeout
+    And no descendant of the wrapper remains
+
+  Scenario: probe still returns when the server ignores stdin EOF after the handshake
+    Given the target "mcp-stdio-filesystem-strict" completes the handshake and then ignores stdin EOF
+    When the probe for target "mcp-stdio-filesystem-strict" completes
+    Then the probe returns within its configured timeout
+    And the target "mcp-stdio-filesystem-strict" is classified as "HEALTHY"
+    And no descendant of the wrapper remains
+
   Scenario: probe classifies target as HEALTHY after a successful strict handshake
     Given the target "mcp-stdio-filesystem-strict" responds to all required methods
     When the probe for target "mcp-stdio-filesystem-strict" completes
     Then the target "mcp-stdio-filesystem-strict" is classified as "HEALTHY"
+
+  # ── wire format ───────────────────────────────────────────────────────────
+
+  Scenario: probe frames JSON-RPC as newline-delimited JSON on stdin
+    Given the target "mcp-stdio-filesystem-strict" is enabled in config "configs/samples/stdio-mcp-strict.yaml"
+    When the probe for target "mcp-stdio-filesystem-strict" runs
+    Then each request written to stdin is one JSON object terminated by a newline
+    And no "Content-Length" header is written to stdin
+
+  Scenario: probe rejects a server that replies with Content-Length framing
+    Given the target "mcp-stdio-filesystem-strict" replies with LSP "Content-Length" framing
+    When the probe for target "mcp-stdio-filesystem-strict" runs
+    Then the target "mcp-stdio-filesystem-strict" is classified as "DEGRADED"
+    And the probe result contains "newline-delimited"
 
   # ── strict handshake profile ──────────────────────────────────────────────
 
@@ -43,11 +84,15 @@ Feature: Stdio MCP Probe
     Then the target "mcp-stdio-filesystem-strict" is classified as "DEGRADED"
     And the probe result contains "missing required method"
 
+    # `@modelcontextprotocol/server-filesystem` advertises only the `tools`
+    # family, so the sample no longer declares `resources/list` (issue #43: the
+    # real-server CI job caught that the package returns -32601 for it). The
+    # three-method strict profile is still exercised against the spec-framed
+    # mock in tests/integration/protocol_safety_test.go.
     Examples:
-      | method         |
-      | initialize     |
-      | tools/list     |
-      | resources/list |
+      | method     |
+      | initialize |
+      | tools/list |
 
   # ── failure classification ────────────────────────────────────────────────
 

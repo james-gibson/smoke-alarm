@@ -223,9 +223,12 @@ remote_agent:
     lock_ttl: "2m"
 
 # Embedded hosted MCP/ACP services exposed by this smoke alarm process.
+# A fixed preferred port, claimed with retry: if 18091 is held the hosted server
+# binds the next free port and the targets below follow it (smoke-alarm#53), so
+# an unrelated process on 18091 costs a port shift, not a broken sample.
 hosted:
   enabled: true
-  listen_addr: ":0"
+  listen_addr: "localhost:18091"
   transports:
     - "http"
     - "sse"

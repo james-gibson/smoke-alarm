@@ -290,3 +290,26 @@ Feature: MCP/ACP Priority Routing and Self-Healing
     Then the browser re-discovers all advertising peers
     And the routing table is rebuilt without manual reconfiguration
     And no stale entries from the previous run are carried over
+
+  # ── topology: fan-out, cycles, routing traces ─────────────────────────────
+  # Moved here from features/federation.feature in #38:
+  #   Fan-out is valid; cycles are forbidden; every routed message carries a
+  #   routing trace. Those constraints describe routing, not federation — the
+  #   introducer/follower mesh is a star and has no chain to validate. There is
+  #   no internal/routing package yet, so these two scenarios are @wip and are
+  #   tracked by issue #81 rather than standing in for coverage.
+
+  @wip
+  Scenario: no cycle exists when a downstream is also a peer of the introducer
+    Given instance A is the introducer with downstream [B]
+    And instance B is a follower with downstream [C]
+    And instance C has no downstream
+    When the topology is validated
+    Then no routing cycle is detected
+    And every message carries a routing trace
+
+  @wip
+  Scenario: a cycle is rejected when a downstream references an ancestor
+    Given instance A has downstream [B] and instance B has downstream [A]
+    When the topology is validated
+    Then a cycle error is returned

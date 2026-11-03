@@ -202,6 +202,12 @@ func TestFaultProfilesBuildMeasurableDistance(t *testing.T) {
 // TestProgressiveCompromiseDetection shows how an agent detects a gradually
 // compromised MCP server through stages.
 func TestProgressiveCompromiseDetection(t *testing.T) {
+	// Pin the tumble epoch (james-gibson/smoke-alarm#33): the low injection rates
+	// in the middle stages make "nothing injected anywhere" reachable at random,
+	// and a stage that happens to draw no faults is not a detector failure. A pin
+	// is honored only inside a test binary.
+	t.Setenv(FaultSeedEnv, "42")
+
 	agent := isotope.NewAgentState("cautious-agent")
 	profile := CompromiseProgressionProfile()
 

@@ -15,7 +15,7 @@ import (
 func TestTunerIntegration_AudienceEndpoint(t *testing.T) {
 	t.Parallel()
 
-	addr := freeTCPAddr(t)
+	ln, addr := boundListener(t)
 	srv := hosted.NewServer(hosted.Options{
 		ServiceName: "itest-tuner",
 		Version:     "test",
@@ -24,6 +24,9 @@ func TestTunerIntegration_AudienceEndpoint(t *testing.T) {
 		EnableMCP:   true,
 		MCPEndpoint: "/mcp",
 	})
+	if _, bindErr := srv.BindListener(ln); bindErr != nil {
+		t.Fatalf("hand listener to server: %v", bindErr)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -86,7 +89,7 @@ func TestTunerIntegration_AudienceEndpoint(t *testing.T) {
 func TestTunerIntegration_CallerPostAndResponse(t *testing.T) {
 	t.Parallel()
 
-	addr := freeTCPAddr(t)
+	ln, addr := boundListener(t)
 	srv := hosted.NewServer(hosted.Options{
 		ServiceName: "itest-tuner-caller",
 		Version:     "test",
@@ -95,6 +98,9 @@ func TestTunerIntegration_CallerPostAndResponse(t *testing.T) {
 		EnableMCP:   true,
 		MCPEndpoint: "/mcp",
 	})
+	if _, bindErr := srv.BindListener(ln); bindErr != nil {
+		t.Fatalf("hand listener to server: %v", bindErr)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -148,7 +154,7 @@ func TestTunerIntegration_CallerPostAndResponse(t *testing.T) {
 func TestTunerIntegration_MCPToolsListIncludesTunerTools(t *testing.T) {
 	t.Parallel()
 
-	addr := freeTCPAddr(t)
+	ln, addr := boundListener(t)
 	srv := hosted.NewServer(hosted.Options{
 		ServiceName: "itest-tuner-mcp",
 		Version:     "test",
@@ -157,6 +163,9 @@ func TestTunerIntegration_MCPToolsListIncludesTunerTools(t *testing.T) {
 		EnableMCP:   true,
 		MCPEndpoint: "/mcp",
 	})
+	if _, bindErr := srv.BindListener(ln); bindErr != nil {
+		t.Fatalf("hand listener to server: %v", bindErr)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -240,7 +249,7 @@ func TestTunerIntegration_MCPToolsListIncludesTunerTools(t *testing.T) {
 func TestTunerIntegration_AudienceMethodNotAllowed(t *testing.T) {
 	t.Parallel()
 
-	addr := freeTCPAddr(t)
+	ln, addr := boundListener(t)
 	srv := hosted.NewServer(hosted.Options{
 		ServiceName: "itest-tuner-method",
 		Version:     "test",
@@ -249,6 +258,9 @@ func TestTunerIntegration_AudienceMethodNotAllowed(t *testing.T) {
 		EnableMCP:   true,
 		MCPEndpoint: "/mcp",
 	})
+	if _, bindErr := srv.BindListener(ln); bindErr != nil {
+		t.Fatalf("hand listener to server: %v", bindErr)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -284,7 +296,7 @@ func TestTunerIntegration_AudienceMethodNotAllowed(t *testing.T) {
 func TestTunerIntegration_CallerBadRequest(t *testing.T) {
 	t.Parallel()
 
-	addr := freeTCPAddr(t)
+	ln, addr := boundListener(t)
 	srv := hosted.NewServer(hosted.Options{
 		ServiceName: "itest-tuner-bad",
 		Version:     "test",
@@ -293,6 +305,9 @@ func TestTunerIntegration_CallerBadRequest(t *testing.T) {
 		EnableMCP:   true,
 		MCPEndpoint: "/mcp",
 	})
+	if _, bindErr := srv.BindListener(ln); bindErr != nil {
+		t.Fatalf("hand listener to server: %v", bindErr)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -327,7 +342,7 @@ func TestTunerIntegration_CallerBadRequest(t *testing.T) {
 func TestTunerIntegration_EventsAppear(t *testing.T) {
 	t.Parallel()
 
-	addr := freeTCPAddr(t)
+	ln, addr := boundListener(t)
 	srv := hosted.NewServer(hosted.Options{
 		ServiceName: "itest-tuner-events",
 		Version:     "test",
@@ -337,6 +352,9 @@ func TestTunerIntegration_EventsAppear(t *testing.T) {
 		EnableMCP:   true,
 		MCPEndpoint: "/mcp",
 	})
+	if _, bindErr := srv.BindListener(ln); bindErr != nil {
+		t.Fatalf("hand listener to server: %v", bindErr)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
