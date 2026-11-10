@@ -672,6 +672,23 @@ func NewHTTPProber() *HTTPProber {
 	}
 }
 
+// mergeHeaders combines static target headers with auth-derived request headers.
+// Auth-derived headers win on key collision: they are resolved from the target's
+// secret at probe time and are more specific than the static targets[].headers map.
+func mergeHeaders(static, dynamic map[string]string) map[string]string {
+	if len(static) == 0 && len(dynamic) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(static)+len(dynamic))
+	for k, v := range static {
+		out[k] = v
+	}
+	for k, v := range dynamic {
+		out[k] = v
+	}
+	return out
+}
+
 // Probe checks endpoint reachability/health semantics.
 // For HTTP(S), it performs either simple status checks or JSON-RPC handshake checks
 // for MCP/ACP targets depending on handshake profile.
@@ -681,6 +698,8 @@ func (p *HTTPProber) Probe(ctx context.Context, target targets.Target, headers m
 	if err != nil {
 		return targets.CheckResult{}, fmt.Errorf("invalid endpoint: %w", err)
 	}
+
+	headers = mergeHeaders(target.Headers, headers)
 
 	switch strings.ToLower(u.Scheme) {
 	case "http", "https":

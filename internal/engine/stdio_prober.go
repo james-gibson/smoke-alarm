@@ -69,10 +69,10 @@ func (e *rpcRespError) Error() string {
 }
 
 // Probe implements Prober.
-func (p *StdioProber) Probe(ctx context.Context, target targets.Target, _ map[string]string) (targets.CheckResult, error) {
+func (p *StdioProber) Probe(ctx context.Context, target targets.Target, headers map[string]string) (targets.CheckResult, error) {
 	if target.Transport != targets.TransportStdio {
 		if p.Fallback != nil {
-			return p.Fallback.Probe(ctx, target, nil)
+			return p.Fallback.Probe(ctx, target, headers)
 		}
 		return targets.CheckResult{}, fmt.Errorf("stdio prober cannot handle non-stdio transport %q", target.Transport)
 	}
