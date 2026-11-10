@@ -6,7 +6,30 @@ import (
 	"path/filepath"
 	"strconv"
 	"testing"
+
+	"github.com/james-gibson/smoke-alarm/internal/config"
 )
+
+// TestToTargetCopiesHeaders pins the #85 one-shot-path fix: toTarget must carry
+// the static targets[].headers map onto the compiled Target, matching
+// engine.compileTargets, so the two config conversions cannot drift again.
+func TestToTargetCopiesHeaders(t *testing.T) {
+	target, err := toTarget(config.TargetConfig{
+		ID:        "t1",
+		Enabled:   true,
+		Protocol:  "http",
+		Endpoint:  "http://127.0.0.1:8099/mcp",
+		Transport: "http",
+		Headers:   map[string]string{"X-Custom": "value"},
+		Check:     config.TargetCheckConfig{Interval: "1m", Timeout: "5s"},
+	}, config.Config{})
+	if err != nil {
+		t.Fatalf("toTarget: %v", err)
+	}
+	if got := target.Headers["X-Custom"]; got != "value" {
+		t.Fatalf("target.Headers[X-Custom] = %q, want %q", got, "value")
+	}
+}
 
 func TestCmdOpsHelp(t *testing.T) {
 	for _, arg := range []string{"-h", "--help", "help"} {
