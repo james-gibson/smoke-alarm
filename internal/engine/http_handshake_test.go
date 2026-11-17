@@ -184,6 +184,7 @@ func TestHTTPHandshakeSendsInitializedNotificationBeforeNormalMethods(t *testing
 		if req.Method == "initialize" {
 			result = initResult("tools")
 		}
+		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": req.ID, "result": result})
 	}))
 	t.Cleanup(srv.Close)
@@ -205,6 +206,56 @@ func TestHTTPHandshakeSendsInitializedNotificationBeforeNormalMethods(t *testing
 	notifications, ok := got.Details["notifications"].([]string)
 	if !ok || len(notifications) != 1 || notifications[0] != "notifications/initialized" {
 		t.Fatalf("notifications = %v, want initialized", got.Details["notifications"])
+	}
+}
+
+func TestHTTPHandshakeSupportsStreamableHTTPSSEAndSession(t *testing.T) {
+	var methods []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Accept"); got != "application/json, text/event-stream" {
+			t.Errorf("Accept = %q, want application/json, text/event-stream", got)
+		}
+		var req struct {
+			ID     *int   `json:"id"`
+			Method string `json:"method"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Errorf("decode request: %v", err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		methods = append(methods, req.Method)
+		if req.Method == "initialize" {
+			w.Header().Set("Content-Type", "text/event-stream")
+			w.Header().Set("Mcp-Session-Id", "session-123")
+			_, _ = w.Write([]byte(`event: message
+data: {"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05","capabilities":{"tools":{}},"serverInfo":{"name":"stub","version":"1"}}}
+
+`))
+			return
+		}
+		if r.Header.Get("Mcp-Session-Id") != "session-123" {
+			t.Errorf("Mcp-Session-Id = %q for %s", r.Header.Get("Mcp-Session-Id"), req.Method)
+		}
+		if req.Method == "notifications/initialized" {
+			w.WriteHeader(http.StatusAccepted)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": req.ID, "result": map[string]any{"tools": []any{}}})
+	}))
+	t.Cleanup(srv.Close)
+
+	got, err := NewHTTPProber().Probe(context.Background(), handshakeTarget(srv.URL, nil), nil)
+	if err != nil {
+		t.Fatalf("Probe: %v", err)
+	}
+	if got.State != targets.StateHealthy {
+		t.Fatalf("state = %s, want healthy: %s", got.State, got.Message)
+	}
+	want := []string{"initialize", "notifications/initialized", "tools/list"}
+	if strings.Join(methods, ",") != strings.Join(want, ",") {
+		t.Fatalf("methods = %v, want %v", methods, want)
 	}
 }
 

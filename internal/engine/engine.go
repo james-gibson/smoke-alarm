@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -830,6 +831,7 @@ func (p *HTTPProber) probeJSONRPCHandshakeHTTP(ctx context.Context, target targe
 		failureCode   int
 		advertised    map[string]any
 		notifications []string
+		sessionID     string
 	)
 
 	for i, method := range methods {
@@ -850,6 +852,12 @@ func (p *HTTPProber) probeJSONRPCHandshakeHTTP(ctx context.Context, target targe
 		req.Header.Set("Content-Type", "application/json")
 		for k, v := range headers {
 			req.Header.Set(k, v)
+		}
+		// Always advertise both response types supported by Streamable HTTP,
+		// even when the target has its own Accept header.
+		req.Header.Set("Accept", "application/json, text/event-stream")
+		if sessionID != "" {
+			req.Header.Set("Mcp-Session-Id", sessionID)
 		}
 
 		resp, err := p.client.Do(req)
@@ -873,8 +881,10 @@ func (p *HTTPProber) probeJSONRPCHandshakeHTTP(ctx context.Context, target targe
 			continue
 		}
 
-		var rpcResp rpcResponse
-		decErr := json.NewDecoder(resp.Body).Decode(&rpcResp)
+		if method == "initialize" {
+			sessionID = resp.Header.Get("Mcp-Session-Id")
+		}
+		rpcResp, decErr := decodeHTTPRPCResponse(resp, 1+i)
 		_ = resp.Body.Close()
 		if decErr != nil {
 			if firstFailure == "" {
@@ -904,7 +914,7 @@ func (p *HTTPProber) probeJSONRPCHandshakeHTTP(ctx context.Context, target targe
 		if method == "initialize" {
 			advertised = advertisedCapabilities(rpcResp.Result)
 			if target.Protocol == targets.ProtocolMCP {
-				status, notificationErr := p.sendHTTPNotification(ctx, target, headers, rpcNotification{
+				status, notificationErr := p.sendHTTPNotification(ctx, target, headers, sessionID, rpcNotification{
 					JSONRPC: "2.0",
 					Method:  "notifications/initialized",
 				})
@@ -977,7 +987,7 @@ func (p *HTTPProber) probeJSONRPCHandshakeHTTP(ctx context.Context, target targe
 	return result, nil
 }
 
-func (p *HTTPProber) sendHTTPNotification(ctx context.Context, target targets.Target, headers map[string]string, notification rpcNotification) (int, error) {
+func (p *HTTPProber) sendHTTPNotification(ctx context.Context, target targets.Target, headers map[string]string, sessionID string, notification rpcNotification) (int, error) {
 	body, err := json.Marshal(notification)
 	if err != nil {
 		return 0, err
@@ -990,12 +1000,53 @@ func (p *HTTPProber) sendHTTPNotification(ctx context.Context, target targets.Ta
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
+	req.Header.Set("Accept", "application/json, text/event-stream")
+	if sessionID != "" {
+		req.Header.Set("Mcp-Session-Id", sessionID)
+	}
 	resp, err := p.client.Do(req)
 	if err != nil {
 		return 0, err
 	}
 	defer func() { _ = resp.Body.Close() }()
 	return resp.StatusCode, nil
+}
+
+func decodeHTTPRPCResponse(resp *http.Response, requestID int) (rpcResponse, error) {
+	contentType := strings.ToLower(strings.TrimSpace(strings.SplitN(resp.Header.Get("Content-Type"), ";", 2)[0]))
+	if contentType == "application/json" {
+		var response rpcResponse
+		if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+			return rpcResponse{}, err
+		}
+		return response, nil
+	}
+	if contentType != "text/event-stream" {
+		return rpcResponse{}, fmt.Errorf("unsupported response content-type %q", contentType)
+	}
+
+	scanner := bufio.NewScanner(resp.Body)
+	var dataLines []string
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line == "" {
+			if len(dataLines) > 0 {
+				var response rpcResponse
+				if err := json.Unmarshal([]byte(strings.Join(dataLines, "\n")), &response); err == nil && response.ID != nil && *response.ID == requestID {
+					return response, nil
+				}
+				dataLines = dataLines[:0]
+			}
+			continue
+		}
+		if value, ok := strings.CutPrefix(line, "data:"); ok {
+			dataLines = append(dataLines, strings.TrimPrefix(value, " "))
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return rpcResponse{}, err
+	}
+	return rpcResponse{}, fmt.Errorf("SSE stream ended without JSON-RPC response id %d", requestID)
 }
 
 // advertisedCapabilities returns the capability families a surface declared in
