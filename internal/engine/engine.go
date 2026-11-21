@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -832,6 +833,7 @@ func (p *HTTPProber) probeJSONRPCHandshakeHTTP(ctx context.Context, target targe
 		advertised    map[string]any
 		notifications []string
 		sessionID     string
+		inputQuality  []targets.InputQuality
 	)
 
 	for i, method := range methods {
@@ -884,7 +886,7 @@ func (p *HTTPProber) probeJSONRPCHandshakeHTTP(ctx context.Context, target targe
 		if method == "initialize" {
 			sessionID = resp.Header.Get("Mcp-Session-Id")
 		}
-		rpcResp, decErr := decodeHTTPRPCResponse(resp, 1+i)
+		rpcResp, quality, decErr := decodeHTTPRPCResponse(resp, 1+i)
 		_ = resp.Body.Close()
 		if decErr != nil {
 			if firstFailure == "" {
@@ -892,6 +894,9 @@ func (p *HTTPProber) probeJSONRPCHandshakeHTTP(ctx context.Context, target targe
 			}
 			failed = append(failed, method)
 			continue
+		}
+		if quality != "" {
+			inputQuality = noteInputQuality(inputQuality, method, quality)
 		}
 		if rpcResp.Error != nil {
 			if firstFailure == "" {
@@ -952,6 +957,7 @@ func (p *HTTPProber) probeJSONRPCHandshakeHTTP(ctx context.Context, target targe
 			"failed_methods":    failed,
 			"notifications":     notifications,
 		},
+		InputQuality: inputQuality,
 	}
 
 	switch {
@@ -984,6 +990,10 @@ func (p *HTTPProber) probeJSONRPCHandshakeHTTP(ctx context.Context, target targe
 		result.Message = fmt.Sprintf("http(s) handshake passed: %s", strings.Join(exercised, ", "))
 	}
 
+	if len(inputQuality) > 0 {
+		result.Message += " — " + describeInputQuality(inputQuality)
+	}
+
 	return result, nil
 }
 
@@ -1012,20 +1022,44 @@ func (p *HTTPProber) sendHTTPNotification(ctx context.Context, target targets.Ta
 	return resp.StatusCode, nil
 }
 
-func decodeHTTPRPCResponse(resp *http.Response, requestID int) (rpcResponse, error) {
-	contentType := strings.ToLower(strings.TrimSpace(strings.SplitN(resp.Header.Get("Content-Type"), ";", 2)[0]))
-	if contentType == "application/json" {
-		var response rpcResponse
-		if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-			return rpcResponse{}, err
-		}
-		return response, nil
-	}
-	if contentType != "text/event-stream" {
-		return rpcResponse{}, fmt.Errorf("unsupported response content-type %q", contentType)
+// decodeHTTPRPCResponse reads a JSON-RPC answer from the response body. Two
+// labels are conformant: application/json, and text/event-stream for the SSE
+// form Streamable HTTP allows. Anything else is still decoded as JSON, and the
+// label comes back as an input-quality signal rather than an error — a target
+// that answers correctly under the wrong Content-Type is a target, and a
+// conforming client would have thrown away the answer this observer accepted.
+// The defect is the target's to fix and the observer's to report; it is not a
+// failed probe, so it must not cost the handshake a method.
+func decodeHTTPRPCResponse(resp *http.Response, requestID int) (rpcResponse, string, error) {
+	raw := strings.TrimSpace(resp.Header.Get("Content-Type"))
+	contentType := strings.ToLower(strings.TrimSpace(strings.SplitN(raw, ";", 2)[0]))
+
+	if contentType == "text/event-stream" {
+		response, err := decodeSSEResponse(resp.Body, requestID)
+		return response, "", err
 	}
 
-	scanner := bufio.NewScanner(resp.Body)
+	var response rpcResponse
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return rpcResponse{}, "", err
+	}
+
+	switch contentType {
+	case "application/json":
+		return response, "", nil
+	case "":
+		return response, "answered without a Content-Type", nil
+	default:
+		return response, fmt.Sprintf("answered as %q, not application/json or text/event-stream", raw), nil
+	}
+}
+
+// decodeSSEResponse reads the event stream a Streamable HTTP target may answer
+// with, and returns the JSON-RPC message carrying requestID. Other events on the
+// stream — notifications, or answers to ids this prober did not send — are
+// skipped rather than decoded into the wrong reply.
+func decodeSSEResponse(body io.Reader, requestID int) (rpcResponse, error) {
+	scanner := bufio.NewScanner(body)
 	var dataLines []string
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -1047,6 +1081,38 @@ func decodeHTTPRPCResponse(resp *http.Response, requestID int) (rpcResponse, err
 		return rpcResponse{}, err
 	}
 	return rpcResponse{}, fmt.Errorf("SSE stream ended without JSON-RPC response id %d", requestID)
+}
+
+// inputQualityContentType is the rule a non-conformant label breaks. Named so a
+// consumer can filter on the class of defect without parsing the sentence.
+const inputQualityContentType = "content-type"
+
+// noteInputQuality merges a per-method signal into the result's list, so a
+// handshake whose every method answered under the same wrong label reports one
+// defect with three methods, not three defects.
+func noteInputQuality(signals []targets.InputQuality, method, detail string) []targets.InputQuality {
+	for i := range signals {
+		if signals[i].Kind == inputQualityContentType && signals[i].Detail == detail {
+			signals[i].Methods = append(signals[i].Methods, method)
+			return signals
+		}
+	}
+	return append(signals, targets.InputQuality{
+		Kind:    inputQualityContentType,
+		Detail:  detail,
+		Methods: []string{method},
+	})
+}
+
+// describeInputQuality renders the signals for the result message. A green
+// light that was green on bad input has to say so where a human reads it, not
+// only in a details block nobody opens while the light is green.
+func describeInputQuality(signals []targets.InputQuality) string {
+	parts := make([]string, 0, len(signals))
+	for _, signal := range signals {
+		parts = append(parts, fmt.Sprintf("%s (%s)", signal.Detail, strings.Join(signal.Methods, ", ")))
+	}
+	return "input quality: " + strings.Join(parts, "; ")
 }
 
 // advertisedCapabilities returns the capability families a surface declared in
