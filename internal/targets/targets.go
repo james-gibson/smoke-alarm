@@ -297,6 +297,29 @@ type CheckResult struct {
 	AgentCount   int            `json:"agent_count,omitempty" yaml:"agent_count,omitempty"`
 	Details      map[string]any `json:"details,omitempty" yaml:"details,omitempty"`
 	Transition   *Transition    `json:"transition,omitempty" yaml:"transition,omitempty"`
+
+	// InputQuality grades what the target sent back, not whether it is up. A
+	// handshake can pass while the input is non-conformant — a JSON-RPC body
+	// labeled text/plain is one — and the observer accepts it anyway, because a
+	// target that answers correctly under the wrong label is still answering.
+	// Failing it would be the observer grading its own tolerance; keeping quiet
+	// would hide that a conforming client would have discarded the answer. So
+	// the verdict stays, and the defect is stated here.
+	InputQuality []InputQuality `json:"input_quality,omitempty" yaml:"input_quality,omitempty"`
+}
+
+// InputQuality is one non-fatal observation about how a target answered. It is
+// a statement about conformance, never about health: a result carrying these is
+// still whatever its state says it is.
+type InputQuality struct {
+	// Kind names the rule the input broke, for grouping and for consumers that
+	// only care about one class of defect.
+	Kind string `json:"kind" yaml:"kind"`
+	// Detail is the human sentence, naming what arrived and what was expected.
+	Detail string `json:"detail" yaml:"detail"`
+	// Methods are the handshake methods whose answer carried the defect, so a
+	// partial conformance is not reported as a whole-target one.
+	Methods []string `json:"methods,omitempty" yaml:"methods,omitempty"`
 }
 
 // IsFailure reports whether a check result indicates a failed outcome.

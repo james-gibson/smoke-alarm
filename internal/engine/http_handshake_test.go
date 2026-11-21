@@ -276,3 +276,104 @@ func TestHTTPHandshakeRejectsInvalidInitializeResult(t *testing.T) {
 		t.Fatalf("message = %q, want invalid initialize result", got.Message)
 	}
 }
+
+// A JSON body labeled text/plain is what a handler serves when nobody sets a
+// Content-Type, and it is what this prober accepted before Streamable HTTP
+// made the label matter. It has to pass again: the label is not the answer, and
+// an observer that rejects a usable body grades its own strictness, not the
+// target. What it must not do is stay silent — a conforming client would have
+// discarded the body the observer accepted, so the wrong label is carried as
+// an input-quality signal on an otherwise healthy result.
+func TestHTTPHandshakeAcceptsAJSONBodyLabelledTextPlain(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			ID     int    `json:"id"`
+			Method string `json:"method"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		result := map[string]any{"tools": []any{}}
+		if req.Method == "initialize" {
+			result = initResult("tools")
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": req.ID, "result": result})
+	}))
+	t.Cleanup(srv.Close)
+
+	got, err := NewHTTPProber().Probe(context.Background(), handshakeTarget(srv.URL, nil), nil)
+	if err != nil {
+		t.Fatalf("Probe: %v", err)
+	}
+	if got.State != targets.StateHealthy {
+		t.Fatalf("state = %s, want healthy: %s", got.State, got.Message)
+	}
+	if len(got.InputQuality) != 1 {
+		t.Fatalf("input quality = %+v, want one signal for the shared label", got.InputQuality)
+	}
+	signal := got.InputQuality[0]
+	if signal.Kind != "content-type" {
+		t.Errorf("kind = %q, want content-type", signal.Kind)
+	}
+	if !strings.Contains(signal.Detail, "text/plain") {
+		t.Errorf("detail = %q, want the label that arrived", signal.Detail)
+	}
+	if strings.Join(signal.Methods, ",") != "initialize,tools/list" {
+		t.Errorf("methods = %v, want both answered methods merged into one signal", signal.Methods)
+	}
+	if !strings.Contains(got.Message, "input quality") {
+		t.Errorf("message = %q, want the defect visible where a human reads it", got.Message)
+	}
+}
+
+// A target that omits Content-Type entirely is the same defect with nothing to
+// quote, and reads the same way.
+func TestHTTPHandshakeMarksAnAbsentContentType(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			ID     int    `json:"id"`
+			Method string `json:"method"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		// Stop net/http sniffing the body into a label: the header is present
+		// and empty, which is how an omitted label looks to the client.
+		w.Header()["Content-Type"] = []string{""}
+		result := map[string]any{"tools": []any{}}
+		if req.Method == "initialize" {
+			result = initResult("tools")
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": req.ID, "result": result})
+	}))
+	t.Cleanup(srv.Close)
+
+	got, err := NewHTTPProber().Probe(context.Background(), handshakeTarget(srv.URL, nil), nil)
+	if err != nil {
+		t.Fatalf("Probe: %v", err)
+	}
+	if got.State != targets.StateHealthy {
+		t.Fatalf("state = %s, want healthy: %s", got.State, got.Message)
+	}
+	if len(got.InputQuality) != 1 || !strings.Contains(got.InputQuality[0].Detail, "without a Content-Type") {
+		t.Fatalf("input quality = %+v, want the missing label reported", got.InputQuality)
+	}
+}
+
+// Tolerance is for the label, never for the bytes. A text/plain body that is
+// not JSON-RPC is still a failed method, and the signal does not rescue it.
+func TestHTTPHandshakeStillFailsOnANonJSONBodyWhateverTheLabel(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		_, _ = w.Write([]byte("OK\n"))
+	}))
+	t.Cleanup(srv.Close)
+
+	got, err := NewHTTPProber().Probe(context.Background(), handshakeTarget(srv.URL, nil), nil)
+	if err != nil {
+		t.Fatalf("Probe: %v", err)
+	}
+	if got.State == targets.StateHealthy {
+		t.Fatalf("state = healthy on a body that is not JSON-RPC: %s", got.Message)
+	}
+	if !strings.Contains(got.Message, "invalid JSON-RPC body") {
+		t.Fatalf("message = %q, want the decode failure named", got.Message)
+	}
+}
