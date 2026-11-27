@@ -9,7 +9,7 @@ tags:
 ---
 # Consolidated Feature Catalog
 
-A flat, one-section-per-feature view of all 45 smoke-alarm Gherkin features. For thematic grouping see the [subsystem rollups](../../../../smoke-alarm/docs/features/subsystems); for orientation see the [knowledge base index](index.md).
+A flat, one-section-per-feature view of all 45 smoke-alarm Gherkin features. For thematic grouping see the [subsystem rollups](subsystems/); for orientation see the [knowledge base index](index.md).
 
 ## Health & Status
 
