@@ -1924,6 +1924,7 @@ func toTarget(t config.TargetConfig, cfg config.Config) (targets.Target, error) 
 			RequiredMethods:  append([]string(nil), t.Check.RequiredMethods...),
 			HURLTests:        mapOneShotHURLTests(t.Check.HURLTests),
 		},
+		Headers: t.Headers,
 	}
 	if err := target.Validate(); err != nil {
 		return targets.Target{}, err
